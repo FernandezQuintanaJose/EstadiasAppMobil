@@ -92,7 +92,7 @@ class ListeningService : Service() {
         val notification: Notification = NotificationCompat.Builder(this, CHANNEL_ID)
             .setSmallIcon(R.drawable.ic_widget_mic)
             .setContentTitle("Asistente activo")
-            .setContentText("Di hola o su nombre. Di \"para\" para detenerlo.")
+            .setContentText("Di el nombre del asistente. Di \"para\" para detenerlo.")
             .setOngoing(true)
             .setContentIntent(open)
             .addAction(0, "Detener", stop)

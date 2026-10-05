@@ -51,6 +51,11 @@ data class ActivitiesUiState(
     val busy: Boolean = false,
     /** The index already graded this round, so repeating the same answer does not add points again. */
     val answeredIndex: Int = -1,
+    /** Correct answers so far in this round (sounds or vibrations, whichever is selected). */
+    val correctCount: Int = 0,
+    /** All the exercises were done: the score is shown and the person can repeat or leave. */
+    val finished: Boolean = false,
+    val finalMessage: String? = null,
 ) {
     val current: ActivityItem? get() = items.getOrNull(index)
 }
@@ -86,11 +91,6 @@ class LearningViewModel @Inject constructor(
     private val level = MutableStateFlow(1)
     private var exerciseJob: Job? = null
 
-    // Los ejercicios se cargan en silencio desde que se abre la pantalla, pero no se narran ni
-    // empiezan a sonar hasta que la persona elige sonidos o vibración — antes, el micrófono y la
-    // narración arrancaban solos aunque la pantalla mostrara el menú de selección.
-    private val started = MutableStateFlow(false)
-
     // The highest level the person has reached (saved progress), to announce when it goes up.
     private var savedLevel = 1
 
@@ -117,8 +117,8 @@ class LearningViewModel @Inject constructor(
             }
             _state.value = _state.value.copy(level = level.value)
             voiceEngine.speak(
-                "Actividades. Di sonidos, para entrenar el oído, o vibración, para practicar con " +
-                    "vibraciones. " + CommandCatalog.hint("actividades"),
+                "Actividades para entrenar el oído. Escucharás un sonido y dirás de dónde viene. " +
+                    "Di vibración para practicar con vibraciones. " + CommandCatalog.hint("actividades"),
             )
             itemsFlow.collect { list -> onItemsLoaded(list) }
         }
@@ -138,13 +138,12 @@ class LearningViewModel @Inject constructor(
             feedback = null,
             correct = null,
             answeredIndex = -1,
+            correctCount = 0,
+            finished = false,
+            finalMessage = null,
         )
-        if (list.isEmpty() || !started.value) return
-        announceAndStart()
-    }
-
-    /** Let the welcome (or the menu) finish before the first exercise starts talking. */
-    private suspend fun announceAndStart() {
+        if (list.isEmpty()) return
+        // Let the welcome finish before the first exercise.
         speakAndWait("")
         startExercise(intro = "${where()} ")
     }
@@ -176,6 +175,7 @@ class LearningViewModel @Inject constructor(
                 setMode(ActivityMode.VIBRATION)
             text in SOUNDS_ONLY || has("modo sonidos", "cambia a sonidos", "cambiar a sonidos", "pasa a sonidos", "ejercicios de sonidos") ->
                 setMode(ActivityMode.AUDIO)
+            _state.value.finished -> onFinalCommand(text)
             awaitingAnswer && categoriesIn(text).isNotEmpty() -> answer(spoken)
             has("repite", "repetir", "repiteme", "otra vez", "de nuevo", "escuchalo", "ponlo otra vez", "vuelve a poner", "vuelve a sonar", "no alcance a oir", "no escuche") -> repeat()
             has("siguiente", "proximo", "continua", "continuar", "sigue", "el que sigue", "otro ejercicio", "otro", "pasa al siguiente") -> next()
@@ -195,16 +195,7 @@ class LearningViewModel @Inject constructor(
     }
 
     fun setMode(newMode: ActivityMode) {
-        val yaEmpezado = started.value
-        started.value = true
-        if (newMode == mode.value) {
-            // Mismo modo que ya estaba cargado en silencio: si es la primera vez que se elige
-            // (desde el menú), hay que narrarlo ahora; si no, ya se estaba narrando.
-            if (!yaEmpezado && _state.value.items.isNotEmpty()) {
-                viewModelScope.launch { announceAndStart() }
-            }
-            return
-        }
+        if (newMode == mode.value) return
         stopStimulus()
         mode.value = newMode
     }
@@ -234,15 +225,66 @@ class LearningViewModel @Inject constructor(
 
     /** Plays the sound or the vibration again, without repeating the instruction. */
     fun repeat() {
-        if (_state.value.current == null) return
+        if (_state.value.current == null || _state.value.finished) return
         startExercise(intro = "")
     }
 
     fun next() {
         val s = _state.value
-        if (s.items.isEmpty()) return
-        _state.value = s.copy(index = (s.index + 1) % s.items.size, feedback = null, correct = null)
+        if (s.items.isEmpty() || s.finished) return
+        // After the last exercise the round ends: say the score instead of starting over.
+        if (s.index + 1 >= s.items.size) {
+            finish()
+            return
+        }
+        _state.value = s.copy(index = s.index + 1, feedback = null, correct = null)
         startExercise(intro = "${where()} ")
+    }
+
+    /** The round is over: says the score aloud and listens for "repetir" or "salir". */
+    private fun finish() {
+        stopStimulus()
+        val s = _state.value
+        val message = "Terminaste. Acertaste ${s.correctCount} de ${s.items.size}. " +
+            "Di repetir para intentarlo otra vez, o salir para volver al menú."
+        _state.value = s.copy(finished = true, feedback = null, correct = null, finalMessage = message)
+        voiceEngine.speak(message, listenAfter = true)
+    }
+
+    /** Starts the same level (or the vibrations) again from the first exercise, with the score at zero. */
+    fun restartActivity() {
+        val s = _state.value
+        if (s.items.isEmpty()) return
+        stopStimulus()
+        _state.value = s.copy(
+            index = 0,
+            feedback = null,
+            correct = null,
+            answeredIndex = -1,
+            correctCount = 0,
+            finished = false,
+            finalMessage = null,
+        )
+        startExercise(intro = "${where()} ")
+    }
+
+    fun leave() {
+        stopStimulus()
+        _back.tryEmit(Unit)
+    }
+
+    /** At the end, what the person says is "repetir" or "salir"; anything else gets the options again. */
+    private fun onFinalCommand(text: String) {
+        when {
+            VoiceText.hasAny(text, "repite", "repetir", "repiteme", "otra vez", "de nuevo", "volver a intentar", "reiniciar", "empezar") ->
+                restartActivity()
+            VoiceText.hasAny(text, "salir", "volver", "vuelve", "menu", "regresar", "regresa", "terminar", "termina", "ya no quiero", "inicio") ->
+                leave()
+            else -> {
+                cues.play(FeedbackCues.Cue.NOT_UNDERSTOOD)
+                voiceEngine.speak("Di repetir para intentarlo otra vez, o salir para volver.", listenAfter = true)
+            }
+        }
     }
 
     private fun startExercise(intro: String) {
@@ -306,7 +348,15 @@ class LearningViewModel @Inject constructor(
         val correct = matches(spoken, item.answer)
         val message = (if (correct) "Correcto" else "Incorrecto") + ", la respuesta era ${spokenAnswer(item.answer)}."
         cues.play(if (correct) FeedbackCues.Cue.SUCCESS else FeedbackCues.Cue.ERROR)
-        _state.value = _state.value.copy(feedback = message, correct = correct, answeredIndex = _state.value.index)
+        // answeredIndex (checked above) guarantees each exercise is counted only once per round.
+        _state.value = _state.value.copy(
+            feedback = message,
+            correct = correct,
+            answeredIndex = _state.value.index,
+            correctCount = _state.value.correctCount + if (correct) 1 else 0,
+        )
+        val isLast = _state.value.index == _state.value.items.size - 1
+        val nextHint = if (isLast) "Di siguiente para ver tu puntaje" else "Di siguiente para continuar"
         viewModelScope.launch {
             val user = sessionRepository.currentUser.value
             var levelUp = ""
@@ -323,7 +373,7 @@ class LearningViewModel @Inject constructor(
                 }
             }
             voiceEngine.speak(
-                "$message$levelUp Di siguiente para continuar, o repite para escucharlo otra vez.",
+                "$message$levelUp $nextHint, o repite para escucharlo otra vez.",
                 listenAfter = true,
             )
         }

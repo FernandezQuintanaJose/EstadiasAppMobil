@@ -86,8 +86,8 @@ class ProxyAiAssistantApi @Inject constructor(
                 val connection = (url.openConnection() as HttpURLConnection).apply {
                     requestMethod = "POST"
                     doOutput = true
-                    connectTimeout = 15_000
-                    readTimeout = 30_000
+                    connectTimeout = 5_000
+                    readTimeout = 12_000
                     setRequestProperty("Content-Type", "application/json; charset=utf-8")
                 }
 

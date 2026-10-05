@@ -21,13 +21,14 @@ private val Context.assistantDataStore by preferencesDataStore(name = "assistant
 class AssistantPreferences @Inject constructor(
     @ApplicationContext private val context: Context,
 ) {
-    val assistantName: Flow<String> = context.assistantDataStore.data.map { it[KEY_NAME].orEmpty() }
+    val assistantName: Flow<String> = context.assistantDataStore.data.map { it[KEY_NAME] ?: DEFAULT_NAME }
 
     suspend fun setAssistantName(name: String) {
         context.assistantDataStore.edit { it[KEY_NAME] = name.trim() }
     }
 
     private companion object {
+        const val DEFAULT_NAME = "Nauren"
         val KEY_NAME = stringPreferencesKey("assistant_name")
     }
 }

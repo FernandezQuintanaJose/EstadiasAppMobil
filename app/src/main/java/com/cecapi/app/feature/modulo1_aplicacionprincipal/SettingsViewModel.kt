@@ -44,6 +44,7 @@ class SettingsViewModel @Inject constructor(
     val announceNotifications: StateFlow<Boolean> = deviceSettings.announceNotifications.stateIn(viewModelScope, SharingStarted.Eagerly, true)
     val listenOutsideApp: StateFlow<Boolean> = deviceSettings.backgroundListening.stateIn(viewModelScope, SharingStarted.Eagerly, false)
     val aiEnabled: StateFlow<Boolean> = deviceSettings.aiEnabled.stateIn(viewModelScope, SharingStarted.Eagerly, false)
+    val holaEnabled: StateFlow<Boolean> = deviceSettings.holaEnabled.stateIn(viewModelScope, SharingStarted.Eagerly, false)
 
     /** The signed-in user, or null when Configuración was opened from the home screen. */
     val currentUser: StateFlow<UsuarioEntity?> = sessionRepository.currentUser
@@ -294,6 +295,17 @@ class SettingsViewModel @Inject constructor(
     }
 
     /** The AI is optional and off by default: what the assistant does not understand is never sent anywhere unless this is on. */
+    fun onHolaChanged(enabled: Boolean) {
+        viewModelScope.launch { deviceSettings.setHolaEnabled(enabled) }
+        voiceEngine.speak(
+            if (enabled) {
+                "Listo. Ahora también respondo cuando digas hola."
+            } else {
+                "Listo. Ya no respondo a hola. Di mi nombre para hablar conmigo."
+            },
+        )
+    }
+
     fun onAiEnabledChanged(enabled: Boolean) {
         viewModelScope.launch { deviceSettings.setAiEnabled(enabled) }
         voiceEngine.speak(

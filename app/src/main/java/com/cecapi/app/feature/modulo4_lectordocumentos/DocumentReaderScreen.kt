@@ -1,6 +1,7 @@
 package com.cecapi.app.feature.modulo4_lectordocumentos
 
 import android.Manifest
+import android.os.Build
 import android.content.pm.PackageManager
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
@@ -27,6 +28,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.AddAPhoto
+import androidx.compose.material.icons.filled.Save
 import androidx.compose.material.icons.filled.Mic
 import androidx.compose.material.icons.filled.MicOff
 import androidx.compose.material.icons.filled.PhotoLibrary
@@ -70,6 +72,7 @@ import com.cecapi.app.core.theme.ModuleLearningAccent
 import com.cecapi.app.core.theme.Sections
 import com.cecapi.app.core.ui.BigBtn
 import com.cecapi.app.core.ui.BigBtnSize
+import com.cecapi.app.core.ui.VolverPill
 import com.cecapi.app.core.ui.ScreenTopBar
 import com.cecapi.app.core.ui.CameraViewfinder
 import com.cecapi.app.core.ui.CaptureButton
@@ -136,6 +139,9 @@ fun DocumentReaderScreen(
 
     // The system picture picker: the person chooses one picture and the app sees only that one.
     val coroutineScope = rememberCoroutineScope()
+    val storageLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
+        if (granted) viewModel.onSavePhoto() else viewModel.onSavePhotoDenied()
+    }
     val pickLauncher = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri ->
         if (uri == null) {
             viewModel.onPickCancelled()
@@ -183,12 +189,9 @@ fun DocumentReaderScreen(
                     textAlign = TextAlign.Center,
                     modifier = Modifier.fillMaxWidth(),
                 )
-                BigActionCard(
-                    icon = Icons.AutoMirrored.Filled.ArrowBack,
-                    label = "Volver al menú",
-                    tint = CecapiTextPrimary,
-                    help = "Volver al menú. Sale del lector de texto.",
+                VolverPill(
                     onClick = onBack,
+                    help = "Volver al menú. Sale del lector de texto.",
                 )
                 BigActionCard(
                     icon = if (uiState.estaLeyendo) Icons.Filled.Pause else Icons.Filled.PlayArrow,
@@ -226,6 +229,17 @@ fun DocumentReaderScreen(
                         modifier = Modifier.weight(1f),
                     )
                 }
+                BigBtn(
+                    icon = Icons.Filled.Save,
+                    label = "GUARDAR FOTO",
+                    section = Sections.Camera,
+                    onClick = {
+                        val needsStorage = Build.VERSION.SDK_INT < Build.VERSION_CODES.Q &&
+                            ContextCompat.checkSelfPermission(context, Manifest.permission.WRITE_EXTERNAL_STORAGE) !=
+                            PackageManager.PERMISSION_GRANTED
+                        if (needsStorage) storageLauncher.launch(Manifest.permission.WRITE_EXTERNAL_STORAGE) else viewModel.onSavePhoto()
+                    },
+                )
                 BigBtn(
                     icon = Icons.Filled.AddAPhoto,
                     label = "TOMAR OTRA FOTO",

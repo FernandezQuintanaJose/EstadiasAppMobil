@@ -189,9 +189,9 @@ class PersonalizationViewModel @Inject constructor(
         viewModelScope.launch { assistantPreferences.setAssistantName(clean) }
         voiceEngine.speak(
             if (clean.isEmpty()) {
-                "Listo, ya no tengo nombre. Di hola para hablar conmigo."
+                "Listo, ya no tengo nombre. Toca el micrófono para hablar conmigo."
             } else {
-                "Listo, ahora me llamo $clean. Di hola o $clean para hablar conmigo."
+                "Listo, ahora me llamo $clean. Di $clean para hablar conmigo."
             },
         )
     }

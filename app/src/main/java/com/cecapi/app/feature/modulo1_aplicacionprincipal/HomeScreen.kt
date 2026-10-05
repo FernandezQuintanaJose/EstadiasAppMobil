@@ -190,7 +190,6 @@ fun HomeScreen(
             BigBtn(
                 icon = Icons.Filled.CameraAlt,
                 label = "Cámara",
-                sub = "Lee texto y describe el entorno",
                 section = Sections.Camera,
                 onClick = { viewModel.onMenuItemSelected(MenuItem.Camera) },
             )
@@ -198,7 +197,6 @@ fun HomeScreen(
                 BigBtn(
                     icon = Icons.Filled.Description,
                     label = documentos.title,
-                    sub = "Solicitudes oficiales",
                     section = Sections.Documents,
                     onClick = { viewModel.onMenuItemSelected(documentos) },
                 )
@@ -206,14 +204,12 @@ fun HomeScreen(
             BigBtn(
                 icon = Icons.Filled.Tune,
                 label = "Personalización",
-                sub = "Tu voz y preferencias",
                 section = Sections.Personalization,
                 onClick = { viewModel.onMenuItemSelected(MenuItem.Personalization) },
             )
             BigBtn(
                 icon = Icons.Filled.Settings,
                 label = "Configuración",
-                sub = "Ajustes del sistema",
                 section = Sections.Settings,
                 onClick = viewModel::onSettingsSelected,
             )
@@ -237,12 +233,6 @@ fun HomeScreen(
             OfflineBanner(modifier = Modifier.padding(horizontal = 24.dp).padding(top = 16.dp))
         }
 
-        Text(
-            text = "Para ponerme nombre di: \"llámate Alice\"",
-            style = MaterialTheme.typography.bodyMedium,
-            color = CecapiTextMuted,
-            modifier = Modifier.padding(start = 24.dp, end = 24.dp, top = 20.dp),
-        )
     }
 
         // The microphone is the main control of the whole app: fixed over the scrolling
@@ -253,8 +243,8 @@ fun HomeScreen(
             hint = when {
                 listening -> "Escuchando…"
                 !hasMicPermission -> "Toca aquí para dar permiso"
-                assistantName.isBlank() -> "Di \"hola\" o toca aquí"
-                else -> "Di \"hola\" o \"$assistantName\", o toca aquí"
+                assistantName.isBlank() -> "Toca aquí para hablar"
+                else -> "Di \"$assistantName\" o toca aquí"
             },
             onClick = {
                 if (hasMicPermission) {

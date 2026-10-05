@@ -101,6 +101,7 @@ fun SettingsScreen(
     val simpleMode by viewModel.simpleMode.collectAsState()
     val announceNotifications by viewModel.announceNotifications.collectAsState()
     val listenOutsideApp by viewModel.listenOutsideApp.collectAsState()
+    val holaEnabled by viewModel.holaEnabled.collectAsState()
     val user by viewModel.currentUser.collectAsState()
     val storage by viewModel.storage.collectAsState()
     val pendingClean by viewModel.pendingClean.collectAsState()
@@ -308,9 +309,17 @@ fun SettingsScreen(
                     description = "Muestra un aviso fijo mientras escucha. Di \"para\" para detenerlo",
                     checked = listenOutsideApp,
                     onChange = changeListenOutside,
-                    help = "Escuchar fuera de la aplicación. Sigo atento a la palabra hola o a mi nombre aunque cierres " +
+                    help = "Escuchar fuera de la aplicación. Sigo atento a mi nombre, y a hola si lo activaste, aunque cierres " +
                         "la aplicación. Mientras tanto verás un aviso fijo, y puedes detenerme diciendo para. " +
                         "Gasta más batería.",
+                )
+                SwitchRow(
+                    label = "Responder a la palabra hola",
+                    description = "Apagado por defecto. Siempre puedes decir el nombre del asistente o tocar el micrófono",
+                    checked = holaEnabled,
+                    onChange = viewModel::onHolaChanged,
+                    help = "Responder a la palabra hola. Apagado, solo respondo a mi nombre o al toque del micrófono. " +
+                        "Encendido, también respondo cuando digas hola.",
                 )
                 SwitchRow(
                     label = "Inteligencia artificial en internet",

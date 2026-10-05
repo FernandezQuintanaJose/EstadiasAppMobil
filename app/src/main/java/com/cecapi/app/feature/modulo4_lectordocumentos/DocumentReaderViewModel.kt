@@ -6,6 +6,7 @@ import androidx.lifecycle.viewModelScope
 import com.cecapi.app.core.navigation.CecapiDestinations
 import com.cecapi.app.core.ui.GALLERY_WORDS
 import com.cecapi.app.core.util.StorageReport
+import com.cecapi.app.core.util.saveImageToGallery
 import com.cecapi.app.core.voice.AssistantMode
 import com.cecapi.app.core.voice.FeedbackCues
 import com.cecapi.app.core.voice.VoiceEngine
@@ -14,6 +15,8 @@ import com.cecapi.app.core.voice.VoiceText
 import com.cecapi.app.feature.modulo1_aplicacionprincipal.CommandCatalog
 import com.cecapi.app.feature.modulo1_aplicacionprincipal.SessionRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
+import dagger.hilt.android.qualifiers.ApplicationContext
+import android.content.Context
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharedFlow
@@ -46,6 +49,7 @@ class DocumentReaderViewModel @Inject constructor(
     private val repository: DocumentReaderRepository,
     private val cues: FeedbackCues,
     private val storageReport: StorageReport,
+    @ApplicationContext private val appContext: Context,
 ) : ViewModel() {
 
     val voiceState: StateFlow<VoiceState> = voiceEngine.state.stateIn(
@@ -202,6 +206,24 @@ class DocumentReaderViewModel @Inject constructor(
         _uiState.value = DocumentReaderUiState(errorMessage = message)
         cues.play(FeedbackCues.Cue.ERROR)
         voiceEngine.speak(message, listenAfter = true)
+    }
+
+    fun onSavePhoto() {
+        val path = _uiState.value.photoPath ?: return voiceEngine.speak("Primero toma una foto.")
+        viewModelScope.launch {
+            val saved = saveImageToGallery(appContext, path)
+            voiceEngine.speak(
+                if (saved) {
+                    "Listo, la foto quedó guardada en tu galería, en la carpeta Nauren."
+                } else {
+                    "No pude guardar la foto en tu galería."
+                },
+            )
+        }
+    }
+
+    fun onSavePhotoDenied() {
+        voiceEngine.speak("Necesito permiso para guardar fotos en tu teléfono. Toca Guardar foto otra vez y acéptalo.")
     }
 
     fun onPhotoCaptured(imageUri: Uri, rutaImagen: String) {

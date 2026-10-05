@@ -1,5 +1,6 @@
 package com.cecapi.app.feature.modulo1_aplicacionprincipal
 
+import com.cecapi.app.core.util.PasswordHasher
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.cecapi.app.core.voice.FeedbackCues
@@ -42,6 +43,7 @@ class GestionViewModel @Inject constructor(
     private val sessionRepository: SessionRepository,
     private val usuarioDao: UsuarioDao,
     private val incidenciaDao: IncidenciaDao,
+    private val cambioCuentaDao: CambioCuentaDao,
     private val cues: FeedbackCues,
 ) : ViewModel() {
 
@@ -57,7 +59,10 @@ class GestionViewModel @Inject constructor(
             when (RolUsuario.fromCodigo(usuario.rol)) {
                 RolUsuario.ADMINISTRADOR -> usuarioDao.observeTodos()
                 RolUsuario.DIRECTIVO -> usuarioDao.observeUsuariosDeInstitucion(usuario.origen)
-                RolUsuario.EDUCADOR -> usuarioDao.observeAlumnosDeEducador(usuario.id)
+                RolUsuario.EDUCADOR -> combine(
+                    usuarioDao.observeAlumnosDeEducador(usuario.id),
+                    usuarioDao.observeSolicitudesDe(usuario.origen),
+                ) { alumnos, solicitudes -> (alumnos + solicitudes).distinctBy { it.id } }
                 // Nunca debería llegar aquí (la pantalla está oculta para estos roles), pero por si acaso.
                 RolUsuario.ALUMNO, RolUsuario.USUARIO -> flowOf(emptyList())
             }
@@ -152,11 +157,67 @@ class GestionViewModel @Inject constructor(
     fun onRolElegido(persona: UsuarioEntity, nuevoRol: RolUsuario) {
         if (!puedeEditar()) return
         viewModelScope.launch {
+            val quitaAdmin = persona.rol == RolUsuario.ADMINISTRADOR.codigo && nuevoRol != RolUsuario.ADMINISTRADOR
+            if (quitaAdmin && usuarioDao.contarAdministradores() <= 1) {
+                cues.play(FeedbackCues.Cue.ERROR)
+                voiceEngine.speak("No puedo quitarle el rol de administrador: tiene que quedar al menos uno.")
+                return@launch
+            }
             usuarioDao.cambiarRol(persona.id, nuevoRol.codigo)
             // Un rol que ya no es alumno no debería seguir con un educador asignado.
             if (nuevoRol != RolUsuario.ALUMNO) usuarioDao.asignarEducador(persona.id, null)
             cues.play(FeedbackCues.Cue.SUCCESS)
             voiceEngine.speak("${persona.nombreCompleto} ahora es ${nuevoRol.codigo}.")
+        }
+        _expandidoId.value = null
+    }
+
+    /** Solo un administrador cambia la contraseña de otra persona. Queda registrado y la persona lo ve al abrir su cuenta. */
+    fun puedeCambiarContrasenaDe(persona: UsuarioEntity): Boolean {
+        val autor = sessionRepository.currentUser.value ?: return false
+        return autor.rol == RolUsuario.ADMINISTRADOR.codigo && autor.id != persona.id
+    }
+
+    fun onCambiarContrasena(persona: UsuarioEntity, nueva: String) {
+        val autor = sessionRepository.currentUser.value ?: return
+        if (!puedeCambiarContrasenaDe(persona) || nueva.isBlank()) return
+        viewModelScope.launch {
+            usuarioDao.actualizarContrasena(persona.id, PasswordHasher.hash(nueva.trim()))
+            cambioCuentaDao.insert(
+                CambioCuentaEntity(objetivoId = persona.id, autorId = autor.id, tipo = "contrasena", detalle = "Cambiada por un administrador"),
+            )
+            usuarioDao.actualizarAviso(
+                persona.id,
+                "Un administrador cambió tu contraseña. Si no lo pediste, avisa a tu institución.",
+            )
+            cues.play(FeedbackCues.Cue.SUCCESS)
+            voiceEngine.speak("Listo. Cambié la contraseña de ${persona.nombreCompleto}. Se lo avisaré al abrir su cuenta.")
+        }
+        _expandidoId.value = null
+    }
+
+    /** Una baja pedida por una cuenta de institución la confirma un administrador, un directivo de su institución o su educador. */
+    fun puedeAutorizarBajaDe(persona: UsuarioEntity): Boolean {
+        val autor = sessionRepository.currentUser.value ?: return false
+        if (!persona.solicitaBaja) return false
+        return when (RolUsuario.fromCodigo(autor.rol)) {
+            RolUsuario.ADMINISTRADOR -> true
+            RolUsuario.DIRECTIVO -> autor.origen.equals(persona.origen, ignoreCase = true)
+            RolUsuario.EDUCADOR -> persona.educadorId == autor.id
+            else -> false
+        }
+    }
+
+    fun onAutorizarBajaDe(persona: UsuarioEntity) {
+        val autor = sessionRepository.currentUser.value ?: return
+        if (!puedeAutorizarBajaDe(persona)) return
+        viewModelScope.launch {
+            cambioCuentaDao.insert(
+                CambioCuentaEntity(objetivoId = persona.id, autorId = autor.id, tipo = "baja", detalle = "Autorizada por ${autor.nombreCompleto}"),
+            )
+            sessionRepository.borrarCuentaDe(persona.id)
+            cues.play(FeedbackCues.Cue.SUCCESS)
+            voiceEngine.speak("Listo. Di de baja la cuenta de ${persona.nombreCompleto}.")
         }
         _expandidoId.value = null
     }
@@ -180,14 +241,67 @@ class GestionViewModel @Inject constructor(
         return RolePermissions.puedeValidar(observador, persona)
     }
 
+    /**
+     * Un educador que valida a un alumno queda como su educador. Un directivo valida, y después elige a qué educador
+     * se asigna desde "Asignar educador".
+     */
     fun onValidar(persona: UsuarioEntity) {
         if (!puedeValidar(persona)) return
+        val autor = sessionRepository.currentUser.value ?: return
         viewModelScope.launch {
-            usuarioDao.validar(persona.id)
+            usuarioDao.confirmarInstitucion(persona.id)
+            if (autor.rol == RolUsuario.EDUCADOR.codigo && persona.rol == RolUsuario.ALUMNO.codigo) {
+                usuarioDao.asignarEducador(persona.id, autor.id)
+            }
             cues.play(FeedbackCues.Cue.SUCCESS)
             voiceEngine.speak("Validé a ${persona.nombreCompleto}.")
         }
     }
+
+    /** La institución (o un administrador) no valida la solicitud: la persona sigue como usuario y queda registrado. */
+    fun onRechazarSolicitud(persona: UsuarioEntity) {
+        val autor = sessionRepository.currentUser.value ?: return
+        if (!puedeValidar(persona)) return
+        viewModelScope.launch {
+            usuarioDao.rechazarSolicitud(persona.id)
+            cambioCuentaDao.insert(
+                CambioCuentaEntity(objetivoId = persona.id, autorId = autor.id, tipo = "solicitud_rechazada", detalle = "Solicitud rechazada"),
+            )
+            cues.play(FeedbackCues.Cue.SUCCESS)
+            voiceEngine.speak("Rechacé la solicitud de ${persona.nombreCompleto}. Sigue como usuario.")
+        }
+        _expandidoId.value = null
+    }
+
+    /** Cuentas nuevas que el administrador todavía no ha revisado. */
+    val cuentasPorRevisar: StateFlow<List<UsuarioEntity>> = usuarioDao.observeNuevas()
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+
+    fun onConfirmarCuenta(persona: UsuarioEntity) {
+        viewModelScope.launch {
+            usuarioDao.actualizarRevision(persona.id, "confirmada")
+            cues.play(FeedbackCues.Cue.SUCCESS)
+            voiceEngine.speak("Confirmé la cuenta de ${persona.nombreCompleto}.")
+        }
+    }
+
+    /** "No la conozco": la cuenta se da de baja y queda registrado. */
+    fun onNoConozcoCuenta(persona: UsuarioEntity) {
+        val autor = sessionRepository.currentUser.value ?: return
+        if (autor.rol != RolUsuario.ADMINISTRADOR.codigo) return
+        viewModelScope.launch {
+            cambioCuentaDao.insert(
+                CambioCuentaEntity(objetivoId = persona.id, autorId = autor.id, tipo = "baja", detalle = "No reconocida por un administrador"),
+            )
+            sessionRepository.borrarCuentaDe(persona.id)
+            cues.play(FeedbackCues.Cue.SUCCESS)
+            voiceEngine.speak("Di de baja la cuenta de ${persona.nombreCompleto}.")
+        }
+    }
+
+    /** Alumnos ya validados que todavía no tienen educador: los asigna un directivo o un administrador. */
+    fun alumnosSinEducador(): List<UsuarioEntity> =
+        uiState.value.personas.filter { it.validado && it.rol == RolUsuario.ALUMNO.codigo && it.educadorId == null }
 
     fun onResolverIncidencia(incidencia: IncidenciaEntity) {
         viewModelScope.launch {

@@ -58,6 +58,12 @@ class DashboardViewModel @Inject constructor(
 
     private var holdingWakeWord = false
 
+    init {
+        viewModelScope.launch {
+            sessionRepository.consumirAvisoPendiente()?.let { voiceEngine.speak(it) }
+        }
+    }
+
     val currentUser: StateFlow<UsuarioEntity?> = sessionRepository.currentUser
 
     val assistantName: StateFlow<String> = assistantPreferences.assistantName.stateIn(
@@ -299,7 +305,7 @@ class DashboardViewModel @Inject constructor(
     private fun askAi(question: String, deep: Boolean) {
         val resolver = intentFallback.resolver ?: return sayNotUnderstood()
         viewModelScope.launch {
-            val reply = runCatching { resolver(question, deep) }.getOrNull()
+            val reply = runCatching { voiceEngine.speakWhile { resolver(question, deep) } }.getOrNull()
             val command = reply?.command
             val answer = reply?.answer
             when {

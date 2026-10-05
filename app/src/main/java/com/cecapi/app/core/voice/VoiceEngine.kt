@@ -22,6 +22,9 @@ import android.speech.tts.UtteranceProgressListener
 import android.util.Log
 import androidx.core.content.ContextCompat
 import dagger.hilt.android.qualifiers.ApplicationContext
+import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharedFlow
@@ -148,7 +151,9 @@ class VoiceEngine @Inject constructor(
                         }
                         val listen = listenAfterSpeech
                         listenAfterSpeech = false
-                        mainHandler.post { if (listen) startListening() else resumeWakeWord() }
+                        mainHandler.post {
+                            if (listen) mainHandler.postDelayed({ startListening() }, MIC_HANDOFF_MS) else resumeWakeWord()
+                        }
                     }
 
                     @Deprecated("Deprecated in Java")
@@ -211,6 +216,23 @@ class VoiceEngine @Inject constructor(
             return
         }
         speakInternal(text, listenAfter)
+    }
+
+    /** Runs [block], a request that may be slow, and talks the person through the wait so they know it is still working. */
+    suspend fun <T> speakWhile(block: suspend () -> T): T = coroutineScope {
+        val progress = launch {
+            delay(2_000)
+            speak("Déjame pensarlo un momento.")
+            delay(4_000)
+            speak("Estoy consultando la información. La conexión está algo lenta, pero sigo aquí.")
+            delay(4_000)
+            speak("Casi… si no llega pronto, busco en Wikipedia.")
+        }
+        try {
+            block()
+        } finally {
+            progress.cancel()
+        }
     }
 
     private fun speakInternal(rawText: String, listenAfter: Boolean) {
@@ -409,25 +431,37 @@ class VoiceEngine @Inject constructor(
             var loudMs = 0
             var peak = 0.0
             var sinceLogMs = 0
+            var settleSum = 0.0
+            var settleFrames = 0
+            var threshold = BARGE_IN_RMS_THRESHOLD.toDouble()
             val startedAt = SystemClock.elapsedRealtime()
             try {
                 record.startRecording()
                 while (token.get()) {
                     val read = record.read(frame, 0, frame.size)
                     if (read <= 0) break
-                    // Give the echo canceller a moment to settle before judging the signal.
-                    if (SystemClock.elapsedRealtime() - startedAt < BARGE_IN_SETTLE_MS) continue
                     var sum = 0.0
                     for (i in 0 until read) sum += frame[i].toDouble() * frame[i]
                     val rms = sqrt(sum / read)
+                    // The first moments measure the room's noise (a classroom is never silent). Speech only
+                    // interrupts when it is clearly louder than that, so the kids' chatter does not cut the assistant off.
+                    if (SystemClock.elapsedRealtime() - startedAt < BARGE_IN_SETTLE_MS) {
+                        settleSum += rms
+                        settleFrames++
+                        continue
+                    }
+                    if (settleFrames > 0) {
+                        threshold = maxOf(BARGE_IN_RMS_THRESHOLD.toDouble(), settleSum / settleFrames * BARGE_IN_NOISE_MARGIN)
+                        settleFrames = 0
+                    }
                     peak = maxOf(peak, rms)
                     sinceLogMs += BARGE_IN_FRAME_MS
                     if (sinceLogMs >= 1_000) {
-                        Log.d(TAG, "rms peak=${peak.toInt()} threshold=$BARGE_IN_RMS_THRESHOLD")
+                        Log.d(TAG, "rms peak=${peak.toInt()} threshold=${threshold.toInt()}")
                         peak = 0.0
                         sinceLogMs = 0
                     }
-                    loudMs = if (rms > BARGE_IN_RMS_THRESHOLD) loudMs + BARGE_IN_FRAME_MS else maxOf(0, loudMs - BARGE_IN_FRAME_MS / 2)
+                    loudMs = if (rms > threshold) loudMs + BARGE_IN_FRAME_MS else maxOf(0, loudMs - BARGE_IN_FRAME_MS / 2)
                     if (loudMs >= BARGE_IN_HOLD_MS) {
                         if (token.getAndSet(false)) mainHandler.post { onBargeIn(token) }
                     }
@@ -453,7 +487,7 @@ class VoiceEngine @Inject constructor(
         Log.d(TAG, "Barge-in: user spoke over the assistant")
         lastBargeInAt = System.currentTimeMillis()
         silenceSpeech()
-        startListening()
+        mainHandler.postDelayed({ startListening() }, MIC_HANDOFF_MS)
     }
 
     /**
@@ -500,12 +534,16 @@ class VoiceEngine @Inject constructor(
                 val text = results
                     ?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)
                     ?.firstOrNull()
+                val score = results?.getFloatArray(SpeechRecognizer.CONFIDENCE_SCORES)?.firstOrNull()
                 _state.value = VoiceState.Idle
-                if (!text.isNullOrBlank()) {
+                if (!text.isNullOrBlank() && (score == null || score >= COMMAND_MIN_CONFIDENCE)) {
                     // Two quick pulses: "I heard you".
                     cues.play(FeedbackCues.Cue.HEARD)
                     dispatchSpeech(text)
                     resumeWakeWord()
+                } else if (score != null && score < COMMAND_MIN_CONFIDENCE) {
+                    // Probably the room, not the person: better to ask again than to run a wrong command.
+                    speak("Hay mucho ruido. Repite, por favor, un poco más cerca del teléfono.")
                 } else {
                     speak(recognitionErrorMessage(SpeechRecognizer.ERROR_NO_MATCH).orEmpty())
                 }
@@ -526,7 +564,7 @@ class VoiceEngine @Inject constructor(
     /** What to tell the user for a speech-recognizer error code, or null if it should stay silent. */
     private fun recognitionErrorMessage(error: Int): String? = when (error) {
         SpeechRecognizer.ERROR_NO_MATCH, SpeechRecognizer.ERROR_SPEECH_TIMEOUT ->
-            "No te escuché. Toca el micrófono o di hola para intentarlo otra vez."
+            "No te escuché. Toca el micrófono para intentarlo otra vez."
         SpeechRecognizer.ERROR_NETWORK, SpeechRecognizer.ERROR_NETWORK_TIMEOUT, SpeechRecognizer.ERROR_SERVER ->
             "No pude reconocer tu voz porque la conexión a internet falló. Intenta de nuevo."
         SpeechRecognizer.ERROR_INSUFFICIENT_PERMISSIONS ->
@@ -627,8 +665,11 @@ class VoiceEngine @Inject constructor(
                 val heard = results?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION).orEmpty()
                 // "silencio" and "para" work without saying "hola" first.
                 if (heard.any { handleControl(it) }) return
-                for (text in heard) {
+                val scores = results?.getFloatArray(SpeechRecognizer.CONFIDENCE_SCORES)
+                for ((index, text) in heard.withIndex()) {
                     val end = wakeWordEnd(text) ?: continue
+                    // Background noise and TV voices often produce a confident-looking "hola" with a low score.
+                    if (scores != null && scores.getOrElse(index) { 1f } < WAKE_MIN_CONFIDENCE) continue
                     onWakeWordHeard(text.substring(end).trim { !it.isLetterOrDigit() })
                     return
                 }
@@ -664,12 +705,12 @@ class VoiceEngine @Inject constructor(
     /** "hola" alone answers "¿En qué te puedo ayudar?"; "hola iniciar sesión" runs the command right away. */
     private fun onWakeWordHeard(remainder: String) {
         releaseWakeRecognizer()
+        cues.play(FeedbackCues.Cue.HEARD, withSound = false)
         activate() // "hola" or the assistant's name ends a "silencio"
         if (remainder.isBlank()) {
             // Only the wake word: answer, then open the mic for what the user wants.
             speak(wakePrompt(), listenAfter = true)
         } else {
-            cues.play(FeedbackCues.Cue.HEARD)
             dispatchSpeech(remainder)
             resumeWakeWord(1_500)
         }
@@ -695,6 +736,8 @@ class VoiceEngine @Inject constructor(
 
     private companion object {
         const val TAG = "CecapiVoice"
+        const val WAKE_MIN_CONFIDENCE = 0.6f
+        const val COMMAND_MIN_CONFIDENCE = 0.4f
         val SENTENCE_END = Regex("(?<=[.!?…])\\s+")
 
         // Whole phrases only ("para" also appears inside everyday sentences).
@@ -708,6 +751,8 @@ class VoiceEngine @Inject constructor(
         const val BARGE_IN_SETTLE_MS = 500L
         const val BARGE_IN_HOLD_MS = 300
         const val BARGE_IN_RMS_THRESHOLD = 1_800
+        const val BARGE_IN_NOISE_MARGIN = 2.5
+        const val MIC_HANDOFF_MS = 300L
 
         /** Longest wait between wake-word restarts while the online recognizer keeps failing on the network. */
         const val WAKE_NETWORK_BACKOFF_MAX_MS = 30_000L

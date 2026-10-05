@@ -21,6 +21,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Hearing
 import androidx.compose.material.icons.filled.Replay
 import androidx.compose.material.icons.filled.SkipNext
@@ -135,6 +136,7 @@ fun LearningScreen(
                     onRepeat = viewModel::repeat,
                     onNext = viewModel::next,
                     onSetLevel = viewModel::setLevel,
+                    onLeave = viewModel::leave,
                 )
             }
             else -> {
@@ -194,6 +196,7 @@ private fun ActivityPage(
     onRepeat: () -> Unit,
     onNext: () -> Unit,
     onSetLevel: (Int) -> Unit,
+    onLeave: () -> Unit,
 ) {
     Column(
         modifier = Modifier
@@ -224,6 +227,42 @@ private fun ActivityPage(
                     )
                 }
             }
+        }
+
+        if (state.finished) {
+            val resultado = state.finalMessage ?: "Acertaste ${state.correctCount} de ${state.items.size}"
+            val shape = RoundedCornerShape(24.dp)
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(shape)
+                    .background(CecapiSurface)
+                    .border(2.dp, CecapiAccent.copy(alpha = 0.5f), shape)
+                    .padding(20.dp)
+                    .semantics { contentDescription = "Resultado. $resultado" },
+            ) {
+                Text("Resultado", style = MaterialTheme.typography.bodyMedium, color = CecapiTextMuted)
+                Text(resultado, style = MaterialTheme.typography.headlineSmall, color = MaterialTheme.colorScheme.onBackground)
+            }
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceEvenly,
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                TopAction(
+                    icon = Icons.Filled.Replay,
+                    label = "Repetir",
+                    help = "Repetir. Vuelve a empezar la actividad desde el primer ejercicio. También puedes decir: repetir.",
+                    onClick = onRepeat,
+                )
+                TopAction(
+                    icon = Icons.Filled.Close,
+                    label = "Salir",
+                    help = "Salir. Vuelve al menú. También puedes decir: salir.",
+                    onClick = onLeave,
+                )
+            }
+            return@Column
         }
 
         val item = state.current

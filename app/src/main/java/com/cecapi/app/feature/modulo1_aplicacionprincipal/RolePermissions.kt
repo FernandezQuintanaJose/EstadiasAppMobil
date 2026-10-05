@@ -17,7 +17,8 @@ object RolePermissions {
             RolUsuario.ADMINISTRADOR -> true
             RolUsuario.DIRECTIVO -> mismaInstitucion(observador, objetivo)
             RolUsuario.EDUCADOR ->
-                RolUsuario.fromCodigo(objetivo.rol) == RolUsuario.ALUMNO && objetivo.educadorId == observador.id
+                RolUsuario.fromCodigo(objetivo.rol) == RolUsuario.ALUMNO &&
+                    (objetivo.educadorId == observador.id || (objetivo.solicitaValidacion && mismaInstitucion(observador, objetivo)))
             // Un alumno o un usuario independiente no administran a nadie — un alumno conoce a SU educador
             // por separado (educadorAsignado), no por esta regla de "a quién administro".
             RolUsuario.ALUMNO, RolUsuario.USUARIO -> false
@@ -40,13 +41,14 @@ object RolePermissions {
      * marcarlo. Ya validado, no hay nada que hacer.
      */
     fun puedeValidar(observador: UsuarioEntity, objetivo: UsuarioEntity): Boolean {
-        if (objetivo.validado) return false
+        if (objetivo.validado || !objetivo.solicitaValidacion) return false
+        val solicitud = objetivo.institucionSolicitada ?: return false
         val rolObservador = RolUsuario.fromCodigo(observador.rol)
         val rolObjetivo = RolUsuario.fromCodigo(objetivo.rol)
         return when (rolObservador) {
-            RolUsuario.ADMINISTRADOR -> true // sin límite: puede validar a cualquiera, no solo directivo/usuario
-            RolUsuario.DIRECTIVO -> rolObjetivo == RolUsuario.EDUCADOR && mismaInstitucion(observador, objetivo)
-            RolUsuario.EDUCADOR -> rolObjetivo == RolUsuario.ALUMNO && objetivo.educadorId == observador.id
+            RolUsuario.ADMINISTRADOR -> true
+            RolUsuario.DIRECTIVO -> rolObjetivo != RolUsuario.ADMINISTRADOR && perteneceA(observador, solicitud)
+            RolUsuario.EDUCADOR -> rolObjetivo == RolUsuario.ALUMNO && perteneceA(observador, solicitud)
             RolUsuario.ALUMNO, RolUsuario.USUARIO -> false
         }
     }
@@ -59,8 +61,11 @@ object RolePermissions {
     fun destinoDeIncidencia(reportante: UsuarioEntity): DestinoIncidencia =
         if (reportante.origen.isNotBlank()) DestinoIncidencia.InstitucionDe(reportante.origen) else DestinoIncidencia.Administradores
 
-    private fun mismaInstitucion(a: UsuarioEntity, b: UsuarioEntity): Boolean =
-        a.origen.isNotBlank() && a.origen.equals(b.origen, ignoreCase = true)
+    private fun perteneceA(observador: UsuarioEntity, institucion: String): Boolean =
+        observador.origen.isNotBlank() && observador.origen.equals(institucion, ignoreCase = true)
+
+    private fun mismaInstitucion(observador: UsuarioEntity, objetivo: UsuarioEntity): Boolean =
+        perteneceA(observador, objetivo.origen) || objetivo.institucionSolicitada?.let { perteneceA(observador, it) } == true
 }
 
 sealed interface DestinoIncidencia {

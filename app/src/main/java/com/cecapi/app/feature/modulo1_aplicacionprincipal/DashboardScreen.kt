@@ -22,6 +22,7 @@ import androidx.compose.material.icons.filled.CameraAlt
 import androidx.compose.material.icons.filled.Chat
 import androidx.compose.material.icons.filled.Description
 import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.EmojiEvents
 import androidx.compose.material.icons.filled.Hearing
 import androidx.compose.material.icons.filled.Settings
@@ -38,6 +39,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -48,6 +50,7 @@ import com.cecapi.app.core.theme.CecapiAccent
 import com.cecapi.app.core.theme.CecapiError
 import com.cecapi.app.core.theme.CecapiEyebrowStyle
 import com.cecapi.app.core.theme.CecapiTextMuted
+import com.cecapi.app.core.theme.ModuleSection
 import com.cecapi.app.core.theme.Sections
 import com.cecapi.app.core.ui.BigBtn
 import com.cecapi.app.core.ui.BigBtnVariant
@@ -184,16 +187,15 @@ fun DashboardScreen(
                 BigBtn(
                     icon = Icons.Filled.EmojiEvents,
                     label = "Clasificación",
-                    sub = "Tu lugar entre todos",
                     section = Sections.Ranking,
                     half = true,
                     onClick = viewModel::onRankingSelected,
                     modifier = Modifier.weight(1f),
                 )
                 BigBtn(
-                    icon = Icons.Filled.Edit,
+                    icon = Icons.Filled.Person,
                     label = "Mi cuenta",
-                    sub = "Nombre, apodo y contraseña",
+                    section = ModuleSection(color = Color(0xFF60A5FA), bg = Color(0xFF1A2740)),
                     half = true,
                     onClick = viewModel::onEditarCuentaSelected,
                     modifier = Modifier.weight(1f),
@@ -202,7 +204,6 @@ fun DashboardScreen(
             BigBtn(
                 icon = Icons.Filled.CameraAlt,
                 label = "Cámara",
-                sub = "Lee texto y describe el entorno",
                 section = Sections.Camera,
                 onClick = { viewModel.onMenuItemSelected(MenuItem.Camera) },
             )
@@ -210,7 +211,6 @@ fun DashboardScreen(
                 BigBtn(
                     icon = Icons.Filled.Description,
                     label = documentos.title,
-                    sub = "Solicitudes oficiales",
                     section = Sections.Documents,
                     onClick = { viewModel.onMenuItemSelected(documentos) },
                 )
@@ -219,7 +219,6 @@ fun DashboardScreen(
                 BigBtn(
                     icon = Icons.Filled.Hearing,
                     label = actividades.title,
-                    sub = "Ejercicios de mejora auditiva",
                     section = Sections.Activities,
                     onClick = { viewModel.onMenuItemSelected(actividades) },
                 )
@@ -227,21 +226,18 @@ fun DashboardScreen(
             BigBtn(
                 icon = Icons.Filled.Chat,
                 label = "Chats",
-                sub = "Historial de conversaciones",
                 section = Sections.Chats,
                 onClick = { viewModel.onMenuItemSelected(MenuItem.Chats) },
             )
             BigBtn(
                 icon = Icons.Filled.Tune,
                 label = "Personalización",
-                sub = "Tu voz y preferencias",
                 section = Sections.Personalization,
                 onClick = { viewModel.onMenuItemSelected(MenuItem.Personalization) },
             )
             BigBtn(
                 icon = Icons.Filled.Settings,
                 label = "Configuración",
-                sub = "Ajustes del sistema",
                 section = Sections.Settings,
                 onClick = viewModel::onSettingsSelected,
             )
@@ -249,7 +245,6 @@ fun DashboardScreen(
                 BigBtn(
                     icon = Icons.Filled.AdminPanelSettings,
                     label = "Gestión",
-                    sub = "Administrar personas y roles",
                     variant = BigBtnVariant.Accent,
                     onClick = viewModel::onGestionSelected,
                 )
@@ -261,7 +256,6 @@ fun DashboardScreen(
                 BigBtn(
                     icon = Icons.AutoMirrored.Filled.Help,
                     label = "Ayuda y soporte",
-                    sub = "Preguntas y soporte de la app",
                     section = Sections.Emergency,
                     onClick = viewModel::onSoporteSelected,
                 )
@@ -283,8 +277,8 @@ fun DashboardScreen(
             hint = when {
                 listening -> "Escuchando…"
                 !hasMicPermission -> "Toca aquí para dar permiso"
-                assistantName.isBlank() -> "Di \"hola\" o toca aquí"
-                else -> "Di \"hola\" o \"$assistantName\", o toca aquí"
+                assistantName.isBlank() -> "Toca aquí para hablar"
+                else -> "Di \"$assistantName\" o toca aquí"
             },
             onClick = {
                 if (hasMicPermission) viewModel.onMicTapped() else permissionLauncher.launch(Manifest.permission.RECORD_AUDIO)

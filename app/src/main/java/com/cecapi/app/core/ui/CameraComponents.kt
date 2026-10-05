@@ -51,6 +51,7 @@ import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.foundation.Image
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalLifecycleOwner
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
@@ -192,32 +193,47 @@ fun ScreenTopBar(
     onCommands: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    Column(modifier = modifier.fillMaxWidth()) {
-        Text(eyebrow, style = CecapiEyebrowStyle, color = CecapiTextMuted)
+    Column(modifier = modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
+        Text(
+            "—— $eyebrow ——",
+            style = CecapiEyebrowStyle,
+            color = CecapiTextMuted,
+            textAlign = TextAlign.Center,
+            modifier = Modifier.semantics { contentDescription = eyebrow },
+        )
         Text(
             title,
             style = MaterialTheme.typography.titleLarge,
             color = CecapiTextPrimary,
-            modifier = Modifier.padding(top = 4.dp, bottom = 8.dp),
+            textAlign = TextAlign.Center,
+            modifier = Modifier.fillMaxWidth().padding(top = 4.dp, bottom = 8.dp),
         )
-        val backHelp = "Volver. Regresa a la pantalla anterior."
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .heightIn(min = 74.dp)
-                .clip(RoundedCornerShape(16.dp))
-                .background(CecapiSurfaceElevated)
-                .border(1.dp, CecapiBorder, RoundedCornerShape(16.dp))
-                .clickable(onClick = onBack)
-                .semantics { contentDescription = backHelp }
-                .voiceHint(backHelp)
-                .padding(horizontal = 18.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(12.dp),
-        ) {
-            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = null, tint = CecapiTextPrimary, modifier = Modifier.size(26.dp))
-            Text("Volver", style = MaterialTheme.typography.titleMedium, color = CecapiTextPrimary)
-        }
+        VolverPill(onClick = onBack)
+    }
+}
+
+@Composable
+fun VolverPill(
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    help: String = "Volver. Regresa a la pantalla anterior.",
+) {
+    Row(
+        modifier = modifier
+            .fillMaxWidth()
+            .heightIn(min = 74.dp)
+            .clip(RoundedCornerShape(16.dp))
+            .background(CecapiSurfaceElevated)
+            .border(1.dp, CecapiBorder, RoundedCornerShape(16.dp))
+            .clickable(onClick = onClick)
+            .semantics { contentDescription = help }
+            .voiceHint(help)
+            .padding(horizontal = 18.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
+    ) {
+        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = null, tint = CecapiTextPrimary, modifier = Modifier.size(26.dp))
+        Text("Volver", style = MaterialTheme.typography.titleMedium, color = CecapiTextPrimary)
     }
 }
 

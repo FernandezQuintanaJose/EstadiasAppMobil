@@ -106,3 +106,44 @@ val MIGRATION_8_9 = object : Migration(8, 9) {
         db.execSQL("ALTER TABLE usuarios ADD COLUMN fecha_nacimiento INTEGER")
     }
 }
+
+/** v10: el banco de ejercicios del Módulo 6 cambió (un sonido por oído, sin los de enfrente y atrás). Se borra para que se vuelva a cargar. */
+val MIGRATION_9_10 = object : Migration(9, 10) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL("DELETE FROM resultados_ejercicios")
+        db.execSQL("DELETE FROM ejercicios")
+        db.execSQL("DELETE FROM resultados_vibracion")
+        db.execSQL("DELETE FROM ejercicios_vibracion")
+    }
+}
+
+/** v11: correo opcional de contacto, solicitud de validación institucional, baja pedida por menores y bitácora de cambios de cuenta. */
+val MIGRATION_10_11 = object : Migration(10, 11) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL("ALTER TABLE usuarios ADD COLUMN email TEXT")
+        db.execSQL("ALTER TABLE usuarios ADD COLUMN solicita_validacion INTEGER NOT NULL DEFAULT 0")
+        db.execSQL("ALTER TABLE usuarios ADD COLUMN solicita_baja INTEGER NOT NULL DEFAULT 0")
+        db.execSQL("ALTER TABLE usuarios ADD COLUMN aviso_pendiente TEXT")
+        db.execSQL(
+            "CREATE TABLE IF NOT EXISTS cambios_cuenta (" +
+                "id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, " +
+                "objetivo_id INTEGER NOT NULL, autor_id INTEGER, tipo TEXT NOT NULL, detalle TEXT, " +
+                "fecha INTEGER NOT NULL)",
+        )
+        db.execSQL("CREATE INDEX IF NOT EXISTS index_cambios_cuenta_objetivo_id ON cambios_cuenta (objetivo_id)")
+    }
+}
+
+/** v12: cada cuenta nueva queda "nueva" hasta que un administrador la confirma; las de antes ya se consideran confirmadas. */
+val MIGRATION_11_12 = object : Migration(11, 12) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL("ALTER TABLE usuarios ADD COLUMN revision_cuenta TEXT NOT NULL DEFAULT 'confirmada'")
+    }
+}
+
+/** v13: la institución a la que la persona pidió unirse, separada de la institución ya validada (origen). */
+val MIGRATION_12_13 = object : Migration(12, 13) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL("ALTER TABLE usuarios ADD COLUMN institucion_solicitada TEXT")
+    }
+}

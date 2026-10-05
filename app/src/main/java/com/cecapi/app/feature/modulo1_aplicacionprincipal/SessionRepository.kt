@@ -86,12 +86,17 @@ class SessionRepository @Inject constructor(
         val nombreNormalizado = nombreUsuario.trim().uppercase()
         // The table has no unique index on the username, so the duplicate check has to be explicit.
         if (usuarioDao.findByUsername(nombreNormalizado) != null) return RegisterResult.UsernameTaken
+        val institucion = origen.trim()
+        // Todos empiezan como usuarios. Si eligieron una institución, queda la solicitud pendiente; la institución
+        // la valida después, y solo entonces pasa a ser su institución.
         val usuario = UsuarioEntity(
             nombreUsuario = nombreNormalizado,
             contrasenaHash = PasswordHasher.hash(contrasena.trim()),
             nombreCompleto = nombreCompleto.trim(),
-            origen = origen.trim(),
             fechaNacimiento = fechaNacimiento,
+            institucionSolicitada = institucion.ifBlank { null },
+            solicitaValidacion = institucion.isNotBlank(),
+            revisionCuenta = "nueva",
         )
         val nuevoId = usuarioDao.insert(usuario)
         if (nuevoId <= 0) return RegisterResult.UsernameTaken
@@ -156,6 +161,34 @@ class SessionRepository @Inject constructor(
             usarApodoRanking = usarApodoRanking,
         )
         return EditarPerfilResult.Exito
+    }
+
+    /** Pide unirse a una institución; mientras no la valide, la persona sigue como usuario. */
+    suspend fun pedirInstitucion(institucion: String) {
+        val user = _currentUser.value ?: return
+        usuarioDao.solicitarInstitucion(user.id, institucion)
+        _currentUser.value = user.copy(institucionSolicitada = institucion, solicitaValidacion = true)
+    }
+
+    /** Un menor no se da de baja solo: queda pedida para que la autorice un adulto responsable. */
+    suspend fun pedirBajaDeMenor() {
+        val user = _currentUser.value ?: return
+        usuarioDao.actualizarSolicitaBaja(user.id, true)
+        _currentUser.value = user.copy(solicitaBaja = true)
+    }
+
+    /** Borra la cuenta de otra persona con la autorización de quien puede hacerlo (Gestión). */
+    suspend fun borrarCuentaDe(usuarioId: Long) {
+        accountEraser.erase(usuarioId)
+    }
+
+    /** Lee y borra el aviso pendiente de la cuenta, para decirlo una sola vez al abrir la app. */
+    suspend fun consumirAvisoPendiente(): String? {
+        val user = _currentUser.value ?: return null
+        val aviso = user.avisoPendiente ?: return null
+        usuarioDao.actualizarAviso(user.id, null)
+        _currentUser.value = user.copy(avisoPendiente = null)
+        return aviso
     }
 
     /** True once after a logout, so the home screen can say "Sesión cerrada" as it opens. */

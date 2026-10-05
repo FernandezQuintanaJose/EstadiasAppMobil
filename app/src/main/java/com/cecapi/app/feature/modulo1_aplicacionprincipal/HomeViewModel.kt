@@ -357,7 +357,7 @@ class HomeViewModel @Inject constructor(
     private fun askAi(question: String, deep: Boolean) {
         val resolver = intentFallback.resolver ?: return sayNotUnderstood()
         viewModelScope.launch {
-            val reply = runCatching { resolver(question, deep) }.getOrNull()
+            val reply = runCatching { voiceEngine.speakWhile { resolver(question, deep) } }.getOrNull()
             val command = reply?.command
             val answer = reply?.answer
             when {
@@ -396,7 +396,7 @@ class HomeViewModel @Inject constructor(
         val display = name.replaceFirstChar { it.uppercase() }
         viewModelScope.launch {
             assistantPreferences.setAssistantName(display)
-            voiceEngine.speak("Listo, ahora me llamo $display. Di hola o $display para hablar conmigo.")
+            voiceEngine.speak("Listo, ahora me llamo $display. Di $display para hablar conmigo.")
         }
     }
 

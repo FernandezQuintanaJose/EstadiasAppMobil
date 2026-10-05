@@ -37,7 +37,9 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.semantics.CustomAccessibilityAction
 import androidx.compose.ui.semantics.LiveRegionMode
+import androidx.compose.ui.semantics.customActions
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.onClick
@@ -111,6 +113,11 @@ fun MicPad(
                     .semantics {
                         contentDescription = "Micrófono. Toca dos veces para hablar con el asistente."
                         onClick(label = "Hablar") { onClick(); true }
+                        onDoubleTap?.let { silence ->
+                            customActions = listOf(
+                                CustomAccessibilityAction("Silenciar al asistente") { silence(); true },
+                            )
+                        }
                     },
                 contentAlignment = Alignment.Center,
             ) {

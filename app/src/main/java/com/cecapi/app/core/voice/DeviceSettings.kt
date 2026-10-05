@@ -65,6 +65,9 @@ class DeviceSettings @Inject constructor(
     /** Keep the assistant listening for "hola" after the app is closed (needs a visible notification). Off by default. */
     val backgroundListening: Flow<Boolean> = data.map { it[KEY_BACKGROUND] ?: false }
 
+    /** Also answer to the word "hola", not only to the assistant's name. Off by default: adults set the name first. */
+    val holaEnabled: Flow<Boolean> = data.map { it[KEY_HOLA] ?: false }
+
     /** Everything on screen is drawn black; the person works by voice. Off by default, and always has an exit. */
     val blackScreen: Flow<Boolean> = data.map { it[KEY_BLACK_SCREEN] ?: false }
 
@@ -113,6 +116,8 @@ class DeviceSettings @Inject constructor(
 
     suspend fun setBackgroundListening(enabled: Boolean) = context.deviceSettingsStore.edit { it[KEY_BACKGROUND] = enabled }
 
+    suspend fun setHolaEnabled(enabled: Boolean) = context.deviceSettingsStore.edit { it[KEY_HOLA] = enabled }
+
     suspend fun setBlackScreen(enabled: Boolean) = context.deviceSettingsStore.edit { it[KEY_BLACK_SCREEN] = enabled }
 
     suspend fun setMinBrightness(enabled: Boolean) = context.deviceSettingsStore.edit { it[KEY_MIN_BRIGHTNESS] = enabled }
@@ -139,6 +144,7 @@ class DeviceSettings @Inject constructor(
         val KEY_SIMPLE = booleanPreferencesKey("simple_mode")
         val KEY_ANNOUNCE = booleanPreferencesKey("announce_notifications")
         val KEY_BACKGROUND = booleanPreferencesKey("background_listening")
+        val KEY_HOLA = booleanPreferencesKey("hola_enabled")
         val KEY_BLACK_SCREEN = booleanPreferencesKey("black_screen")
         val KEY_MIN_BRIGHTNESS = booleanPreferencesKey("min_brightness")
         val KEY_AI = booleanPreferencesKey("ai_enabled")
