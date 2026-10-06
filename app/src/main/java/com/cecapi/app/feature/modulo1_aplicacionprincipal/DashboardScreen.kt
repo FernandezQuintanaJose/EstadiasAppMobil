@@ -1,5 +1,7 @@
 package com.cecapi.app.feature.modulo1_aplicacionprincipal
 
+import androidx.compose.material.icons.filled.Warning
+import androidx.compose.material.icons.filled.Phone
 import android.Manifest
 import android.app.Activity
 import android.content.pm.PackageManager
@@ -61,6 +63,7 @@ import com.cecapi.app.core.ui.OfflineBanner
 import com.cecapi.app.core.util.openTtsSettings
 import com.cecapi.app.core.voice.VoiceMessages
 import com.cecapi.app.core.voice.VoiceState
+
 
 /** Signed-in home. Same layout and voice behavior as the public home, plus the user's own modules. */
 @Composable
@@ -235,12 +238,6 @@ fun DashboardScreen(
                 section = Sections.Personalization,
                 onClick = { viewModel.onMenuItemSelected(MenuItem.Personalization) },
             )
-            BigBtn(
-                icon = Icons.Filled.Settings,
-                label = "Configuración",
-                section = Sections.Settings,
-                onClick = viewModel::onSettingsSelected,
-            )
             if (rol == RolUsuario.ADMINISTRADOR || rol == RolUsuario.DIRECTIVO || rol == RolUsuario.EDUCADOR) {
                 BigBtn(
                     icon = Icons.Filled.AdminPanelSettings,
@@ -249,22 +246,38 @@ fun DashboardScreen(
                     onClick = viewModel::onGestionSelected,
                 )
             }
-            // Reportar un problema NO es universal a propósito: es para que un alumno/usuario reporte, o
-            // para que la aplicación detecte algo que ponga en riesgo a alguien y lo avise a un superior —
-            // nunca un botón libre para cualquiera, para no abrir la puerta a reportes falsos o abuso.
-            if (rol == RolUsuario.ALUMNO || rol == RolUsuario.USUARIO) {
-                BigBtn(
-                    icon = Icons.AutoMirrored.Filled.Help,
-                    label = "Ayuda y soporte",
-                    section = Sections.Emergency,
-                    onClick = viewModel::onSoporteSelected,
-                )
-            }
+            BigBtn(
+                icon = Icons.Filled.Settings,
+                label = "Configuración",
+                section = Sections.Settings,
+                onClick = viewModel::onSettingsSelected,
+            )
             BigBtn(
                 icon = Icons.AutoMirrored.Filled.Logout,
                 label = "Cerrar sesión",
                 variant = BigBtnVariant.Danger,
                 onClick = viewModel::onLogout,
+            )
+            // Ayuda y soporte es para cualquiera; el administrador ve ahí los mensajes de todos.
+            BigBtn(
+                icon = Icons.AutoMirrored.Filled.Help,
+                label = "Ayuda y soporte",
+                section = Sections.Ayuda,
+                onClick = viewModel::onSoporteSelected,
+            )
+            if (rol != RolUsuario.USUARIO) {
+                BigBtn(
+                    icon = Icons.Filled.Warning,
+                    label = "Reportar un incidente",
+                    section = Sections.Reportar,
+                    onClick = viewModel::onReportarIncidenteSelected,
+                )
+            }
+            BigBtn(
+                icon = Icons.Filled.Phone,
+                label = "Emergencias",
+                section = Sections.Emergency,
+                onClick = viewModel::onEmergenciasSelected,
             )
         }
     }

@@ -59,6 +59,8 @@ import com.cecapi.app.core.theme.CecapiSurfaceElevated
 import com.cecapi.app.core.theme.CecapiTextMuted
 import com.cecapi.app.core.theme.Sections
 import com.cecapi.app.core.ui.BigBtn
+import com.cecapi.app.core.ui.BigBtnSize
+import com.cecapi.app.core.ui.BigBtnVariant
 import com.cecapi.app.core.ui.MicPad
 import com.cecapi.app.core.ui.ScreenTopBar
 import com.cecapi.app.core.ui.TopAction
@@ -117,7 +119,7 @@ fun LearningScreen(
             recreativas -> {
                 ScreenTopBar(
                     eyebrow = "ACTIVIDADES",
-                    title = "Recreativas",
+                    title = "Juegos",
                     onBack = { recreativas = false },
                     onCommands = viewModel::onCommandsRequested,
                 )
@@ -160,9 +162,16 @@ fun LearningScreen(
                 )
                 BigBtn(
                     icon = Icons.Filled.SportsEsports,
-                    label = "Recreativas",
+                    label = "Juegos",
                     section = Sections.Activities,
                     onClick = { recreativas = true },
+                )
+                BigBtn(
+                    icon = Icons.Filled.SportsEsports,
+                    label = "Retos IA · Próximamente",
+                    section = Sections.Activities,
+                    enabled = false,
+                    onClick = {},
                 )
             }
         }
@@ -218,10 +227,13 @@ private fun ActivityPage(
         if (pageMode == ActivityMode.AUDIO) {
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
                 (1..3).forEach { level ->
-                    ChoiceButton(
+                    BigBtn(
+                        icon = Icons.Filled.Hearing,
                         label = "Nivel $level",
-                        selected = state.level == level,
-                        help = "Nivel $level. También puedes decir: nivel " + listOf("uno", "dos", "tres")[level - 1] + ".",
+                        section = Sections.Activities,
+                        variant = if (state.level == level) BigBtnVariant.Accent else BigBtnVariant.Neutral,
+                        size = BigBtnSize.Secondary,
+                        half = true,
                         onClick = { onSetLevel(level) },
                         modifier = Modifier.weight(1f),
                     )
@@ -307,16 +319,22 @@ private fun ActivityPage(
             horizontalArrangement = Arrangement.SpaceEvenly,
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            TopAction(
+            BigBtn(
+                section = Sections.Activities,
+                size = BigBtnSize.Secondary,
+                half = true,
+                modifier = Modifier.weight(1f),
                 icon = Icons.Filled.Replay,
                 label = "Repetir",
-                help = "Repetir. Vuelve a reproducir el sonido o la vibración. También puedes decir: repite.",
                 onClick = onRepeat,
             )
-            TopAction(
+            BigBtn(
+                section = Sections.Activities,
+                size = BigBtnSize.Secondary,
+                half = true,
+                modifier = Modifier.weight(1f),
                 icon = Icons.Filled.SkipNext,
                 label = "Siguiente",
-                help = "Siguiente. Pasa al siguiente ejercicio. También puedes decir: siguiente.",
                 onClick = onNext,
             )
         }
@@ -408,7 +426,7 @@ private fun ChoiceButton(
         contentAlignment = Alignment.Center,
     ) {
         Text(
-            text = if (selected) "$label  ✓" else label,
+            text = label,
             style = MaterialTheme.typography.titleMedium,
             color = if (selected) CecapiAccent else MaterialTheme.colorScheme.onBackground,
         )

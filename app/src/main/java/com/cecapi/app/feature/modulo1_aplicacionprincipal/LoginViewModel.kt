@@ -1,5 +1,6 @@
 package com.cecapi.app.feature.modulo1_aplicacionprincipal
 
+import com.cecapi.app.core.navigation.CecapiDestinations
 import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -91,7 +92,7 @@ class LoginViewModel @Inject constructor(
             }
         }
         viewModelScope.launch {
-            voiceEngine.recognizedSpeech.collect { speech ->
+            voiceEngine.speechFor(CecapiDestinations.LOGIN).collect { speech ->
                 if (screenActive) onSpeech(speech.text.trim())
             }
         }

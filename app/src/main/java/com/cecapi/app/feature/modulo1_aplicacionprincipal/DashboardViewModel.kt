@@ -116,7 +116,7 @@ class DashboardViewModel @Inject constructor(
             }
         }
         viewModelScope.launch {
-            voiceEngine.recognizedSpeech.collect { speech ->
+            voiceEngine.speechFor(CecapiDestinations.DASHBOARD).collect { speech ->
                 if (screenActive) interpretCommand(speech.text.lowercase())
             }
         }
@@ -405,6 +405,18 @@ class DashboardViewModel @Inject constructor(
     }
 
     /** Only alumno and usuario ever see the button that calls this — the opposite of Gestión. */
+    fun onEmergenciasSelected() {
+        cues.play(FeedbackCues.Cue.NAVIGATE)
+        voiceEngine.speak("Abriendo emergencias.")
+        _navEvents.tryEmit(CecapiDestinations.EMERGENCIAS)
+    }
+
+    fun onReportarIncidenteSelected() {
+        cues.play(FeedbackCues.Cue.NAVIGATE)
+        voiceEngine.speak("Abriendo reportes.")
+        _navEvents.tryEmit(CecapiDestinations.REPORTAR_INCIDENTE)
+    }
+
     fun onSoporteSelected() {
         cues.play(FeedbackCues.Cue.NAVIGATE)
         voiceEngine.speak("Abriendo ayuda.")

@@ -1,5 +1,6 @@
 package com.cecapi.app.feature.modulo4_lectordocumentos
 
+import com.cecapi.app.core.theme.ModuleSection
 import android.Manifest
 import android.os.Build
 import android.content.pm.PackageManager
@@ -207,25 +208,27 @@ fun DocumentReaderScreen(
                 BigActionCard(
                     icon = Icons.Filled.Replay,
                     label = "REPETIR",
-                    tint = ModuleCameraAccent,
+                    tint = RepetirTint,
                     help = "Repetir. Lee el documento otra vez desde el principio.",
                     onClick = viewModel::repetirLectura,
                 )
                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                    BigActionCard(
+                    ControlFlecha(
                         icon = Icons.Filled.SkipPrevious,
                         label = "ANTERIOR",
-                        tint = ModuleCameraAccent,
+                        tint = FlechaTint,
                         help = "Párrafo anterior. Vuelve un párrafo atrás.",
                         onClick = viewModel::anteriorParrafo,
+                        flechaALaDerecha = false,
                         modifier = Modifier.weight(1f),
                     )
-                    BigActionCard(
+                    ControlFlecha(
                         icon = Icons.Filled.SkipNext,
                         label = "SIGUIENTE",
-                        tint = ModuleCameraAccent,
+                        tint = FlechaTint,
                         help = "Párrafo siguiente. Salta al siguiente párrafo.",
                         onClick = viewModel::siguienteParrafo,
+                        flechaALaDerecha = true,
                         modifier = Modifier.weight(1f),
                     )
                 }
@@ -243,7 +246,7 @@ fun DocumentReaderScreen(
                 BigBtn(
                     icon = Icons.Filled.AddAPhoto,
                     label = "TOMAR OTRA FOTO",
-                    section = Sections.Camera,
+                    section = OtraFotoSection,
                     size = BigBtnSize.Hero,
                     onClick = viewModel::onRetakePhoto,
                 )
@@ -322,6 +325,59 @@ fun DocumentReaderScreen(
 }
 
 /** One full-width, same-size button: a big icon badge plus a big bold label, easy to find and tap. */
+private val RepetirTint = Color(0xFFF59E0B)
+private val FlechaTint = Color(0xFF38BDF8)
+private val OtraFotoSection = ModuleSection(Color(0xFFA78BFA), Color(0xFF2A2340))
+
+/** Control con flecha: la flecha va del lado izquierdo o derecho según la dirección, y el texto del otro lado. */
+@Composable
+private fun ControlFlecha(
+    icon: ImageVector,
+    label: String,
+    tint: Color,
+    help: String,
+    onClick: () -> Unit,
+    flechaALaDerecha: Boolean,
+    modifier: Modifier = Modifier,
+) {
+    val shape = RoundedCornerShape(20.dp)
+    val flecha: @Composable () -> Unit = {
+        Box(
+            modifier = Modifier
+                .size(48.dp)
+                .clip(RoundedCornerShape(14.dp))
+                .background(tint.copy(alpha = 0.18f)),
+            contentAlignment = Alignment.Center,
+        ) {
+            Icon(icon, contentDescription = null, tint = tint, modifier = Modifier.size(28.dp))
+        }
+    }
+    Row(
+        modifier = modifier
+            .fillMaxWidth()
+            .heightIn(min = 76.dp)
+            .clip(shape)
+            .background(CecapiSurfaceElevated)
+            .border(2.dp, tint, shape)
+            .clickable(onClick = onClick)
+            .semantics { contentDescription = help }
+            .voiceHint(help)
+            .padding(16.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
+    ) {
+        if (!flechaALaDerecha) flecha()
+        Text(
+            label,
+            style = MaterialTheme.typography.titleMedium,
+            color = tint,
+            modifier = Modifier.weight(1f),
+            textAlign = if (flechaALaDerecha) TextAlign.Start else TextAlign.End,
+        )
+        if (flechaALaDerecha) flecha()
+    }
+}
+
 @Composable
 private fun BigActionCard(
     icon: ImageVector,

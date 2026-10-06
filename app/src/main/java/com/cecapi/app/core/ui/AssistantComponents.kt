@@ -1,5 +1,7 @@
 package com.cecapi.app.core.ui
 
+import androidx.compose.foundation.layout.height
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
@@ -156,14 +158,20 @@ fun MicPad(
                 fontWeight = FontWeight.Black,
                 color = if (listening) CecapiAccent else CecapiTextPrimary,
                 textAlign = TextAlign.Center,
-                modifier = Modifier.padding(top = 14.dp),
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier
+                    .padding(top = 14.dp)
+                    .height(64.dp)
+                    .fillMaxWidth()
+                    .clickable(onClick = onClick),
             )
             Text(
                 text = "Di lista de comandos",
                 style = MaterialTheme.typography.bodyMedium,
                 color = CecapiTextMuted,
                 textAlign = TextAlign.Center,
-                modifier = Modifier.padding(top = 4.dp),
+                modifier = Modifier.padding(top = 4.dp).height(24.dp),
             )
         }
     }

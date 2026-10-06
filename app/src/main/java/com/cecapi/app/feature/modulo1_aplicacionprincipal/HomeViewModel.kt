@@ -124,7 +124,7 @@ class HomeViewModel @Inject constructor(
             }
         }
         viewModelScope.launch {
-            voiceEngine.recognizedSpeech.collect { speech ->
+            voiceEngine.speechFor(CecapiDestinations.HOME).collect { speech ->
                 if (screenActive) interpretCommand(speech.text.lowercase())
             }
         }
@@ -134,6 +134,10 @@ class HomeViewModel @Inject constructor(
         cues.play(FeedbackCues.Cue.NAVIGATE)
         voiceEngine.speak(modulo.voicePrompt)
         _navEvents.tryEmit(HomeNavEvent.GoToModule(modulo.route))
+    }
+
+    fun onAyudaSelected() {
+        _navEvents.tryEmit(HomeNavEvent.GoToModule(CecapiDestinations.SOPORTE))
     }
 
     fun onSettingsSelected() {

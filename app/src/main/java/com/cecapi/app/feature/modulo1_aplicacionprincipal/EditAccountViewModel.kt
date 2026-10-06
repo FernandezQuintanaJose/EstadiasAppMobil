@@ -83,8 +83,20 @@ class EditAccountViewModel @Inject constructor(
     }
 
     /** Un adulto se da de baja solo, confirmando con su contraseña. */
+    fun onPedirCambioEducador() {
+        viewModelScope.launch {
+            sessionRepository.pedirCambioEducador()
+            cues.play(FeedbackCues.Cue.SUCCESS)
+            voiceEngine.speak("Listo. Pedí cambiar de educador. Alguien de tu institución lo revisará.")
+        }
+    }
+
     fun onDarseDeBaja(contrasenaActual: String) {
         val user = currentUser.value ?: return
+        if (user.rol == RolUsuario.ADMINISTRADOR.codigo) {
+            voiceEngine.speak("Un administrador no puede darse de baja.")
+            return
+        }
         if (PasswordHasher.hash(contrasenaActual.trim()) != user.contrasenaHash) {
             cues.play(FeedbackCues.Cue.ERROR)
             voiceEngine.speak("Esa no es tu contraseña. No di de baja tu cuenta.")
@@ -104,6 +116,8 @@ class EditAccountViewModel @Inject constructor(
         usarApodoRanking: Boolean,
         contrasenaActual: String,
         nuevaContrasena: String,
+        correo: String,
+        fechaNacimiento: Long?,
     ) {
         viewModelScope.launch {
             when (
@@ -113,6 +127,8 @@ class EditAccountViewModel @Inject constructor(
                     nuevaContrasena = nuevaContrasena.ifBlank { null },
                     apodo = apodo,
                     usarApodoRanking = usarApodoRanking,
+                    email = correo,
+                    fechaNacimiento = fechaNacimiento,
                 )
             ) {
                 SessionRepository.EditarPerfilResult.Exito -> {

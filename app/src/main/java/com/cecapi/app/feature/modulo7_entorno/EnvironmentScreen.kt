@@ -1,5 +1,6 @@
 package com.cecapi.app.feature.modulo7_entorno
 
+import androidx.compose.material.icons.filled.AddAPhoto
 import android.Manifest
 import android.content.pm.PackageManager
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -119,9 +120,7 @@ fun EnvironmentScreen(
         // Once there is a photo, it takes over this area — its own place to look at, separate from the
         // live feed — instead of a live camera nobody is watching anymore while the description is read.
         val photoPath = uiState.photoPath
-        if (photoPath != null) {
-            CapturedPhotoPreview(path = photoPath, modifier = Modifier.fillMaxSize())
-        } else {
+        if (photoPath == null) {
             CameraViewfinder(
                 hasPermission = hasCameraPermission,
                 onReady = { imageCapture = it },
@@ -149,7 +148,19 @@ fun EnvironmentScreen(
                 onCommands = viewModel::onCommandsRequested,
             )
 
-            Spacer(modifier = Modifier.weight(1f))
+            // La foto tiene su propio espacio, separado de los botones: así no se encima con ellos.
+            if (photoPath != null) {
+                Box(
+                    modifier = Modifier
+                        .weight(1f)
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(20.dp)),
+                ) {
+                    CapturedPhotoPreview(path = photoPath, modifier = Modifier.fillMaxSize())
+                }
+            } else {
+                Spacer(modifier = Modifier.weight(1f))
+            }
 
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Center) {
                 SuggestionChip(label = "qué hay enfrente", onClick = viewModel::pedirCaptura)
@@ -173,7 +184,27 @@ fun EnvironmentScreen(
                 }
             }
 
-            Row(
+            val listening = voiceState is VoiceState.Listening
+            if (photoPath != null) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceEvenly,
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    TopAction(
+                        icon = Icons.Filled.AddAPhoto,
+                        label = "Tomar otra foto",
+                        help = "Tomar otra foto. Vuelve a la cámara para tomar una nueva foto. También puedes decir: tomar otra foto.",
+                        onClick = viewModel::tomarOtraFoto,
+                    )
+                    TopAction(
+                        icon = if (listening) Icons.Filled.MicOff else Icons.Filled.Mic,
+                        label = if (listening) "Escuchando" else "Hablar",
+                        help = "Micrófono. Tócalo para hablar — di qué hay enfrente, o lo que necesites.",
+                        onClick = viewModel::onMicTapped,
+                    )
+                }
+            } else Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceEvenly,
                 verticalAlignment = Alignment.CenterVertically,

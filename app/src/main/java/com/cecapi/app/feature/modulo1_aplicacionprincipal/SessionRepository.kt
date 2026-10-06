@@ -139,6 +139,8 @@ class SessionRepository @Inject constructor(
         nuevaContrasena: String?,
         apodo: String? = null,
         usarApodoRanking: Boolean = false,
+        email: String? = null,
+        fechaNacimiento: Long? = null,
     ): EditarPerfilResult {
         val user = _currentUser.value ?: return EditarPerfilResult.SinSesion
         if (PasswordHasher.hash(contrasenaActual.trim()) != user.contrasenaHash) {
@@ -154,11 +156,16 @@ class SessionRepository @Inject constructor(
         val apodoLimpio = apodo?.trim()?.ifBlank { null }
         usuarioDao.actualizarApodo(user.id, apodoLimpio)
         usuarioDao.actualizarUsarApodoRanking(user.id, usarApodoRanking)
+        val correoLimpio = email?.trim()?.ifBlank { null }
+        usuarioDao.actualizarEmail(user.id, correoLimpio)
+        usuarioDao.actualizarFechaNacimiento(user.id, fechaNacimiento)
         _currentUser.value = user.copy(
             nombreCompleto = nombreLimpio,
             contrasenaHash = nuevoHash,
             apodo = apodoLimpio,
             usarApodoRanking = usarApodoRanking,
+            email = correoLimpio,
+            fechaNacimiento = fechaNacimiento,
         )
         return EditarPerfilResult.Exito
     }
@@ -180,6 +187,13 @@ class SessionRepository @Inject constructor(
     /** Borra la cuenta de otra persona con la autorización de quien puede hacerlo (Gestión). */
     suspend fun borrarCuentaDe(usuarioId: Long) {
         accountEraser.erase(usuarioId)
+    }
+
+    /** Un alumno pide cambiar de educador; lo atiende un directivo, un educador o un administrador. */
+    suspend fun pedirCambioEducador() {
+        val user = _currentUser.value ?: return
+        usuarioDao.actualizarSolicitaCambioEducador(user.id, true)
+        _currentUser.value = user.copy(solicitaCambioEducador = true)
     }
 
     /** Lee y borra el aviso pendiente de la cuenta, para decirlo una sola vez al abrir la app. */

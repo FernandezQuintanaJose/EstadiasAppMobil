@@ -34,6 +34,8 @@ import com.cecapi.app.feature.modulo1_aplicacionprincipal.ConfiguracionUsuarioDa
 import com.cecapi.app.feature.modulo1_aplicacionprincipal.ConfiguracionUsuarioEntity
 import com.cecapi.app.feature.modulo1_aplicacionprincipal.CambioCuentaDao
 import com.cecapi.app.feature.modulo1_aplicacionprincipal.CambioCuentaEntity
+import com.cecapi.app.feature.modulo1_aplicacionprincipal.ContactoEmergenciaDao
+import com.cecapi.app.feature.modulo1_aplicacionprincipal.ContactoEmergenciaEntity
 import com.cecapi.app.feature.modulo1_aplicacionprincipal.IncidenciaDao
 import com.cecapi.app.feature.modulo1_aplicacionprincipal.IncidenciaEntity
 import com.cecapi.app.feature.modulo1_aplicacionprincipal.PermisosModuloDao
@@ -63,6 +65,7 @@ import com.cecapi.app.feature.modulo2_asistentevoz.RespuestaAuditivaEntity
         PermisosModuloEntity::class,
         IncidenciaEntity::class,
         CambioCuentaEntity::class,
+        ContactoEmergenciaEntity::class,
         // Módulo 2 — Asistente de Voz
         ComandoVozEntity::class,
         HistorialComandoEntity::class,
@@ -90,7 +93,7 @@ import com.cecapi.app.feature.modulo2_asistentevoz.RespuestaAuditivaEntity
         ObjetoDetectadoEntity::class,
         DescripcionEntornoEntity::class,
     ],
-    version = 13,
+    version = 16,
     exportSchema = false,
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -99,6 +102,7 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun permisosModuloDao(): PermisosModuloDao
     abstract fun incidenciaDao(): IncidenciaDao
     abstract fun cambioCuentaDao(): CambioCuentaDao
+    abstract fun contactoEmergenciaDao(): ContactoEmergenciaDao
     abstract fun rankingDao(): RankingDao
 
     abstract fun comandoVozDao(): ComandoVozDao

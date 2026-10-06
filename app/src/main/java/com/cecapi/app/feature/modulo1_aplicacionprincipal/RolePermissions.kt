@@ -54,6 +54,15 @@ object RolePermissions {
     }
 
     /**
+     * A quién puede mandar un reporte cada rol. El usuario no reporta. El administrador ve todo y no envía a nadie.
+     */
+    fun destinatariosDeReporte(reportante: RolUsuario): List<RolUsuario> = when (reportante) {
+        RolUsuario.ALUMNO, RolUsuario.EDUCADOR -> listOf(RolUsuario.EDUCADOR, RolUsuario.DIRECTIVO, RolUsuario.ADMINISTRADOR)
+        RolUsuario.DIRECTIVO -> listOf(RolUsuario.DIRECTIVO, RolUsuario.EDUCADOR, RolUsuario.ADMINISTRADOR)
+        RolUsuario.ADMINISTRADOR, RolUsuario.USUARIO -> emptyList()
+    }
+
+    /**
      * Where to send an incident [reportante] files. With an institution, it goes there (the educador feature
      * resolves a specific person later); an independent usuario has none, so it goes straight to the
      * administradores instead of being lost.

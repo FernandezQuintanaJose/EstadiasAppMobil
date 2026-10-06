@@ -213,6 +213,12 @@ fun HomeScreen(
                 section = Sections.Settings,
                 onClick = viewModel::onSettingsSelected,
             )
+            BigBtn(
+                icon = Icons.AutoMirrored.Filled.Help,
+                label = "Ayuda y soporte",
+                section = Sections.Ayuda,
+                onClick = viewModel::onAyudaSelected,
+            )
         }
 
         // What the voice says is not repeated on screen. Only what needs attention stays visible.

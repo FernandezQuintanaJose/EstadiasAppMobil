@@ -1,5 +1,6 @@
 package com.cecapi.app.feature.modulo1_aplicacionprincipal
 
+import com.cecapi.app.core.navigation.CecapiDestinations
 import com.cecapi.app.core.util.PasswordHasher
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -18,6 +19,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
@@ -72,8 +74,9 @@ class GestionViewModel @Inject constructor(
         .filterNotNull()
         .flatMapLatest { usuario ->
             when (RolUsuario.fromCodigo(usuario.rol)) {
-                RolUsuario.ADMINISTRADOR -> incidenciaDao.observeTodas()
-                RolUsuario.DIRECTIVO -> incidenciaDao.observeDeInstitucion(usuario.origen)
+                RolUsuario.ADMINISTRADOR -> incidenciaDao.observeTodas().map { lista -> lista.filter { it.destinatarioRol != "soporte" } }
+                RolUsuario.DIRECTIVO -> incidenciaDao.observeParaRol(usuario.origen, RolUsuario.DIRECTIVO.codigo)
+                RolUsuario.EDUCADOR -> incidenciaDao.observeParaRol(usuario.origen, RolUsuario.EDUCADOR.codigo)
                 else -> flowOf(emptyList())
             }
         }
@@ -97,7 +100,7 @@ class GestionViewModel @Inject constructor(
 
     init {
         viewModelScope.launch {
-            voiceEngine.recognizedSpeech.collect { speech -> onSpeech(speech.text) }
+            voiceEngine.speechFor(CecapiDestinations.GESTION).collect { speech -> onSpeech(speech.text) }
         }
         // El detalle de cuántas personas se dice a petición ("cuántas personas"), no de entrada.
         voiceEngine.speak("Gestión. " + CommandCatalog.hint("gestión"), listenAfter = true)
@@ -199,7 +202,7 @@ class GestionViewModel @Inject constructor(
     /** Una baja pedida por una cuenta de institución la confirma un administrador, un directivo de su institución o su educador. */
     fun puedeAutorizarBajaDe(persona: UsuarioEntity): Boolean {
         val autor = sessionRepository.currentUser.value ?: return false
-        if (!persona.solicitaBaja) return false
+        if (!persona.solicitaBaja || persona.rol == RolUsuario.ADMINISTRADOR.codigo) return false
         return when (RolUsuario.fromCodigo(autor.rol)) {
             RolUsuario.ADMINISTRADOR -> true
             RolUsuario.DIRECTIVO -> autor.origen.equals(persona.origen, ignoreCase = true)
@@ -222,10 +225,74 @@ class GestionViewModel @Inject constructor(
         _expandidoId.value = null
     }
 
+    /** Quién puede tocar los datos de una cuenta: el administrador cualquiera; directivo su institución; educador sus alumnos. */
+    private fun puedeTocarCuenta(persona: UsuarioEntity): Boolean {
+        val autor = sessionRepository.currentUser.value ?: return false
+        if (persona.id == autor.id || persona.rol == RolUsuario.ADMINISTRADOR.codigo && autor.rol != RolUsuario.ADMINISTRADOR.codigo) {
+            return false
+        }
+        return when (RolUsuario.fromCodigo(autor.rol)) {
+            RolUsuario.ADMINISTRADOR -> true
+            RolUsuario.DIRECTIVO -> autor.origen.equals(persona.origen, ignoreCase = true) && autor.origen.isNotBlank()
+            RolUsuario.EDUCADOR -> persona.educadorId == autor.id
+            else -> false
+        }
+    }
+
+    fun puedeEditarCuenta(persona: UsuarioEntity): Boolean = puedeTocarCuenta(persona)
+
+    fun puedeDarDeBaja(persona: UsuarioEntity): Boolean =
+        puedeTocarCuenta(persona) && (persona.origen.isNotBlank() || persona.institucionSolicitada != null)
+
+    fun puedeEliminarCuenta(persona: UsuarioEntity): Boolean {
+        val autor = sessionRepository.currentUser.value ?: return false
+        return autor.rol == RolUsuario.ADMINISTRADOR.codigo && persona.id != autor.id &&
+            persona.rol != RolUsuario.ADMINISTRADOR.codigo
+    }
+
+    fun onEditarCuenta(persona: UsuarioEntity, nombre: String, apodo: String, correo: String) {
+        if (!puedeEditarCuenta(persona)) return
+        val autor = sessionRepository.currentUser.value ?: return
+        viewModelScope.launch {
+            usuarioDao.actualizarNombre(persona.id, nombre.trim().ifBlank { persona.nombreCompleto })
+            usuarioDao.actualizarApodo(persona.id, apodo.trim().ifBlank { null })
+            usuarioDao.actualizarEmail(persona.id, correo.trim().ifBlank { null })
+            cambioCuentaDao.insert(CambioCuentaEntity(objetivoId = persona.id, autorId = autor.id, tipo = "edicion", detalle = "Datos editados"))
+            cues.play(FeedbackCues.Cue.SUCCESS)
+            voiceEngine.speak("Listo, guardé los datos de ${persona.nombreCompleto}.")
+        }
+        _expandidoId.value = null
+    }
+
+    fun onDarDeBaja(persona: UsuarioEntity) {
+        if (!puedeDarDeBaja(persona)) return
+        val autor = sessionRepository.currentUser.value ?: return
+        viewModelScope.launch {
+            usuarioDao.quitarDeInstitucion(persona.id)
+            cambioCuentaDao.insert(CambioCuentaEntity(objetivoId = persona.id, autorId = autor.id, tipo = "baja_institucion", detalle = "Dada de baja de la institución"))
+            cues.play(FeedbackCues.Cue.SUCCESS)
+            voiceEngine.speak("Listo. ${persona.nombreCompleto} ya no está en la institución.")
+        }
+        _expandidoId.value = null
+    }
+
+    fun onEliminarCuenta(persona: UsuarioEntity) {
+        if (!puedeEliminarCuenta(persona)) return
+        val autor = sessionRepository.currentUser.value ?: return
+        viewModelScope.launch {
+            cambioCuentaDao.insert(CambioCuentaEntity(objetivoId = persona.id, autorId = autor.id, tipo = "eliminada", detalle = "Cuenta eliminada por un administrador"))
+            sessionRepository.borrarCuentaDe(persona.id)
+            cues.play(FeedbackCues.Cue.SUCCESS)
+            voiceEngine.speak("Listo. Eliminé la cuenta de ${persona.nombreCompleto}.")
+        }
+        _expandidoId.value = null
+    }
+
     fun onEducadorElegido(alumno: UsuarioEntity, educador: UsuarioEntity?) {
         if (!puedeEditar()) return
         viewModelScope.launch {
             usuarioDao.asignarEducador(alumno.id, educador?.id)
+            usuarioDao.actualizarSolicitaCambioEducador(alumno.id, false)
             cues.play(FeedbackCues.Cue.SUCCESS)
             voiceEngine.speak(
                 if (educador != null) "${alumno.nombreCompleto} ahora está con ${educador.nombreCompleto}."

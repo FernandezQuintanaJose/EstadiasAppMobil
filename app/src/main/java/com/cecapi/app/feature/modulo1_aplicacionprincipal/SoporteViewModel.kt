@@ -1,5 +1,6 @@
 package com.cecapi.app.feature.modulo1_aplicacionprincipal
 
+import com.cecapi.app.core.navigation.CecapiDestinations
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.cecapi.app.core.voice.FeedbackCues
@@ -74,7 +75,7 @@ class SoporteViewModel @Inject constructor(
         }
 
         viewModelScope.launch {
-            voiceEngine.recognizedSpeech.collect { speech -> onSpeech(speech.text) }
+            voiceEngine.speechFor(CecapiDestinations.SOPORTE).collect { speech -> onSpeech(speech.text) }
         }
 
         val saludo = if (_uiState.value.rol == RolUsuario.ALUMNO) {
@@ -115,6 +116,43 @@ class SoporteViewModel @Inject constructor(
         )
     }
 
+    fun hayCuenta(): Boolean = sessionRepository.currentUser.value != null
+
+    /** Mensajes de Ayuda y soporte de todas las personas; solo los ve el administrador. */
+    val mensajesDeSoporte: StateFlow<List<IncidenciaEntity>> = incidenciaDao.observeSoporte()
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+
+    /** Reporte técnico escrito: mismo destino que el dictado. */
+    fun enviarEscrito(mensaje: String) {
+        if (mensaje.isBlank()) return
+        capturarMensaje(mensaje)
+    }
+
+    fun responder(incidencia: IncidenciaEntity, texto: String) {
+        if (texto.isBlank()) return
+        viewModelScope.launch {
+            incidenciaDao.responder(incidencia.id, texto.trim())
+            cues.play(FeedbackCues.Cue.SUCCESS)
+            voiceEngine.speak("Respondí el mensaje.")
+        }
+    }
+
+    fun eliminarMensaje(incidencia: IncidenciaEntity) {
+        viewModelScope.launch {
+            incidenciaDao.borrar(incidencia.id)
+            cues.play(FeedbackCues.Cue.SUCCESS)
+            voiceEngine.speak("Eliminé el mensaje.")
+        }
+    }
+
+    fun marcarResuelto(incidencia: IncidenciaEntity) {
+        viewModelScope.launch {
+            incidenciaDao.marcarResuelta(incidencia.id)
+            cues.play(FeedbackCues.Cue.SUCCESS)
+            voiceEngine.speak("Marqué el mensaje como resuelto.")
+        }
+    }
+
     fun pedirMensaje() {
         _uiState.value = _uiState.value.copy(esperandoMensaje = true)
         voiceEngine.rawInput = true // lo que diga a continuación es el mensaje completo, no un comando
@@ -128,13 +166,24 @@ class SoporteViewModel @Inject constructor(
             voiceEngine.speak("No escuché nada. Di reportar un problema para intentarlo de nuevo.", listenAfter = true)
             return
         }
-        val usuario = sessionRepository.currentUser.value ?: return
+        val usuario = sessionRepository.currentUser.value
+        if (usuario == null) {
+            voiceEngine.speak("Para escribirnos primero inicia sesión. Así podemos responderte.", listenAfter = true)
+            return
+        }
         val destino = when (val d = RolePermissions.destinoDeIncidencia(usuario)) {
             is DestinoIncidencia.InstitucionDe -> d.origen
             DestinoIncidencia.Administradores -> null
         }
         viewModelScope.launch {
-            incidenciaDao.insert(IncidenciaEntity(reportanteId = usuario.id, destinoOrigen = destino, mensaje = mensaje.trim()))
+            incidenciaDao.insert(
+                IncidenciaEntity(
+                    reportanteId = usuario.id,
+                    destinoOrigen = destino,
+                    mensaje = mensaje.trim(),
+                    destinatarioRol = DESTINO_SOPORTE,
+                ),
+            )
             cues.play(FeedbackCues.Cue.SUCCESS)
             voiceEngine.speak("Listo, lo reporté. Gracias por avisar.", listenAfter = true)
         }
@@ -159,3 +208,5 @@ class SoporteViewModel @Inject constructor(
         super.onCleared()
     }
 }
+
+private const val DESTINO_SOPORTE = "soporte"

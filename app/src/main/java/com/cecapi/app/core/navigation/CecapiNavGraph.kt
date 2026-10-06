@@ -1,6 +1,9 @@
 package com.cecapi.app.core.navigation
 
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
+import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.navigation.NavController
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
@@ -21,12 +24,31 @@ import com.cecapi.app.feature.modulo1_aplicacionprincipal.GestionScreen
 import com.cecapi.app.feature.modulo1_aplicacionprincipal.PersonalizationScreen
 import com.cecapi.app.feature.modulo1_aplicacionprincipal.RankingScreen
 import com.cecapi.app.feature.modulo1_aplicacionprincipal.SoporteScreen
+import com.cecapi.app.feature.modulo1_aplicacionprincipal.EmergenciasScreen
+import com.cecapi.app.feature.modulo1_aplicacionprincipal.ReportarIncidenteScreen
 import com.cecapi.app.feature.modulo1_aplicacionprincipal.SettingsScreen
 import com.cecapi.app.feature.modulo5_solicitudes.RequestsScreen
 import com.cecapi.app.feature.modulo2_asistentevoz.VoiceAssistantScreen
 
 @Composable
 fun CecapiNavGraph(navController: NavHostController = rememberNavController()) {
+    val navVoice: NavVoiceViewModel = hiltViewModel()
+    DisposableEffect(navController) {
+        navVoice.voiceEngine.activeRoute = navController.currentDestination?.route
+        var profundidad = navController.currentBackStack.value.size
+        val listener = NavController.OnDestinationChangedListener { controller, destination, _ ->
+            navVoice.voiceEngine.activeRoute = destination.route
+            val nueva = controller.currentBackStack.value.size
+            navVoice.voiceEngine.stopSpeaking()
+            if (nueva < profundidad) {
+                val menu = destination.route == CecapiDestinations.DASHBOARD
+                navVoice.voiceEngine.speak(if (menu) "Volviendo al menú." else "Volviendo.")
+            }
+            profundidad = nueva
+        }
+        navController.addOnDestinationChangedListener(listener)
+        onDispose { navController.removeOnDestinationChangedListener(listener) }
+    }
     NavHost(navController = navController, startDestination = CecapiDestinations.HOME) {
         composable(CecapiDestinations.HOME) {
             HomeScreen(
@@ -86,6 +108,12 @@ fun CecapiNavGraph(navController: NavHostController = rememberNavController()) {
         }
         composable(CecapiDestinations.GESTION) {
             WakeScope { GestionScreen(onBack = { navController.popBackStack() }) }
+        }
+        composable(CecapiDestinations.EMERGENCIAS) {
+            WakeScope { EmergenciasScreen(onBack = { navController.popBackStack() }) }
+        }
+        composable(CecapiDestinations.REPORTAR_INCIDENTE) {
+            WakeScope { ReportarIncidenteScreen(onBack = { navController.popBackStack() }) }
         }
         composable(CecapiDestinations.SOPORTE) {
             WakeScope { SoporteScreen(onBack = { navController.popBackStack() }) }

@@ -17,12 +17,12 @@ import sys
 RAIZ = pathlib.Path(__file__).resolve().parents[2]
 COMANDOS = RAIZ / "docs/referencia/comandos.md"
 
-COMMIT = "e968668"
-FECHA = "1 de octubre de 2026"
+COMMIT = "20c1e84"
+FECHA = "5 de octubre de 2026"
 
 # (página, liga, para quién, estado, clase de estado, nota)
 PAGINAS = [
-    ("Tareas por equipo, del 26 sep al 4 oct", "https://claude.ai/artifact/HBF3rJTytZj34HZ9H1bWon", "Todos los equipos", "Vigente", "ok", "Qué le toca a cada equipo y quién depende de quién. Las tareas con evidencia al 1 de octubre ya están marcadas."),
+    ("Tareas por equipo", "https://claude.ai/artifact/HBF3rJTytZj34HZ9H1bWon", "Todos los equipos", "Vigente", "ok", "Una pestaña por semana. La de arriba es la del 5 al 11 de octubre."),
     ("Guía Equipo IA", "https://claude.ai/artifact/MFHP3Vihse48rqGQZj24Y9", "Equipo 2", "Con aviso", "warn", "La IA está apagada en la app hasta decidir proveedor y edades. Leer el aviso de arriba antes de avanzar."),
     ("Guía Equipo Cámaras", "https://claude.ai/artifact/1MPBhgeFa36dUnXZCCE7Eg", "Equipos 3 y 5", "Con aviso", "warn", "Hoy la cámara funciona con ML Kit en el teléfono y ya tiene galería. Leer el aviso de arriba."),
     ("Probar CECAPI", "https://claude.ai/artifact/My5wz3xvbvUiZHzaXy2Pai", "Compañeros", "Con aviso", "warn", "Los pasos para abrir el proyecto siguen sirviendo; el menú que describe ya cambió."),
@@ -80,6 +80,7 @@ DECISIONES = [
 ]
 
 CAMBIOS = [
+    ("3 y 4 oct", "Rediseño según el prototipo de Figma, podio en Clasificación, Mi cuenta en dos pestañas, unirse a una institución y validación; Módulo 6 unificado; el asistente entiende frases con /entender."),
     ("1 oct", "Pantallas nuevas: Gestión, Ayuda y soporte, Clasificación y Editar mi cuenta. Actividades en tarjetas deslizables con actividades recreativas. Lector con tarjetas grandes y guía de encuadre (diseño del Equipo 3). Instalado en el teléfono de prueba."),
     ("30 sep", "Roles con Educador; cámara sin cuenta; IA conectada pero apagada; backend del Equipo 2 integrado; diccionario de objetos del Equipo 5; Wikipedia y Wikidata."),
     ("29 sep", "Wikipedia como respaldo, borrar cuenta con contraseña, \"olvidé mi contraseña\", doble toque para callar al asistente, foto visible mientras se lee."),

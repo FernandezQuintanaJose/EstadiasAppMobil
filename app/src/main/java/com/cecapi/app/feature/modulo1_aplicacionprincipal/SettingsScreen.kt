@@ -1,5 +1,7 @@
 package com.cecapi.app.feature.modulo1_aplicacionprincipal
 
+import com.cecapi.app.core.theme.CecapiBorder
+import androidx.compose.foundation.border
 import android.Manifest
 import android.os.Build
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -197,7 +199,6 @@ fun SettingsScreen(
                     BigBtn(
                         icon = Icons.Filled.Person,
                         label = "Cuenta",
-                        sub = "Con quién iniciaste sesión, cerrar sesión o borrar tu cuenta",
                         section = Sections.Settings,
                         onClick = { sub = SettingsSub.CUENTA },
                     )
@@ -221,32 +222,30 @@ fun SettingsScreen(
 
             SettingsSub.NOTIFICACIONES -> {
                 ScreenTopBar(eyebrow = "CONFIGURACIÓN", title = "Notificaciones", onBack = { sub = null }, onCommands = viewModel::onCommandsRequested)
-                Text(
-                    text = if (notificationAccess) "Acceso concedido" else "Falta dar acceso",
-                    style = MaterialTheme.typography.titleMedium,
-                    color = if (notificationAccess) CecapiAccent else CecapiError,
-                )
-                if (!notificationAccess) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(20.dp))
+                        .background(CecapiSurface)
+                        .border(1.dp, if (notificationAccess) CecapiAccent else CecapiError, RoundedCornerShape(20.dp))
+                        .padding(16.dp),
+                ) {
                     Text(
-                        "Android pide que lo actives tú, una sola vez, en sus ajustes. Busca CECAPI y enciéndelo.",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = CecapiTextMuted,
+                        text = if (notificationAccess) "Acceso concedido" else "Falta dar acceso",
+                        style = MaterialTheme.typography.titleLarge,
+                        color = if (notificationAccess) CecapiAccent else CecapiError,
                     )
+                }
+                if (!notificationAccess) {
                     ActionButton(
                         "Dar acceso a notificaciones",
                         "Dar acceso a notificaciones. Abre los ajustes de Android, donde debes buscar CECAPI y activarlo.",
                         viewModel::onOpenNotificationSettings,
                     )
-                } else {
-                    Text(
-                        "Di: qué notificaciones tengo, léeme la última, o léelas todas.",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = CecapiTextMuted,
-                    )
                 }
                 SwitchRow(
                     label = "Avisar cuando llegan",
-                    description = "Dice solo \"nueva notificación de\" y la app, nunca el contenido",
+                    description = "",
                     checked = announceNotifications,
                     onChange = viewModel::onAnnounceNotificationsChanged,
                     help = "Avisar cuando llegan. Cuando entra una notificación digo de qué aplicación es, " +
@@ -261,24 +260,24 @@ fun SettingsScreen(
                     Text("Calculando…", style = MaterialTheme.typography.bodyMedium, color = CecapiTextMuted)
                 } else {
                     if (usage.lowSpace) NoticeBanner("Queda poco espacio en el teléfono. Conviene liberar espacio.")
-                    Text(
-                        text = viewModel.describeStorage(usage),
-                        style = MaterialTheme.typography.bodyLarge,
-                        color = MaterialTheme.colorScheme.onBackground,
-                    )
-                    if (usage.oldPhotoCount > 0) {
-                        Text(
-                            "${usage.oldPhotoCount} fotos tienen más de un mes y se pueden borrar.",
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = CecapiTextMuted,
-                        )
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(20.dp))
+                            .background(CecapiSurface)
+                            .border(1.dp, CecapiBorder, RoundedCornerShape(20.dp))
+                            .padding(16.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp),
+                    ) {
+                        Text("Libre: ${espacio(usage.freeBytes)}", style = MaterialTheme.typography.titleLarge, color = MaterialTheme.colorScheme.onBackground)
+                        Text("CECAPI usa: ${espacio(usage.appBytes)}", style = MaterialTheme.typography.titleLarge, color = CecapiAccent)
                     }
                 }
                 if (pendingClean) {
                     NoticeBanner("¿Borrar las fotos de más de un mes? Di sí o no.")
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        SuggestionChip(label = "sí", onClick = viewModel::confirmClean)
-                        SuggestionChip(label = "no", onClick = viewModel::cancelClean)
+                        BigBtn(icon = Icons.Filled.Check, label = "Sí", variant = BigBtnVariant.Danger, half = true, onClick = viewModel::confirmClean, modifier = Modifier.weight(1f))
+                        BigBtn(icon = Icons.Filled.Close, label = "No", half = true, onClick = viewModel::cancelClean, modifier = Modifier.weight(1f))
                     }
                 } else {
                     ActionButton(
@@ -344,14 +343,6 @@ fun SettingsScreen(
             SettingsSub.CUENTA -> user?.let { current ->
                 ScreenTopBar(eyebrow = "MENÚ", title = "Cuenta", onBack = { sub = null }, onCommands = viewModel::onCommandsRequested)
                 Text(current.nombreCompleto, style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onBackground)
-                Text(
-                    buildString {
-                        append("Usuario ${current.nombreUsuario} · rol ${current.rol}")
-                        if (current.origen.isNotBlank()) append(" · ${current.origen}")
-                    },
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = CecapiTextMuted,
-                )
                 BigBtn(
                     icon = Icons.AutoMirrored.Filled.Logout,
                     label = "Cerrar sesión",
@@ -406,8 +397,8 @@ fun SettingsScreen(
                 } else if (pendingDeleteAccount) {
                     NoticeBanner("¿Borrar tu cuenta y todo lo que guardaste? No se puede deshacer. Di sí, borrar, o no.")
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        SuggestionChip(label = "sí, borrar", onClick = viewModel::confirmDeleteAccount)
-                        SuggestionChip(label = "no", onClick = viewModel::cancelDeleteAccount)
+                        BigBtn(icon = Icons.Filled.Check, label = "Sí, borrar", variant = BigBtnVariant.Danger, half = true, onClick = viewModel::confirmDeleteAccount, modifier = Modifier.weight(1f))
+                        BigBtn(icon = Icons.Filled.Close, label = "No", half = true, onClick = viewModel::cancelDeleteAccount, modifier = Modifier.weight(1f))
                     }
                 } else {
                     ActionButton(
@@ -442,10 +433,18 @@ internal fun SliderRow(
     onFinished: () -> Unit,
     help: String,
 ) {
-    Column(modifier = Modifier.voiceHint(help)) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(20.dp))
+            .background(CecapiSurface)
+            .border(1.dp, CecapiBorder, RoundedCornerShape(20.dp))
+            .voiceHint(help)
+            .padding(16.dp),
+    ) {
         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-            Text(label, style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onBackground)
-            Text(valueText, style = MaterialTheme.typography.titleMedium, color = CecapiAccent)
+            Text(label, style = MaterialTheme.typography.titleLarge, color = MaterialTheme.colorScheme.onBackground)
+            Text(valueText, style = MaterialTheme.typography.titleLarge, color = CecapiAccent)
         }
         Slider(
             value = value,
@@ -470,16 +469,21 @@ internal fun SwitchRow(
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(12.dp))
+            .clip(RoundedCornerShape(20.dp))
+            .background(CecapiSurface)
+            .border(1.dp, CecapiBorder, RoundedCornerShape(20.dp))
             .clickable { onChange(!checked) }
-            .heightIn(min = 56.dp)
-            .voiceHint(help),
+            .heightIn(min = 76.dp)
+            .voiceHint(help)
+            .padding(16.dp),
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Column(modifier = Modifier.weight(1f).padding(end = 12.dp)) {
-            Text(label, style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onBackground)
-            Text(description, style = MaterialTheme.typography.bodyMedium, color = CecapiTextMuted)
+            Text(label, style = MaterialTheme.typography.titleLarge, color = MaterialTheme.colorScheme.onBackground)
+            if (description.isNotBlank()) {
+                Text(description, style = MaterialTheme.typography.bodyMedium, color = CecapiTextMuted)
+            }
         }
         Switch(
             checked = checked,
@@ -491,15 +495,10 @@ internal fun SwitchRow(
 
 @Composable
 internal fun ActionButton(text: String, help: String, onClick: () -> Unit) {
-    Button(
-        onClick = onClick,
-        modifier = Modifier
-            .fillMaxWidth()
-            .heightIn(min = 56.dp)
-            .voiceHint(help),
-        colors = ButtonDefaults.buttonColors(containerColor = CecapiAccent),
-    ) {
-        Text(text, color = MaterialTheme.colorScheme.onPrimary, style = MaterialTheme.typography.titleMedium)
-    }
+    BigBtn(icon = Icons.Filled.Check, label = text, onClick = onClick)
 }
 
+
+/** Tamaño corto para la pantalla: GB o MB. */
+private fun espacio(bytes: Long): String =
+    if (bytes >= 1_000_000_000L) "%.1f GB".format(bytes / 1_000_000_000.0) else "%d MB".format(bytes / 1_000_000)

@@ -1,5 +1,11 @@
 package com.cecapi.app.feature.modulo1_aplicacionprincipal
 
+import com.cecapi.app.core.theme.CecapiSurface
+import com.cecapi.app.core.theme.CecapiBorder
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.pager.rememberPagerState
+import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.material.icons.filled.Tune
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -65,7 +71,7 @@ import com.cecapi.app.core.voice.VoiceState
 import kotlinx.coroutines.delay
 import kotlin.math.roundToInt
 
-private enum class PersonalizationSub { VOZ, COMO_ME_HABLAS, PERFIL, PANTALLA, AVISOS }
+private enum class PersonalizationSub { VOZ, VOZ_ELEGIR, COMO_ME_HABLAS, PERFIL, PANTALLA, AVISOS }
 
 /**
  * Personalización, como un vestíbulo con una tarjeta por tema (igual que el resto de la app) en
@@ -137,24 +143,12 @@ fun PersonalizationScreen(
                         section = Sections.Personalization,
                         onClick = { sub = PersonalizationSub.COMO_ME_HABLAS },
                     )
-                    Row(horizontalArrangement = Arrangement.spacedBy(12.dp), modifier = Modifier.fillMaxWidth()) {
-                        BigBtn(
-                            icon = Icons.Filled.ChildCare,
-                            label = "Perfil",
-                            section = Sections.Personalization,
-                            half = true,
-                            onClick = { sub = PersonalizationSub.PERFIL },
-                            modifier = Modifier.weight(1f),
-                        )
-                        BigBtn(
-                            icon = Icons.Filled.Visibility,
-                            label = "Pantalla",
-                            section = Sections.Personalization,
-                            half = true,
-                            onClick = { sub = PersonalizationSub.PANTALLA },
-                            modifier = Modifier.weight(1f),
-                        )
-                    }
+                    BigBtn(
+                        icon = Icons.Filled.Visibility,
+                        label = "Pantalla",
+                        section = Sections.Personalization,
+                        onClick = { sub = PersonalizationSub.PANTALLA },
+                    )
                     BigBtn(
                         icon = Icons.Filled.NotificationsActive,
                         label = "Avisos y vibración",
@@ -164,28 +158,44 @@ fun PersonalizationScreen(
                     )
                 }
 
+                PersonalizationSub.VOZ_ELEGIR -> {
+                    ScreenTopBar(eyebrow = "MI VOZ", title = "Elegir voz", onBack = { sub = PersonalizationSub.VOZ }, onCommands = viewModel::onCommandsRequested)
+                    val paginas = listOf("" to "Automática") + voices.map { it.name to it.label }
+                    val pager = rememberPagerState(
+                        initialPage = paginas.indexOfFirst { it.first == voiceName }.coerceAtLeast(0),
+                        pageCount = { paginas.size },
+                    )
+                    HorizontalPager(state = pager, modifier = Modifier.fillMaxWidth().height(220.dp)) { pagina ->
+                        Column(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .clip(RoundedCornerShape(20.dp))
+                                .background(CecapiSurface)
+                                .border(1.dp, CecapiBorder, RoundedCornerShape(20.dp))
+                                .padding(20.dp),
+                            verticalArrangement = Arrangement.Center,
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                        ) {
+                            Text(paginas[pagina].second, style = MaterialTheme.typography.headlineSmall, color = MaterialTheme.colorScheme.onBackground)
+                        }
+                    }
+                    BigBtn(
+                        icon = Icons.Filled.Check,
+                        label = "Usar esta voz",
+                        variant = BigBtnVariant.Accent,
+                        onClick = { viewModel.onVoiceChosen(paginas[pager.currentPage].first) },
+                    )
+                }
+
                 PersonalizationSub.VOZ -> {
                     ScreenTopBar(eyebrow = "MI VOZ", title = "Nombre y ajustes", onBack = { sub = null }, onCommands = viewModel::onCommandsRequested)
-                    ChoiceRow(
-                        label = "Automática",
-                        detail = "La que el teléfono trae por defecto",
-                        selected = voiceName.isEmpty(),
-                        help = "Voz automática. Uso la voz que trae tu teléfono. Toca dos veces para elegirla.",
-                        onClick = { viewModel.onVoiceChosen("") },
+                    val vozActual = voices.firstOrNull { it.name == voiceName }?.label ?: "Automática"
+                    BigBtn(
+                        icon = Icons.Filled.Mic,
+                        label = "Voz: $vozActual",
+                        section = Sections.Personalization,
+                        onClick = { sub = PersonalizationSub.VOZ_ELEGIR },
                     )
-                    if (voices.isEmpty()) {
-                        Text("Buscando las voces en español de tu teléfono…", style = MaterialTheme.typography.bodyMedium, color = CecapiTextMuted)
-                    }
-                    voices.forEach { option ->
-                        ChoiceRow(
-                            label = option.label,
-                            detail = if (option.needsInternet) "Necesita internet" else "Funciona sin internet",
-                            selected = voiceName == option.name,
-                            help = "${option.label}. ${if (option.needsInternet) "Necesita internet." else "Funciona sin internet."} " +
-                                "Toca dos veces para elegirla y escucharla.",
-                            onClick = { viewModel.onVoiceChosen(option.name) },
-                        )
-                    }
                     SliderRow(
                         label = "Velocidad",
                         valueText = "${(rate * 4).roundToInt() / 4f}x",
@@ -294,21 +304,19 @@ fun PersonalizationScreen(
 
                 PersonalizationSub.PANTALLA -> {
                     ScreenTopBar(eyebrow = "PANTALLA", title = "Opciones de pantalla", onBack = { sub = null }, onCommands = viewModel::onCommandsRequested)
-                    SwitchRow(
+                    BigBtn(
+                        icon = Icons.Filled.Visibility,
                         label = "Pantalla negra",
-                        description = "Todo se ve negro. Toca la pantalla para hablar; mantenla presionada para volver",
-                        checked = blackScreen,
-                        onChange = viewModel::onBlackScreenChanged,
-                        help = "Pantalla negra. La pantalla se pone completamente negra y la aplicación se maneja solo con la voz. " +
-                            "Tocar la pantalla abre el micrófono. Para volver, di pantalla normal, o mantén presionada la pantalla.",
+                        section = Sections.Personalization,
+                        variant = if (blackScreen) BigBtnVariant.Accent else BigBtnVariant.Neutral,
+                        onClick = { viewModel.onBlackScreenChanged(!blackScreen) },
                     )
-                    SwitchRow(
+                    BigBtn(
+                        icon = Icons.Filled.Tune,
                         label = "Brillo mínimo",
-                        description = "Baja el brillo al mínimo mientras la aplicación está abierta",
-                        checked = minBrightness,
-                        onChange = viewModel::onMinBrightnessChanged,
-                        help = "Brillo mínimo. Deja la pantalla con el menor brillo y sin brillo automático mientras la aplicación " +
-                            "está abierta. Al salir de la aplicación, el teléfono vuelve a su brillo normal. Para volver, di brillo normal.",
+                        section = Sections.Personalization,
+                        variant = if (minBrightness) BigBtnVariant.Accent else BigBtnVariant.Neutral,
+                        onClick = { viewModel.onMinBrightnessChanged(!minBrightness) },
                     )
                 }
 
@@ -434,7 +442,7 @@ private fun ChoiceRow(
         verticalArrangement = Arrangement.Center,
     ) {
         Text(
-            text = if (selected) "$label  ✓" else label,
+            text = label,
             style = MaterialTheme.typography.titleMedium,
             color = if (selected) CecapiAccent else MaterialTheme.colorScheme.onBackground,
         )

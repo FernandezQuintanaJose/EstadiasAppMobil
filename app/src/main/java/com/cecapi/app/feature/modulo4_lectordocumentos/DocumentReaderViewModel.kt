@@ -81,7 +81,7 @@ class DocumentReaderViewModel @Inject constructor(
     init {
         observarFinDeParrafo()
         viewModelScope.launch {
-            voiceEngine.recognizedSpeech.collect { speech -> onSpeech(speech.text) }
+            voiceEngine.speechFor(CecapiDestinations.DOCUMENT_READER).collect { speech -> onSpeech(speech.text) }
         }
         voiceEngine.speak(
             "Lector de texto. Apunta la cámara a un papel y di toma la foto. " + CommandCatalog.hint("cámara"),

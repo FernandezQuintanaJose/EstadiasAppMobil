@@ -1,5 +1,6 @@
 package com.cecapi.app.feature.modulo5_solicitudes
 
+import com.cecapi.app.core.navigation.CecapiDestinations
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.cecapi.app.core.voice.FeedbackCues
@@ -71,7 +72,7 @@ class RequestsViewModel @Inject constructor(
             _uiState.collect { s -> voiceEngine.rawInput = s.plantillaSeleccionada != null && s.textoGenerado == null }
         }
         viewModelScope.launch {
-            voiceEngine.recognizedSpeech.collect { speech -> onSpeech(speech.text) }
+            voiceEngine.speechFor(CecapiDestinations.REQUESTS).collect { speech -> onSpeech(speech.text) }
         }
     }
 

@@ -63,7 +63,7 @@ class EnvironmentViewModel @Inject constructor(
 
     init {
         viewModelScope.launch {
-            voiceEngine.recognizedSpeech.collect { speech -> onSpeech(speech.text) }
+            voiceEngine.speechFor(CecapiDestinations.ENVIRONMENT).collect { speech -> onSpeech(speech.text) }
         }
         voiceEngine.speak(
             "Descripción del entorno. Apunta la cámara al frente y di qué hay enfrente. " +
@@ -116,6 +116,13 @@ class EnvironmentViewModel @Inject constructor(
         if (_uiState.value.isProcessing || !hayEspacio()) return
         voiceEngine.speak("Tomando foto.")
         _captureRequests.tryEmit(Unit)
+    }
+
+    /** Vuelve a la cámara para tomar otra foto: quita la foto y la descripción anteriores. */
+    fun tomarOtraFoto() {
+        if (_uiState.value.isProcessing) return
+        _uiState.value = EnvironmentUiState()
+        voiceEngine.speak("Listo. Apunta la cámara y di qué hay enfrente.")
     }
 
     fun repetir() {

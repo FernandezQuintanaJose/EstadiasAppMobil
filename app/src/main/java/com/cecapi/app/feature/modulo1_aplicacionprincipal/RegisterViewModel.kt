@@ -1,5 +1,6 @@
 package com.cecapi.app.feature.modulo1_aplicacionprincipal
 
+import com.cecapi.app.core.navigation.CecapiDestinations
 import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -32,6 +33,7 @@ data class RegisterUiState(
     val nombreCompleto: String = "",
     val nombreUsuario: String = "",
     val contrasena: String = "",
+    val confirmarContrasena: String = "",
     val institucion: InstitucionRegistro = InstitucionRegistro.NINGUNA,
     /** Epoch millis; null hasta que la persona elige una fecha. */
     val fechaNacimiento: Long? = null,
@@ -70,7 +72,7 @@ class RegisterViewModel @Inject constructor(
                 CommandCatalog.hint("crear cuenta"),
         )
         viewModelScope.launch {
-            voiceEngine.recognizedSpeech.collect { speech -> onVoiceInput(speech.text.trim()) }
+            voiceEngine.speechFor(CecapiDestinations.REGISTER).collect { speech -> onVoiceInput(speech.text.trim()) }
         }
     }
 
@@ -156,6 +158,10 @@ class RegisterViewModel @Inject constructor(
         _uiState.value = _uiState.value.copy(contrasena = value, errorMessage = null)
     }
 
+    fun onConfirmarContrasenaChange(value: String) {
+        _uiState.value = _uiState.value.copy(confirmarContrasena = value, errorMessage = null)
+    }
+
     fun onInstitucionChange(value: InstitucionRegistro) {
         _uiState.value = _uiState.value.copy(institucion = value)
     }
@@ -177,6 +183,12 @@ class RegisterViewModel @Inject constructor(
             _uiState.value = state.copy(errorMessage = message)
             voiceTarget = RegisterVoiceTarget.CONTRASENA
             voiceEngine.speak(message, listenAfter = true)
+            return
+        }
+        if (state.confirmarContrasena != state.contrasena) {
+            val message = "Las contraseñas no coinciden. Escribe la confirmación otra vez."
+            _uiState.value = state.copy(errorMessage = message, confirmarContrasena = "")
+            voiceEngine.speak(message)
             return
         }
         if (state.fechaNacimiento == null) {

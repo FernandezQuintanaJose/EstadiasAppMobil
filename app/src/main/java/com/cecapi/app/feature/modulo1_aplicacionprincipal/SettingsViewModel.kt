@@ -1,5 +1,6 @@
 package com.cecapi.app.feature.modulo1_aplicacionprincipal
 
+import com.cecapi.app.core.navigation.CecapiDestinations
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.cecapi.app.core.util.PasswordHasher
@@ -83,7 +84,7 @@ class SettingsViewModel @Inject constructor(
     init {
         refreshStorage()
         viewModelScope.launch {
-            voiceEngine.recognizedSpeech.collect { speech -> onSpeech(speech.text) }
+            voiceEngine.speechFor(CecapiDestinations.SETTINGS).collect { speech -> onSpeech(speech.text) }
         }
         voiceEngine.speak(
             "Configuración. Aquí están el volumen, las notificaciones, escuchar fuera de la aplicación y tu cuenta. " +

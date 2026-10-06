@@ -1,5 +1,6 @@
 package com.cecapi.app.feature.modulo1_aplicacionprincipal
 
+import com.cecapi.app.core.navigation.CecapiDestinations
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.cecapi.app.core.util.DisplayControl
@@ -56,7 +57,7 @@ class PersonalizationViewModel @Inject constructor(
 
     init {
         viewModelScope.launch {
-            voiceEngine.recognizedSpeech.collect { speech -> onSpeech(speech.text) }
+            voiceEngine.speechFor(CecapiDestinations.PERSONALIZATION).collect { speech -> onSpeech(speech.text) }
         }
         voiceEngine.speak(
             "Personalización. Aquí eliges mi voz, cómo te llamo, cómo me llamas y cómo se sienten los avisos. " +
@@ -229,7 +230,19 @@ class PersonalizationViewModel @Inject constructor(
         voiceEngine.speak(profile.announcement)
     }
 
-    fun onBlackScreenChanged(enabled: Boolean) = displayControl.setBlackScreen(enabled)
+    /** El brillo mínimo que enciende la pantalla negra se apaga con ella; si ya estaba encendido antes, se queda. */
+    private var brilloEncendidoPorPantallaNegra = false
+
+    fun onBlackScreenChanged(enabled: Boolean) {
+        displayControl.setBlackScreen(enabled)
+        if (enabled) {
+            brilloEncendidoPorPantallaNegra = !minBrightness.value
+            displayControl.setMinBrightness(true)
+        } else if (brilloEncendidoPorPantallaNegra) {
+            brilloEncendidoPorPantallaNegra = false
+            displayControl.setMinBrightness(false)
+        }
+    }
 
     fun onMinBrightnessChanged(enabled: Boolean) = displayControl.setMinBrightness(enabled)
 

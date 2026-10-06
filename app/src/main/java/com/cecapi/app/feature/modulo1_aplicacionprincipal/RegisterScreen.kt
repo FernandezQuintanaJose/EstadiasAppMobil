@@ -200,6 +200,23 @@ fun RegisterScreen(
             colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = CecapiAccent),
         )
 
+        OutlinedTextField(
+            value = uiState.confirmarContrasena,
+            onValueChange = { viewModel.onConfirmarContrasenaChange(it.filter(Char::isDigit)) },
+            modifier = Modifier
+                .fillMaxWidth()
+                .heightIn(min = 72.dp)
+                .padding(top = 12.dp)
+                .voiceHint("Vuelve a escribir la contraseña para confirmarla."),
+            label = { Text("Confirma tu contraseña") },
+            textStyle = MaterialTheme.typography.titleLarge,
+            singleLine = true,
+            visualTransformation = PasswordVisualTransformation(),
+            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword),
+            shape = RoundedCornerShape(16.dp),
+            colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = CecapiAccent),
+        )
+
         Text(
             text = "INSTITUCIÓN",
             style = CecapiEyebrowStyle,

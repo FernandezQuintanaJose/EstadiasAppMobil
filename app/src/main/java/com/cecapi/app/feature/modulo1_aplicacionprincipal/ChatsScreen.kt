@@ -1,5 +1,10 @@
 package com.cecapi.app.feature.modulo1_aplicacionprincipal
 
+import com.cecapi.app.core.theme.CecapiBorder
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Check
+import com.cecapi.app.core.ui.BigBtnVariant
+import com.cecapi.app.core.ui.BigBtn
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -130,7 +135,7 @@ class ChatsViewModel @Inject constructor(
 
     init {
         viewModelScope.launch {
-            voiceEngine.recognizedSpeech.collect { speech -> onSpeech(speech.text) }
+            voiceEngine.speechFor(CecapiDestinations.CHATS).collect { speech -> onSpeech(speech.text) }
         }
         if (sessionRepository.currentUser.value == null) {
             voiceEngine.speak(VoiceMessages.NEEDS_LOGIN)
@@ -301,8 +306,8 @@ fun ChatsScreen(
                 if (state.pending == PendingDelete.ALL) "¿Borrar los ${chats.size} chats? Di sí o no." else "¿Borrar este chat? Di sí o no.",
             )
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                SuggestionChip(label = "sí", onClick = viewModel::confirmDelete)
-                SuggestionChip(label = "no", onClick = viewModel::cancelDelete)
+                BigBtn(icon = Icons.Filled.Check, label = "Sí", variant = BigBtnVariant.Danger, half = true, onClick = viewModel::confirmDelete, modifier = Modifier.weight(1f))
+                BigBtn(icon = Icons.Filled.Close, label = "No", half = true, onClick = viewModel::cancelDelete, modifier = Modifier.weight(1f))
             }
         }
 
@@ -375,15 +380,15 @@ private fun ChatCard(chat: ChatItem, selected: Boolean, onClick: () -> Unit) {
             .voiceHint(help)
             .padding(16.dp),
     ) {
-        Text(date, style = MaterialTheme.typography.bodyMedium, color = CecapiTextMuted)
         Text(
             chat.pregunta,
-            style = MaterialTheme.typography.titleMedium,
+            style = MaterialTheme.typography.titleLarge,
             color = MaterialTheme.colorScheme.onBackground,
             maxLines = 2,
         )
+        Text(date, style = MaterialTheme.typography.bodyMedium, color = CecapiTextMuted, modifier = Modifier.padding(top = 4.dp))
         chat.respuesta?.let {
-            Text(it, style = MaterialTheme.typography.bodyMedium, color = CecapiTextMuted, maxLines = 2)
+            Text(it, style = MaterialTheme.typography.bodyLarge, color = CecapiTextMuted, maxLines = 2, modifier = Modifier.padding(top = 4.dp))
         }
     }
 }

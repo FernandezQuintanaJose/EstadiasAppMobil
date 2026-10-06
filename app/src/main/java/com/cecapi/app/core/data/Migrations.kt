@@ -147,3 +147,32 @@ val MIGRATION_12_13 = object : Migration(12, 13) {
         db.execSQL("ALTER TABLE usuarios ADD COLUMN institucion_solicitada TEXT")
     }
 }
+
+/** v14: contactos de emergencia por persona, y reportes con destinatario y opción de anonimato. */
+val MIGRATION_13_14 = object : Migration(13, 14) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL(
+            "CREATE TABLE IF NOT EXISTS contactos_emergencia (" +
+                "id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, usuario_id INTEGER NOT NULL, " +
+                "nombre TEXT NOT NULL, telefono TEXT NOT NULL, relacion TEXT, " +
+                "FOREIGN KEY(usuario_id) REFERENCES usuarios(id) ON UPDATE NO ACTION ON DELETE CASCADE)",
+        )
+        db.execSQL("CREATE INDEX IF NOT EXISTS index_contactos_emergencia_usuario_id ON contactos_emergencia (usuario_id)")
+        db.execSQL("ALTER TABLE incidencias ADD COLUMN destinatario_rol TEXT")
+        db.execSQL("ALTER TABLE incidencias ADD COLUMN anonimo INTEGER NOT NULL DEFAULT 0")
+    }
+}
+
+/** v15: un alumno puede pedir cambiar de educador; queda marcado hasta que lo atienda quien corresponde. */
+val MIGRATION_14_15 = object : Migration(14, 15) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL("ALTER TABLE usuarios ADD COLUMN solicita_cambio_educador INTEGER NOT NULL DEFAULT 0")
+    }
+}
+
+/** v16: el administrador puede responder un mensaje de Ayuda y soporte; la respuesta la ve quien lo escribió. */
+val MIGRATION_15_16 = object : Migration(15, 16) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL("ALTER TABLE incidencias ADD COLUMN respuesta TEXT")
+    }
+}

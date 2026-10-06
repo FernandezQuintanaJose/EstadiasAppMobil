@@ -1,5 +1,6 @@
 package com.cecapi.app.feature.modulo6_aprendizaje
 
+import com.cecapi.app.core.navigation.CecapiDestinations
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.cecapi.app.core.voice.FeedbackCues
@@ -123,7 +124,7 @@ class LearningViewModel @Inject constructor(
             itemsFlow.collect { list -> onItemsLoaded(list) }
         }
         viewModelScope.launch {
-            voiceEngine.recognizedSpeech.collect { speech -> onSpeech(speech.text) }
+            voiceEngine.speechFor(CecapiDestinations.LEARNING).collect { speech -> onSpeech(speech.text) }
         }
     }
 

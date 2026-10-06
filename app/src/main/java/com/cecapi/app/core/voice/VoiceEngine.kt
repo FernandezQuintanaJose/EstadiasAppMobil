@@ -25,7 +25,9 @@ import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -315,6 +317,12 @@ class VoiceEngine @Inject constructor(
 
     /** False while the app is not on screen (it may still be listening through the background service). */
     @Volatile var appVisible = true
+
+    /** Ruta de la pantalla que está al frente. Solo esa pantalla recibe lo que se dice. */
+    @Volatile var activeRoute: String? = null
+
+    /** Lo que se dice, solo mientras la pantalla de [route] está al frente. */
+    fun speechFor(route: String): Flow<RecognizedSpeech> = recognizedSpeech.filter { activeRoute == route }
 
     /** Called by the background service's "Detener" button: same as saying "para". */
     fun stopByUser() = stopAssistant()
