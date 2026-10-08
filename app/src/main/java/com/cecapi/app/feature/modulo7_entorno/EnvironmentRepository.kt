@@ -3,9 +3,8 @@ package com.cecapi.app.feature.modulo7_entorno
 import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
-import android.graphics.Color
 import android.graphics.Matrix
-import android.graphics.Rect
+import android.graphics.RectF
 import android.media.ExifInterface
 import android.net.Uri
 import android.os.SystemClock
@@ -13,9 +12,9 @@ import android.util.Log
 import com.google.mlkit.vision.common.InputImage
 import com.google.mlkit.vision.label.ImageLabeling
 import com.google.mlkit.vision.label.defaults.ImageLabelerOptions
-import com.google.mlkit.vision.objects.DetectedObject
-import com.google.mlkit.vision.objects.ObjectDetection
-import com.google.mlkit.vision.objects.defaults.ObjectDetectorOptions
+import org.tensorflow.lite.support.image.TensorImage
+import org.tensorflow.lite.task.vision.detector.Detection
+import org.tensorflow.lite.task.vision.detector.ObjectDetector as TfliteObjectDetector
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.tasks.await
@@ -46,8 +45,7 @@ private data class ObjetoDescrito(
 }
 
 /**
- * Describe lo que hay enfrente SIN internet: los dos modelos de ML Kit (detección de objetos y
- * etiquetado de imágenes) viajan dentro de la app y corren en el teléfono.
+ * Describe lo que hay enfrente sin internet con un detector local de objetos y un etiquetador de respaldo.
  */
 @Singleton
 class EnvironmentRepository @Inject constructor(
@@ -56,20 +54,20 @@ class EnvironmentRepository @Inject constructor(
     private val objetoDao: ObjetoDetectadoDao,
     private val descripcionDao: DescripcionEntornoDao,
 ) {
-    // Detector: encuentra DÓNDE están los objetos (cajas). Su clasificación propia solo tiene
-    // 5 categorías gruesas (hogar, moda, comida, lugar, planta), por eso se usa como respaldo.
-    private val detector = ObjectDetection.getClient(
-        ObjectDetectorOptions.Builder()
-            .setDetectorMode(ObjectDetectorOptions.SINGLE_IMAGE_MODE)
-            .enableMultipleObjects()
-            .enableClassification()
-            .build(),
-    )
+    // Detector de objetos COCO: devuelve clases concretas y una caja por objeto, no solo
+    // categorías amplias como "comida" o "instrumento musical".
+    private val detectorDetallado by lazy {
+        val opciones = TfliteObjectDetector.ObjectDetectorOptions.builder()
+            .setMaxResults(MAX_OBJETOS)
+            .setScoreThreshold(CONFIANZA_MINIMA)
+            .build()
+        TfliteObjectDetector.createFromFileAndOptions(context, MODELO_DE_OBJETOS, opciones)
+    }
 
     // Etiquetador: dice QUÉ es cada objeto (silla, laptop, botella...). Modelo incluido en la app.
     private val etiquetador = ImageLabeling.getClient(
         ImageLabelerOptions.Builder()
-            .setConfidenceThreshold(0.5f)
+            .setConfidenceThreshold(CONFIANZA_RESPALDO)
             .build(),
     )
 
@@ -80,6 +78,7 @@ class EnvironmentRepository @Inject constructor(
      * out loud, it just is not saved to a history that would have nowhere to belong.
      */
     suspend fun processCapturedPhoto(usuarioId: Long?, imageUri: Uri, rutaImagen: String): Result<EnvironmentResult> {
+        var etapa = "validar la foto"
         return try {
             val inicio = SystemClock.elapsedRealtime()
 
@@ -92,26 +91,32 @@ class EnvironmentRepository @Inject constructor(
             val bitmap = cargarBitmapOrientado(rutaImagen)
                 ?: return Result.failure(Exception("No pude abrir la imagen."))
 
-            val objetosDetectados = detector.process(InputImage.fromBitmap(bitmap, 0)).await()
-
-            // Los MAX_OBJETOS más grandes se consideran los más importantes.
-            val importantes = objetosDetectados
-                .sortedByDescending { it.boundingBox.width() * it.boundingBox.height() }
-                .take(MAX_OBJETOS)
-
-            val descritos = mutableListOf<ObjetoDescrito>()
-            for (objeto in importantes) {
-                describirObjeto(bitmap, objeto)?.let { descritos.add(it) }
+            etapa = "detectar objetos"
+            // Si el modelo detallado falla en algún teléfono, intenta el etiquetador de respaldo
+            // en vez de abandonar el análisis completo de la foto.
+            val detecciones = try {
+                detectorDetallado.detect(TensorImage.fromBitmap(bitmap))
+            } catch (e: Exception) {
+                Log.e(TAG, "Falló el detector detallado; probaré el etiquetador de respaldo.", e)
+                emptyList()
             }
+            val descritos = detecciones
+                .mapNotNull { describirObjetoDetectado(it, bitmap.width) }
+                .sortedByDescending { it.confianza }
+                .take(MAX_OBJETOS)
 
             // Si el detector no encontró cajas (por ejemplo, un objeto muy de cerca),
             // se etiqueta la foto completa y se dice lo principal sin posición.
             val principal: ObjetoDescrito? =
-                if (descritos.isEmpty()) describirFotoCompleta(bitmap) else null
+                if (descritos.isEmpty()) {
+                    etapa = "etiquetar la foto completa"
+                    describirFotoCompleta(bitmap)
+                } else {
+                    null
+                }
 
             val finales = when {
                 descritos.isNotEmpty() -> descritos
-                    .distinctBy { it.etiqueta to it.posicion }
                     .sortedBy { ordenHorizontal(it.posicion) }
                 principal != null -> listOf(principal)
                 else -> emptyList()
@@ -129,6 +134,7 @@ class EnvironmentRepository @Inject constructor(
             bitmap.recycle()
 
             val escaneoId = usuarioId?.let { id ->
+                etapa = "guardar el resultado"
                 val nuevoId = escaneoDao.insert(EscaneoEntornoEntity(usuarioId = id, rutaImagen = rutaImagen))
                 if (finales.isNotEmpty()) {
                     objetoDao.insertAll(
@@ -149,51 +155,27 @@ class EnvironmentRepository @Inject constructor(
 
             Result.success(EnvironmentResult(escaneoId, descripcion, finales.map { it.etiqueta }))
         } catch (e: Exception) {
+            Log.e(TAG, "No se pudo analizar la foto durante la etapa: $etapa", e)
             Result.failure(e)
         }
     }
 
-    /** Recorta el objeto, lo etiqueta en el teléfono y arma nombre + color + posición. */
-    private suspend fun describirObjeto(bitmap: Bitmap, objeto: DetectedObject): ObjetoDescrito? {
-        val caja = objeto.boundingBox
-        val recorte = recortar(bitmap, caja) ?: return null
-        try {
-            var nombre: NombreEs? = null
-            var confianza = 0f
-
-            val etiquetas = etiquetador.process(InputImage.fromBitmap(recorte, 0)).await()
-                .sortedByDescending { it.confidence }
-            for (etiqueta in etiquetas) {
-                val traducido = EtiquetasEntorno.traducir(etiqueta.text)
-                if (traducido != null) {
-                    nombre = traducido
-                    confianza = etiqueta.confidence
-                    break
-                } else if (!EtiquetasEntorno.esIgnorada(etiqueta.text)) {
-                    // Etiqueta que aún no tenemos en español: anótala para completar el diccionario.
-                    Log.d(TAG_ETIQUETAS, "Sin traducción: ${etiqueta.text} (${etiqueta.confidence})")
-                }
-            }
-
-            // Respaldo: la categoría gruesa del detector ("objeto del hogar", "planta"...).
-            if (nombre == null) {
-                val gruesa = objeto.labels.maxByOrNull { it.confidence }
-                nombre = EtiquetasEntorno.categoriaGruesa(gruesa?.text)
-                confianza = gruesa?.confidence ?: 0.5f
-            }
-            if (nombre == null) return null
-
-            val color = colorConcordado(recorte, nombre)
-            return ObjetoDescrito(
-                nombre = nombre,
-                color = color,
-                posicion = posicionHorizontal(caja, bitmap.width),
-                confianza = confianza,
-                area = caja.width() * caja.height(),
-            )
-        } finally {
-            recorte.recycle()
+    /** Usa la etiqueta y la caja del detector específico; evita volver a adivinar con el modelo genérico. */
+    private fun describirObjetoDetectado(deteccion: Detection, anchoImagen: Int): ObjetoDescrito? {
+        val categoria = deteccion.categories.maxByOrNull { it.score } ?: return null
+        val nombre = EtiquetasEntorno.traducir(categoria.label) ?: run {
+            Log.d(TAG_ETIQUETAS, "Clase COCO sin traducción: ${categoria.label} (${categoria.score})")
+            return null
         }
+        val caja = deteccion.boundingBox
+        return ObjetoDescrito(
+            nombre = nombre,
+            // Se omite el color estimado: promediar una página con sombra suele llamarla "gris".
+            color = null,
+            posicion = posicionHorizontal(caja, anchoImagen),
+            confianza = categoria.score,
+            area = (caja.width() * caja.height()).toInt(),
+        )
     }
 
     /** Sin cajas del detector: etiqueta la foto completa y devuelve lo más seguro, sin posición. */
@@ -201,6 +183,7 @@ class EnvironmentRepository @Inject constructor(
         val etiquetas = etiquetador.process(InputImage.fromBitmap(bitmap, 0)).await()
             .sortedByDescending { it.confidence }
         for (etiqueta in etiquetas) {
+            if (EtiquetasEntorno.esDemasiadoGeneral(etiqueta.text)) continue
             val traducido = EtiquetasEntorno.traducir(etiqueta.text)
             if (traducido != null) {
                 return ObjetoDescrito(
@@ -217,8 +200,8 @@ class EnvironmentRepository @Inject constructor(
         return null
     }
 
-    private fun posicionHorizontal(caja: Rect, anchoImagen: Int): String {
-        val centro = caja.exactCenterX() / anchoImagen.toFloat()
+    private fun posicionHorizontal(caja: RectF, anchoImagen: Int): String {
+        val centro = caja.centerX() / anchoImagen.toFloat()
         return when {
             centro < 0.33f -> "a la izquierda"
             centro > 0.66f -> "a la derecha"
@@ -274,87 +257,13 @@ class EnvironmentRepository @Inject constructor(
         }
     }
 
-    /** Recorta la caja del objeto (con un poco de margen) dentro de los límites de la foto. */
-    private fun recortar(bitmap: Bitmap, caja: Rect): Bitmap? {
-        val margenX = (caja.width() * 0.05f).toInt()
-        val margenY = (caja.height() * 0.05f).toInt()
-        val izquierda = (caja.left - margenX).coerceIn(0, bitmap.width - 1)
-        val arriba = (caja.top - margenY).coerceIn(0, bitmap.height - 1)
-        val derecha = (caja.right + margenX).coerceIn(izquierda + 1, bitmap.width)
-        val abajo = (caja.bottom + margenY).coerceIn(arriba + 1, bitmap.height)
-        val ancho = derecha - izquierda
-        val alto = abajo - arriba
-        if (ancho < MIN_LADO_RECORTE || alto < MIN_LADO_RECORTE) return null
-        return try {
-            Bitmap.createBitmap(bitmap, izquierda, arriba, ancho, alto)
-        } catch (e: Exception) {
-            null
-        }
-    }
-
-    private fun colorConcordado(recorte: Bitmap, nombre: NombreEs): String? {
-        val color = colorPromedio(recorte)
-        return EtiquetasEntorno.colorConcordado(color, nombre)
-    }
-
-    /** Promedia el color de la parte central del recorte (así pesa menos el fondo). */
-    private fun colorPromedio(bitmap: Bitmap): String {
-        var sumR = 0L
-        var sumG = 0L
-        var sumB = 0L
-        var muestras = 0
-        val desdeX = (bitmap.width * 0.2f).toInt()
-        val hastaX = (bitmap.width * 0.8f).toInt().coerceAtLeast(desdeX + 1)
-        val desdeY = (bitmap.height * 0.2f).toInt()
-        val hastaY = (bitmap.height * 0.8f).toInt().coerceAtLeast(desdeY + 1)
-        val pasoX = maxOf(1, (hastaX - desdeX) / 10)
-        val pasoY = maxOf(1, (hastaY - desdeY) / 10)
-
-        var y = desdeY
-        while (y < hastaY && y < bitmap.height) {
-            var x = desdeX
-            while (x < hastaX && x < bitmap.width) {
-                val pixel = bitmap.getPixel(x, y)
-                sumR += Color.red(pixel)
-                sumG += Color.green(pixel)
-                sumB += Color.blue(pixel)
-                muestras++
-                x += pasoX
-            }
-            y += pasoY
-        }
-
-        if (muestras == 0) return "desconocido"
-
-        val hsv = FloatArray(3)
-        Color.RGBToHSV((sumR / muestras).toInt(), (sumG / muestras).toInt(), (sumB / muestras).toInt(), hsv)
-        return nombreDeColor(hsv)
-    }
-
-    private fun nombreDeColor(hsv: FloatArray): String {
-        val hue = hsv[0]
-        val sat = hsv[1]
-        val value = hsv[2]
-        return when {
-            value < 0.15f -> "negro"
-            sat < 0.15f && value > 0.8f -> "blanco"
-            sat < 0.15f -> "gris"
-            (hue < 30f || hue >= 330f) && sat > 0.2f && value < 0.5f -> "café"
-            hue < 15f || hue >= 345f -> "rojo"
-            hue < 45f -> "naranja"
-            hue < 75f -> "amarillo"
-            hue < 160f -> "verde"
-            hue < 260f -> "azul"
-            hue < 320f -> "morado"
-            else -> "rosa"
-        }
-    }
-
     private companion object {
         const val TAG = "EntornoTiempo"
         const val TAG_ETIQUETAS = "EntornoEtiquetas"
-        const val MAX_OBJETOS = 3
+        const val MODELO_DE_OBJETOS = "efficientdet_lite0.tflite"
+        const val MAX_OBJETOS = 5
+        const val CONFIANZA_MINIMA = 0.5f
+        const val CONFIANZA_RESPALDO = 0.7f
         const val LADO_MAXIMO = 1280
-        const val MIN_LADO_RECORTE = 32
     }
 }
