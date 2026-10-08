@@ -22,3 +22,6 @@ __pycache__/
 *.pyc 
 backend/uso_diario.json
 backend/uso_diario.tmp
+
+# Claude Code local state (worktrees, etc.)
+.claude/
