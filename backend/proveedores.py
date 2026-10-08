@@ -12,16 +12,21 @@ import os
 
 import uso
 
-log = logging.getLogger("cecapi.proveedores")
+log = logging.getLogger("cecapi.proveedores"),_MARCA_MAS = "MAS_DISPONIBLE"
 
 # Cómo debe responder la IA: la persona ESCUCHA la respuesta, no la lee.
 INSTRUCCIONES = (
     "Eres el asistente de voz de CECAPI para personas con discapacidad visual. "
     "Responde siempre en español de México, en frases cortas y claras, "
-    "como si hablaras en voz alta: máximo tres o cuatro oraciones. "
+    "como si hablaras en voz alta: entre una y tres oraciones. "
     "No uses markdown, viñetas, tablas, emojis ni enlaces. "
-    "Si no sabes algo, dilo con honestidad."
+    "Si no sabes algo, dilo con honestidad. "
+    f"Si tu respuesta completa sería notablemente más larga que eso y crees que "
+    f"a la persona le serviría escucharla, agrega al final, en su propia línea, "
+    f"exactamente: {_MARCA_MAS} (nada más en esa línea). Si tu respuesta ya cubre "
+    f"todo, no agregues esa línea."
 )
+
 
 TIEMPO_LIMITE_S = float(os.getenv("IA_TIEMPO_LIMITE_S", "20"))
 
@@ -36,6 +41,12 @@ def _armar_prompt(pregunta: str, contexto: list[str]) -> str:
     historial = "\n".join(contexto)
     return f"Conversación anterior:\n{historial}\n\nPregunta actual: {pregunta}"
 
+def _separar_mas(texto: str) -> tuple[str, bool]:
+    """Si el texto termina en la línea MAS_DISPONIBLE, la quita y regresa hay_mas=True."""
+    lineas = texto.strip().splitlines()
+    if lineas and lineas[-1].strip() == _MARCA_MAS:
+        return "\n".join(lineas[:-1]).strip(), True
+    return texto, False
 
 class Gemini:
     nombre = "gemini"
@@ -116,16 +127,17 @@ def configurados() -> list:
     return [p for p in PROVEEDORES if p.configurado]
 
 
-def preguntar_con_respaldo(pregunta: str, contexto: list[str]) -> tuple[str, str]:
-    """Devuelve (respuesta, nombre_del_proveedor). Lanza ProveedorNoDisponible si todos fallan."""
+def preguntar_con_respaldo(pregunta: str, contexto: list[str]) -> tuple[str, str, bool]:
+    """Devuelve (respuesta, nombre_del_proveedor, hay_mas). Lanza ProveedorNoDisponible si todos fallan."""
     for proveedor in configurados():
         if uso.agotado(proveedor.nombre):
             log.info("%s ya usó su límite de hoy; se salta", proveedor.nombre)
             continue
         uso.registrar(proveedor.nombre)
         try:
-            return proveedor.preguntar(pregunta, contexto), proveedor.nombre
-        except Exception as error:  # cuota agotada, red, clave inválida, modelo retirado...
-            # Solo el tipo de error: el mensaje podría incluir la pregunta del usuario.
+            texto = proveedor.preguntar(pregunta, contexto)
+            respuesta, hay_mas = _separar_mas(texto)
+            return respuesta, proveedor.nombre, hay_mas
+        except Exception as error:
             log.warning("Falló %s (%s); probando el siguiente", proveedor.nombre, type(error).__name__)
     raise ProveedorNoDisponible("Ningún proveedor de IA respondió")
