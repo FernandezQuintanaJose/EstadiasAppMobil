@@ -51,11 +51,11 @@ def responder(body: Pregunta):
     if privacidad.contiene_dato_sensible(body.pregunta):
         return {"respuesta": privacidad.MENSAJE_BLOQUEO, "proveedor": None, "hayMas": False}
     try:
-        respuesta, proveedor = proveedores.preguntar_con_respaldo(body.pregunta, body.contexto[-6:])
+        respuesta, proveedor, hay_mas = proveedores.preguntar_con_respaldo(body.pregunta, body.contexto[-6:])
     except proveedores.ProveedorNoDisponible:
         # Mensaje genérico hacia la app; el detalle queda solo en el log del servidor.
         raise HTTPException(status_code=503, detail="El asistente no está disponible en este momento.")
-    return {"respuesta": respuesta, "proveedor": proveedor}
+    return {"respuesta": respuesta, "proveedor": proveedor, "hayMas": hay_mas}
 
 @app.post("/entender")
 def entender(body: Pregunta):

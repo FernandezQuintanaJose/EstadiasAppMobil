@@ -12,7 +12,8 @@ import os
 
 import uso
 
-log = logging.getLogger("cecapi.proveedores"),_MARCA_MAS = "MAS_DISPONIBLE"
+log = logging.getLogger("cecapi.proveedores")
+_MARCA_MAS = "MAS_DISPONIBLE"
 
 # Cómo debe responder la IA: la persona ESCUCHA la respuesta, no la lee.
 INSTRUCCIONES = (
