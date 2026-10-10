@@ -5,10 +5,15 @@ Cada proveedor sabe preguntarle a UNA API. El orden de la lista PROVEEDORES es e
 orden del fallback: si el primero falla (sin cuota, caído, sin clave), se intenta
 el siguiente. Las claves se leen SOLO de variables de entorno (archivo .env local),
 nunca van escritas en el código.
+
+Cada proveedor tiene dos métodos: preguntar() (texto) y ver() (una foto + un prompt).
+Sus funciones de respaldo son preguntar_con_respaldo() y ver_con_respaldo().
 """
 
 import logging
 import os
+import re
+from base64 import b64encode
 
 import uso
 
@@ -30,6 +35,13 @@ INSTRUCCIONES = (
 
 
 TIEMPO_LIMITE_S = float(os.getenv("IA_TIEMPO_LIMITE_S", "20"))
+
+# --- Visión (fotos de billetes y escenas) ---
+# ver() es aparte de preguntar(): recibe la foto ya comprimida (imagenes.py) y el prompt
+# del modo (billete o escena). No usa INSTRUCCIONES ni contexto: el prompt trae todo.
+# Respuesta corta a propósito: la persona la escucha, y el plan gratis de Groq limita
+# los tokens de respuesta por minuto (1,000 en qwen/qwen3.8-27b; con 150 caben ~6 fotos/min).
+VISION_MAX_TOKENS = int(os.getenv("VISION_MAX_TOKENS", "150"))
 
 
 class ProveedorNoDisponible(Exception):
@@ -85,6 +97,27 @@ class Gemini:
             raise ProveedorNoDisponible("Gemini respondió vacío")
         return texto
 
+    # Mismo modelo que preguntar(): gemini-3.8-flash acepta imágenes. Por confirmar con una
+    # clave que funcione (al 10/10/2026 Google responde "project denied access").
+    nombre_vision = "gemini"  # cuenta en el mismo límite diario que las preguntas
+
+    @property
+    def vision_configurada(self) -> bool:
+        return self.configurado
+
+    def ver(self, imagen: bytes, tipo_mime: str, prompt: str) -> str:
+        from google.genai import types
+
+        respuesta = self._cliente_listo().models.generate_content(
+            model=self.modelo,
+            contents=[types.Part.from_bytes(data=imagen, mime_type=tipo_mime), prompt],
+            config=types.GenerateContentConfig(max_output_tokens=VISION_MAX_TOKENS),
+        )
+        texto = (respuesta.text or "").strip()
+        if not texto:
+            raise ProveedorNoDisponible("Gemini (visión) respondió vacío")
+        return texto
+
 
 class Groq:
     nombre = "groq"
@@ -119,13 +152,68 @@ class Groq:
             raise ProveedorNoDisponible("Groq respondió vacío")
         return texto
 
+    # GROQ_MODEL (gpt-oss-20b) es solo texto; para fotos se usa otro modelo de Groq.
+    # qwen/qwen3.8-27b se probó el 10/10/2026 con una imagen y contestó bien.
+    # Tiene su propio límite diario, aparte del de GROQ_MODEL: GROQ_VISION_LIMITE_DIARIO.
+    nombre_vision = "groq_vision"
 
-# Orden del fallback: primero Gemini, si falla Groq.
+    @property
+    def modelo_vision(self) -> str:
+        return os.getenv("GROQ_VISION_MODEL", "qwen/qwen3.8-27b").strip()
+
+    @property
+    def vision_configurada(self) -> bool:
+        return self.configurado and bool(self.modelo_vision)
+
+    def ver(self, imagen: bytes, tipo_mime: str, prompt: str) -> str:
+        url = f"data:{tipo_mime};base64,{b64encode(imagen).decode('ascii')}"
+        respuesta = self._cliente_listo().chat.completions.create(
+            model=self.modelo_vision,
+            max_tokens=VISION_MAX_TOKENS,
+            messages=[{"role": "user", "content": [
+                {"type": "text", "text": prompt},
+                {"type": "image_url", "image_url": {"url": url}},
+            ]}],
+        )
+        texto = _quitar_razonamiento(respuesta.choices[0].message.content or "")
+        if not texto:
+            raise ProveedorNoDisponible("Groq (visión) respondió vacío")
+        return texto
+
+
+def _quitar_razonamiento(texto: str) -> str:
+    """Algunos modelos (Qwen) pueden mandar su razonamiento entre <think></think>; no se lee en voz alta."""
+    return re.sub(r"<think>.*?(</think>|$)", "", texto, flags=re.DOTALL).strip()
+
+
+# Orden del fallback: primero Gemini, si falla Groq. Vale para preguntar() y para ver().
 PROVEEDORES = [Gemini(), Groq()]
 
 
 def configurados() -> list:
     return [p for p in PROVEEDORES if p.configurado]
+
+
+def configurados_vision() -> list:
+    return [p for p in PROVEEDORES if p.vision_configurada]
+
+
+def ver_con_respaldo(imagen: bytes, tipo_mime: str, prompt: str) -> tuple[str, str]:
+    """Manda la foto y el prompt a la primera IA con visión que responda.
+
+    Devuelve (respuesta, nombre_del_proveedor). Lanza ProveedorNoDisponible si todas fallan;
+    la ruta /ver debe convertir eso en un mensaje que se pueda decir en voz alta.
+    """
+    for proveedor in configurados_vision():
+        if uso.agotado(proveedor.nombre_vision):
+            log.info("%s ya usó su límite de hoy; se salta", proveedor.nombre_vision)
+            continue
+        uso.registrar(proveedor.nombre_vision)
+        try:
+            return proveedor.ver(imagen, tipo_mime, prompt), proveedor.nombre_vision
+        except Exception as error:
+            log.warning("Falló %s (%s); probando el siguiente", proveedor.nombre_vision, type(error).__name__)
+    raise ProveedorNoDisponible("Ninguna IA con visión respondió")
 
 
 def preguntar_con_respaldo(pregunta: str, contexto: list[str]) -> tuple[str, str, bool]:

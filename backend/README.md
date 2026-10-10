@@ -9,3 +9,4 @@ Endpoints: `POST /preguntar` `{"pregunta","contexto"}` → `{"respuesta","provee
 Respaldo: primero Gemini; si falla, tarda más de `IA_TIEMPO_LIMITE_S` o agota su límite, contesta Groq.
 Límites diarios en `.env` (`*_LIMITE_DIARIO`): avisa en el log al 80% y al 100% salta al respaldo.
 Código: `main.py` (rutas), `proveedores.py` (Gemini, Groq y respaldo), `uso.py` (contador diario).
+Visión (para la futura ruta `/ver`): `proveedores.ver_con_respaldo(imagen, tipo_mime, prompt)`. Primero Gemini (mismo `GEMINI_MODEL`) y después Groq con `GROQ_VISION_MODEL` (`qwen/qwen3.8-27b`), porque `GROQ_MODEL` es solo texto. La respuesta se limita a `VISION_MAX_TOKENS`.
