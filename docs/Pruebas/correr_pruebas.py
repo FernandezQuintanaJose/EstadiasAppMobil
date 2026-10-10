@@ -9,7 +9,8 @@ Cómo correrlo (desde la carpeta del repo, con el entorno virtual activado):
     python docs/Pruebas/correr_pruebas.py --sin-ia   # solo revisa qué detecta como comando; no gasta cuota
 
 Los sinónimos nunca se mandan a la IA: solo se revisa si el servidor los reconoce como
-comando. Con IA se hacen como máximo unas 25 peticiones (las preguntas que no son comando).
+comando. Con IA se hacen unas 25 peticiones (las preguntas que no son comando), con una
+pausa de 3 segundos entre cada una porque el plan gratis de Groq limita las peticiones por minuto.
 
 Qué se espera de cada frase:
 - Un código de módulo (ENVIRONMENT, DOCUMENT_READER...): el servidor debe regresar ese comando.
@@ -125,6 +126,8 @@ def main_cli() -> None:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("--sin-ia", action="store_true", help="no llama a la IA; solo revisa los comandos")
     parser.add_argument("--salida", default=str(AQUI / "resultados.md"))
+    parser.add_argument("--pausa", type=float, default=3.0,
+                        help="segundos de espera después de cada respuesta de la IA (el plan gratis limita por minuto)")
     args = parser.parse_args()
 
     servidor = cargar_servidor(args.sin_ia)
@@ -141,6 +144,8 @@ def main_cli() -> None:
         cuenta_p[v] = cuenta_p.get(v, 0) + 1
         filas_p.append(f"| {n} | {frase} | {esperado} | {resultado_corto(r)} | {r['ms']} | {v} |")
         print(f"P{n:>2} {v} {frase} -> {resultado_corto(r)[:90]}")
+        if not args.sin_ia and r.get("tipo") != "comando":
+            time.sleep(args.pausa)
 
     # Los sinónimos nunca van a la IA: solo importa si se reconocen como comando.
     import proveedores
