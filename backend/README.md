@@ -7,6 +7,6 @@ Servidor FastAPI al que la app le manda las preguntas de IA; las claves viven so
 4. En la app, `AI_PROXY_BASE_URL` (app/build.gradle.kts) debe ser `http://<IP-de-tu-PC>:8000/preguntar`.
 Endpoints: `POST /preguntar` `{"pregunta","contexto"}` → `{"respuesta","proveedor"}` · `GET /uso` · `GET /`.
 Respaldo: primero Gemini; si falla, tarda más de `IA_TIEMPO_LIMITE_S` o agota su límite, contesta Groq.
+Visión (para la futura ruta `/ver`): `proveedores.ver_con_respaldo(imagen, tipo_mime, prompt)`. Primero Gemini (mismo `GEMINI_MODEL`) y después Groq con `GROQ_VISION_MODEL` (`qwen/qwen3.8-27b`), porque `GROQ_MODEL` es solo texto. La respuesta se limita a `VISION_MAX_TOKENS`.
 Límites diarios en `.env` (`*_LIMITE_DIARIO`): avisa en el log al 80% y al 100% salta al respaldo.
 Código: `main.py` (rutas), `proveedores.py` (Gemini, Groq y respaldo), `uso.py` (contador diario).
-Visión (para la futura ruta `/ver`): `proveedores.ver_con_respaldo(imagen, tipo_mime, prompt)`. Primero Gemini (mismo `GEMINI_MODEL`) y después Groq con `GROQ_VISION_MODEL` (`qwen/qwen3.8-27b`), porque `GROQ_MODEL` es solo texto. La respuesta se limita a `VISION_MAX_TOKENS`.
