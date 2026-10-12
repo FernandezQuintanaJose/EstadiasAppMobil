@@ -85,6 +85,11 @@ def entender(body: Pregunta):
         raise HTTPException(status_code=503, detail="El asistente no está disponible en este momento.")
     return {"tipo": "respuesta", "respuesta": respuesta, "proveedor": proveedor, "hayMas": hay_mas}
 
+# Largo máximo del texto base64: el mismo límite de imagenes.py (IMAGEN_MAX_MB) pasado a
+# base64, que ocupa 4 caracteres por cada 3 bytes.
+MAX_BASE64 = (imagenes.MAX_BYTES_ENTRADA + 2) // 3 * 4
+
+
 class Imagen(BaseModel):
     imagen: str = Field(min_length=1)  # foto en base64, sin prefijo data:...
     modo: str = Field(min_length=1)    # "billete" por ahora; "escena" responde pendiente
@@ -96,6 +101,12 @@ def ver(body: Imagen):
         raise HTTPException(status_code=400, detail="El modo escena todavía no está disponible.")
     if body.modo != "billete":
         raise HTTPException(status_code=400, detail="Modo no reconocido.")
+
+    # Se revisa el tamaño ANTES de decodificar, para no cargar en memoria un base64 enorme.
+    # Se hace aquí y no con max_length en Imagen: así responde 400 con un mensaje que se
+    # puede decir en voz alta, en vez del 422 técnico de FastAPI.
+    if len(body.imagen) > MAX_BASE64:
+        raise HTTPException(status_code=400, detail="La foto es demasiado grande.")
 
     try:
         datos = base64.b64decode(body.imagen, validate=True)
