@@ -79,6 +79,10 @@ class EnvironmentViewModel @Inject constructor(
         when {
             CommandCatalog.isRequest(spoken) -> voiceEngine.speak(CommandCatalog.ENVIRONMENT, listenAfter = true)
             has("atras", "volver", "vuelve", "regresa", "regresar", "salir", "menu", "inicio", "pantalla anterior") -> _back.tryEmit(Unit)
+            has("cuanto llevo", "cuanto dinero llevo", "que llevo", "cuanto suman", "total de billetes", "dime el total") -> decirTotalBilletes()
+            has("borra los billetes", "borrar billetes", "limpia los billetes", "empieza de nuevo", "reinicia los billetes", "borrar total") -> reiniciarBilletes()
+            has("agrega este billete", "agregar billete", "agrega billete", "suma este billete", "sumar billete", "anota este billete", "anotar billete") -> pedirSumarBillete()
+            has("billete", "billetes", "dinero", "cuanto vale", "cuanto dinero") -> pedirCapturaBillete()
             has("leer texto", "lee", "leer", "texto", "documento") -> {
                 cues.play(FeedbackCues.Cue.NAVIGATE)
                 voiceEngine.speak("Cambiando al lector de texto.")
@@ -111,16 +115,79 @@ class EnvironmentViewModel @Inject constructor(
         return true
     }
 
+    // true cuando la próxima foto es para leer un billete (dijo "qué billete es") y no para describir el entorno.
+    private var buscandoBilleteActual = false
+
+    // true cuando ese billete se va a sumar a la cuenta de "uno en uno" (dijo "agrega este billete").
+    private var sumandoBilleteActual = false
+
+    // Cuenta exacta de los billetes que se han mostrado uno por uno, para sumar el total.
+    private val billetesContados = mutableMapOf<DenominacionBillete, Int>()
+
     /** Also what the on-screen button and the "qué hay enfrente" chip call. */
     fun pedirCaptura() {
         if (_uiState.value.isProcessing || !hayEspacio()) return
+        buscandoBilleteActual = false
+        sumandoBilleteActual = false
         voiceEngine.speak("Tomando foto.")
         _captureRequests.tryEmit(Unit)
     }
 
+    /** Lo que dice "qué billete es" y el botón del mismo nombre: toma la foto y dice de cuánto es el billete. */
+    fun pedirCapturaBillete() {
+        if (_uiState.value.isProcessing || !hayEspacio()) return
+        buscandoBilleteActual = true
+        sumandoBilleteActual = false
+        voiceEngine.speak("Pon el billete plano frente a la cámara. Tomando foto.")
+        _captureRequests.tryEmit(Unit)
+    }
+
     /** Vuelve a la cámara para tomar otra foto: quita la foto y la descripción anteriores. */
+    /** "Agrega este billete": toma la foto de un billete y, si se lee con claridad, lo suma a la cuenta. */
+    fun pedirSumarBillete() {
+        if (_uiState.value.isProcessing || !hayEspacio()) return
+        buscandoBilleteActual = true
+        sumandoBilleteActual = true
+        voiceEngine.speak("Muéstrame un solo billete, plano frente a la cámara. Tomando foto.")
+        _captureRequests.tryEmit(Unit)
+    }
+
+    /** "Cuánto llevo": dice cuántos billetes se han sumado y el total. */
+    fun decirTotalBilletes() {
+        voiceEngine.speak(fraseTotalBilletes(), listenAfter = true)
+    }
+
+    /** "Borra los billetes": empieza la cuenta de cero. */
+    fun reiniciarBilletes() {
+        billetesContados.clear()
+        voiceEngine.speak("Listo. Empecé la cuenta de billetes desde cero.", listenAfter = true)
+    }
+
+    private fun fraseTotalBilletes(): String {
+        if (billetesContados.isEmpty()) return "Todavía no has sumado ningún billete. Di agrega este billete."
+        val partes = billetesContados.entries.sortedByDescending { it.key.valor }.map { (d, n) ->
+            if (n == 1) "un billete de ${d.nombreHablado}" else "$n billetes de ${d.nombreHablado}"
+        }
+        val total = billetesContados.entries.sumOf { it.key.valor * it.value }
+        val cuantos = billetesContados.values.sum()
+        val unidos = if (partes.size == 1) partes[0] else partes.dropLast(1).joinToString(", ") + " y " + partes.last()
+        return "Llevas $unidos. Son $cuantos ${if (cuantos == 1) "billete" else "billetes"}, $total pesos en total."
+    }
+
+    /** Suma el billete de la foto a la cuenta solo si es uno solo y se leyó con claridad; si no, dice por qué. */
+    private fun sumarALaCuenta(resultado: ResultadoBillete?): String {
+        val d = resultado?.denominacion
+        if (resultado == null || d == null || resultado.hayVarios) {
+            return "No sumé nada. Para llevar la cuenta, muéstrame un solo billete a la vez, plano y con buena luz."
+        }
+        billetesContados[d] = (billetesContados[d] ?: 0) + 1
+        return "Anotado, un billete de ${d.nombreHablado}. " + fraseTotalBilletes()
+    }
+
     fun tomarOtraFoto() {
         if (_uiState.value.isProcessing) return
+        buscandoBilleteActual = false
+        sumandoBilleteActual = false
         _uiState.value = EnvironmentUiState()
         voiceEngine.speak("Listo. Apunta la cámara y di qué hay enfrente.")
     }
@@ -153,6 +220,8 @@ class EnvironmentViewModel @Inject constructor(
      */
     fun pedirGaleria() {
         if (_uiState.value.isProcessing || !hayEspacio()) return
+        buscandoBilleteActual = false
+        sumandoBilleteActual = false
         voiceEngine.speak("Voy a abrir tus fotos. Elige la imagen que quieres que describa; solo veré esa.")
         _pickRequests.tryEmit(Unit)
     }
@@ -178,12 +247,18 @@ class EnvironmentViewModel @Inject constructor(
         // just is not saved to a history (processCapturedPhoto skips saving when usuarioId is null).
         val usuarioId = sessionRepository.currentUser.value?.id
         _uiState.value = EnvironmentUiState(isProcessing = true, photoPath = rutaImagen)
-        voiceEngine.speak("Analizando el entorno.")
+        val buscarBillete = buscandoBilleteActual
+        val sumarBillete = sumandoBilleteActual
+        buscandoBilleteActual = false
+        sumandoBilleteActual = false
+        voiceEngine.speak(if (buscarBillete) "Leyendo el billete." else "Analizando el entorno.")
         viewModelScope.launch {
-            repository.processCapturedPhoto(usuarioId, imageUri, rutaImagen)
+            repository.processCapturedPhoto(usuarioId, imageUri, rutaImagen, buscarBillete)
                 .onSuccess { result ->
-                    _uiState.value = EnvironmentUiState(descripcion = result.descripcion, photoPath = rutaImagen)
-                    voiceEngine.speak(result.descripcion)
+                    // Si era para llevar la cuenta, lo que se dice es lo anotado y el total, no la descripción suelta.
+                    val dicho = if (sumarBillete) sumarALaCuenta(result.billetes) else result.descripcion
+                    _uiState.value = EnvironmentUiState(descripcion = dicho, photoPath = rutaImagen)
+                    voiceEngine.speak(dicho)
                 }
                 .onFailure {
                     val message = "No pude analizar la imagen. Intenta de nuevo."
