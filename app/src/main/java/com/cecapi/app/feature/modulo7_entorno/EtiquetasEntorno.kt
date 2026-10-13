@@ -377,6 +377,78 @@ object EtiquetasEntorno {
         "waterfall" to NombreEs("cascada", "una cascada", true),
         "volcano" to NombreEs("volcán", "un volcán", false),
         "sky" to NombreEs("cielo", "el cielo", false),
+
+        // Partes del cuerpo (el etiquetador de ML Kit las nombra y antes no se decían)
+        "hand" to NombreEs("mano", "una mano", true),
+        "finger" to NombreEs("dedo", "un dedo", false),
+        "thumb" to NombreEs("pulgar", "un pulgar", false),
+        "nail" to NombreEs("uña", "una uña", true),
+        "arm" to NombreEs("brazo", "un brazo", false),
+        "wrist" to NombreEs("muñeca", "una muñeca", true),
+        "elbow" to NombreEs("codo", "un codo", false),
+        "shoulder" to NombreEs("hombro", "un hombro", false),
+        "leg" to NombreEs("pierna", "una pierna", true),
+        "knee" to NombreEs("rodilla", "una rodilla", true),
+        "foot" to NombreEs("pie", "un pie", false),
+        "toe" to NombreEs("dedo del pie", "un dedo del pie", false),
+        "head" to NombreEs("cabeza", "una cabeza", true),
+        "face" to NombreEs("cara", "una cara", true),
+        "hair" to NombreEs("cabello", "cabello", false),
+        "hairstyle" to NombreEs("peinado", "un peinado", false),
+        "forehead" to NombreEs("frente", "una frente", true),
+        "eyebrow" to NombreEs("ceja", "una ceja", true),
+        "eyelash" to NombreEs("pestañas", "unas pestañas", true),
+        "eye" to NombreEs("ojo", "un ojo", false),
+        "nose" to NombreEs("nariz", "una nariz", true),
+        "cheek" to NombreEs("mejilla", "una mejilla", true),
+        "mouth" to NombreEs("boca", "una boca", true),
+        "lip" to NombreEs("labios", "unos labios", false),
+        "tooth" to NombreEs("diente", "un diente", false),
+        "chin" to NombreEs("barbilla", "una barbilla", true),
+        "jaw" to NombreEs("mandíbula", "una mandíbula", true),
+        "ear" to NombreEs("oreja", "una oreja", true),
+        "neck" to NombreEs("cuello", "un cuello", false),
+        "beard" to NombreEs("barba", "una barba", true),
+        "moustache" to NombreEs("bigote", "un bigote", false),
+        "chest" to NombreEs("pecho", "un pecho", false),
+        "skin" to NombreEs("piel", "piel", true),
+
+        // Útiles escolares y de oficina
+        "pencil case" to NombreEs("estuche", "un estuche", false),
+        "pencil sharpener" to NombreEs("sacapuntas", "un sacapuntas", false),
+        "sharpener" to NombreEs("sacapuntas", "un sacapuntas", false),
+        "ballpoint pen" to NombreEs("pluma", "una pluma", true),
+        "fountain pen" to NombreEs("pluma fuente", "una pluma fuente", true),
+        "marker" to NombreEs("marcador", "un marcador", false),
+        "rubber" to NombreEs("goma", "una goma", true),
+        "protractor" to NombreEs("transportador", "un transportador", false),
+        "compass" to NombreEs("compás", "un compás", false),
+        "set square" to NombreEs("escuadra", "una escuadra", true),
+        "lunch box" to NombreEs("lonchera", "una lonchera", true),
+        "textbook" to NombreEs("libro de texto", "un libro de texto", false),
+        "page" to NombreEs("hoja", "una hoja", true),
+        "paper product" to NombreEs("hoja de papel", "una hoja de papel", true),
+        "sheet" to NombreEs("hoja", "una hoja", true),
+        "blackboard" to NombreEs("pizarrón", "un pizarrón", false),
+        "chalkboard" to NombreEs("pizarrón", "un pizarrón", false),
+        "map" to NombreEs("mapa", "un mapa", false),
+        "globe" to NombreEs("globo terráqueo", "un globo terráqueo", false),
+        "printer" to NombreEs("impresora", "una impresora", true),
+        "projector" to NombreEs("proyector", "un proyector", false),
+        "usb flash drive" to NombreEs("memoria USB", "una memoria USB", true),
+        "flash drive" to NombreEs("memoria USB", "una memoria USB", true),
+        "blanket" to NombreEs("cobija", "una cobija", true),
+        "bedding" to NombreEs("ropa de cama", "ropa de cama", true),
+        "bed sheet" to NombreEs("sábana", "una sábana", true),
+
+        // Clases del detector (COCO) que faltaban
+        "potted plant" to NombreEs("planta en maceta", "una planta en maceta", true),
+        "remote" to NombreEs("control remoto", "un control remoto", false),
+        "vase" to NombreEs("florero", "un florero", false),
+        "teddy bear" to NombreEs("oso de peluche", "un oso de peluche", false),
+        "frisbee" to NombreEs("frisbee", "un frisbee", false),
+        "skis" to NombreEs("esquís", "unos esquís", false),
+        "snowboard" to NombreEs("tabla de nieve", "una tabla de nieve", true),
     )
 
     private val etiquetasIgnoradas = setOf(
@@ -389,6 +461,27 @@ object EtiquetasEntorno {
         "text", "number", "symbol", "shape", "triangle", "curve", "logo",
         "still life photography", "stock photography", "picture frame style",
     )
+
+    // Etiquetas que son ciertas pero poco útiles ("dispositivo" para un teléfono, "piel" para una mano): solo se
+    // dicen si no hay otra mejor en la foto.
+    private val etiquetasDebiles = setOf(
+        "gadget", "communication device", "cellular network", "skin", "hair", "paper product", "page", "sheet",
+        "bedding", "display device", "screen", "audio equipment", "technology", "tableware", "drinkware",
+        "eyewear", "footwear", "writing implement", "publication", "person", "human",
+    )
+
+    fun esDebil(etiquetaIngles: String): Boolean = etiquetaIngles.lowercase().trim() in etiquetasDebiles
+
+    // Personas y partes del cuerpo: el color que se estima (piel, ropa, fondo) no describe a la persona.
+    private val etiquetasDePersona = setOf(
+        "person", "human", "man", "woman", "boy", "girl", "child", "baby", "hand", "finger", "thumb", "nail", "arm",
+        "wrist", "elbow", "shoulder", "leg", "knee", "foot", "toe", "head", "face", "hair", "hairstyle", "forehead",
+        "eyebrow", "eyelash", "eye", "nose", "cheek", "mouth", "lip", "tooth", "chin", "jaw", "ear", "neck", "beard",
+        "moustache", "chest", "skin",
+    )
+
+    /** Si conviene decir el color de este objeto (no de personas ni partes del cuerpo). */
+    fun admiteColor(etiquetaIngles: String): Boolean = etiquetaIngles.lowercase().trim() !in etiquetasDePersona
 
     fun traducir(etiquetaIngles: String): NombreEs? {
         val clave = etiquetaIngles.lowercase().trim()

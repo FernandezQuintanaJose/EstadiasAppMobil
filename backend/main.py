@@ -14,11 +14,6 @@ import comandos
 import privacidad
 import proveedores  # noqa: E402
 import uso  # noqa: E402
-import base64
-import binascii
-
-import imagenes  # Owen — rama modulo03/imagenes, mergear antes de probar esto
-from prompts_vision import PROMPT_BILLETE
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
 log = logging.getLogger("cecapi")
@@ -84,32 +79,3 @@ def entender(body: Pregunta):
     except proveedores.ProveedorNoDisponible:
         raise HTTPException(status_code=503, detail="El asistente no está disponible en este momento.")
     return {"tipo": "respuesta", "respuesta": respuesta, "proveedor": proveedor, "hayMas": hay_mas}
-
-class Imagen(BaseModel):
-    imagen: str = Field(min_length=1)  # foto en base64, sin prefijo data:...
-    modo: str = Field(min_length=1)    # "billete" por ahora; "escena" responde pendiente
-
-
-@app.post("/ver")
-def ver(body: Imagen):
-    if body.modo == "escena":
-        raise HTTPException(status_code=400, detail="El modo escena todavía no está disponible.")
-    if body.modo != "billete":
-        raise HTTPException(status_code=400, detail="Modo no reconocido.")
-
-    try:
-        datos = base64.b64decode(body.imagen, validate=True)
-    except (binascii.Error, ValueError):
-        raise HTTPException(status_code=400, detail="La imagen no llegó en un formato válido.")
-
-    try:
-        foto, tipo_mime = imagenes.preparar(datos)
-    except imagenes.ImagenInvalida:
-        raise HTTPException(status_code=400, detail="La foto no es válida o es demasiado grande.")
-
-    try:
-        respuesta, proveedor = proveedores.ver_con_respaldo(foto, tipo_mime, PROMPT_BILLETE)
-    except proveedores.ProveedorNoDisponible:
-        raise HTTPException(status_code=503, detail="El asistente no está disponible en este momento.")
-
-    return {"respuesta": respuesta, "proveedor": proveedor}
