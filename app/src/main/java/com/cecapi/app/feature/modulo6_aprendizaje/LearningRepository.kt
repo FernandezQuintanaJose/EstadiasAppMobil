@@ -124,12 +124,12 @@ class LearningRepository @Inject constructor(
         // "enfrente" o "atrás" y no solo como "dos clics distintos". Hasta no
         // hacer esa prueba, se quedan comentados — no reportar esto como
         // resuelto. Avanza para el 17 de octubre.
-        // posicionFrenteAtras("Tono continuo (grave, 110 Hz)", "tono_grave", atras = false),
-        // posicionFrenteAtras("Tono continuo (grave, 110 Hz)", "tono_grave", atras = true),
-        // posicionFrenteAtras("Tono continuo (medio, 440 Hz)", "tono_medio", atras = false),
-        // posicionFrenteAtras("Tono continuo (medio, 440 Hz)", "tono_medio", atras = true),
-        // posicionFrenteAtras("Tono continuo (agudo, 1760 Hz)", "tono_agudo", atras = false),
-        // posicionFrenteAtras("Tono continuo (agudo, 1760 Hz)", "tono_agudo", atras = true),
+        posicionFrenteAtras("Tono continuo (grave, 110 Hz)", "tono_grave", atras = false),
+        posicionFrenteAtras("Tono continuo (grave, 110 Hz)", "tono_grave", atras = true),
+        posicionFrenteAtras("Tono continuo (medio, 440 Hz)", "tono_medio", atras = false),
+        posicionFrenteAtras("Tono continuo (medio, 440 Hz)", "tono_medio", atras = true),
+        posicionFrenteAtras("Tono continuo (agudo, 1760 Hz)", "tono_agudo", atras = false),
+        posicionFrenteAtras("Tono continuo (agudo, 1760 Hz)", "tono_agudo", atras = true),
     )
 
     // ---- Funciones auxiliares para no repetir código 34 veces -------------
