@@ -116,7 +116,7 @@ fun DocumentReaderScreen(
                 context = context,
                 folder = "cecapi_docs",
                 onFailed = viewModel::onCaptureFailed,
-            ) { uri, path -> viewModel.onPhotoCaptured(uri, path) }
+            ) { uri, path -> viewModel.onPhotoCaptured(uri, path, desdeCamara = true) }
         }
     }
 
@@ -163,7 +163,11 @@ fun DocumentReaderScreen(
         DocumentCameraScreen(
             uiState = uiState,
             hasCameraPermission = hasCameraPermission,
-            onReadyCamera = { imageCapture = it },
+            onReadyCamera = { capture ->
+                // Flash automático: la cámara lo dispara sola cuando el documento está muy oscuro.
+                capture?.flashMode = ImageCapture.FLASH_MODE_AUTO
+                imageCapture = capture
+            },
             onBack = onVolverClick,
             onCaptureClick = { if (viewModel.onBotonCapturaPresionado()) takePhoto() },
             onFramingHint = viewModel::onFramingHint,

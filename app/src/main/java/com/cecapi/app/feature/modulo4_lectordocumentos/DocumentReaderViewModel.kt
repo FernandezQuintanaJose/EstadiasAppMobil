@@ -298,7 +298,7 @@ class DocumentReaderViewModel @Inject constructor(
         voiceEngine.speak(message, listenAfter = true)
     }
 
-    fun onPhotoCaptured(imageUri: Uri, rutaImagen: String) {
+    fun onPhotoCaptured(imageUri: Uri, rutaImagen: String, desdeCamara: Boolean = false) {
         // The camera is free for anyone: with nobody signed in, the text is still read out loud, it just
         // is not saved to a history (processCapturedPhoto skips saving when usuarioId is null).
         val usuarioId = sessionRepository.currentUser.value?.id
@@ -311,7 +311,8 @@ class DocumentReaderViewModel @Inject constructor(
             capturaArmada = false,
             photoPath = rutaImagen, // shown right away, in place of the live feed, while it processes
         )
-        voiceEngine.speak("Procesando la imagen.")
+        // Confirma la captura solo con la cámara; una foto de la galería no se "toma".
+        voiceEngine.speak(if (desdeCamara) "Foto tomada. Procesando la imagen." else "Procesando la imagen.")
         viewModelScope.launch {
             when (val outcome = repository.processCapturedPhoto(usuarioId, imageUri, rutaImagen)) {
                 is OcrOutcome.Exito -> {
