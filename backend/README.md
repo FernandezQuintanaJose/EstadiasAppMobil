@@ -6,7 +6,7 @@ Servidor FastAPI al que la app le manda las preguntas de IA; las claves viven so
 3. Arranca: `uvicorn main:app --host 0.0.0.0 --port 8000`.
 4. En la app, `AI_PROXY_BASE_URL` (app/build.gradle.kts) debe ser `http://<IP-de-tu-PC>:8000/preguntar`.
 Endpoints: `POST /preguntar` `{"pregunta","contexto"}` → `{"respuesta","proveedor"}` · `GET /uso` · `GET /`.
-Respaldo: primero Gemini; si falla, tarda más de `IA_TIEMPO_LIMITE_S` o agota su límite, contesta Groq.
-Visión (para la futura ruta `/ver`): `proveedores.ver_con_respaldo(imagen, tipo_mime, prompt)`. Primero Gemini (mismo `GEMINI_MODEL`) y después Groq con `GROQ_VISION_MODEL` (`qwen/qwen3.8-27b`), porque `GROQ_MODEL` es solo texto. La respuesta se limita a `VISION_MAX_TOKENS`.
+Respaldo: el orden sale de `IA_ORDEN` en `.env` (por defecto `groq,gemini`); si el primero falla, tarda más de `IA_TIEMPO_LIMITE_S` o agota su límite, contesta el siguiente.
+Visión (para la futura ruta `/ver`): `proveedores.ver_con_respaldo(imagen, tipo_mime, prompt)`. Sigue el mismo `IA_ORDEN`: Gemini usa su mismo `GEMINI_MODEL` y Groq usa `GROQ_VISION_MODEL` (`qwen/qwen3.8-27b`), porque `GROQ_MODEL` es solo texto. La respuesta se limita a `VISION_MAX_TOKENS`.
 Límites diarios en `.env` (`*_LIMITE_DIARIO`): avisa en el log al 80% y al 100% salta al respaldo.
 Código: `main.py` (rutas), `proveedores.py` (Gemini, Groq y respaldo), `uso.py` (contador diario).

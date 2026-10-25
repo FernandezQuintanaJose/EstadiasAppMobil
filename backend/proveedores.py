@@ -3,8 +3,9 @@ Proveedores de IA del backend CECAPI (Módulo 3).
 
 Cada proveedor sabe preguntarle a UNA API. El orden de la lista PROVEEDORES es el
 orden del fallback: si el primero falla (sin cuota, caído, sin clave), se intenta
-el siguiente. Las claves se leen SOLO de variables de entorno (archivo .env local),
-nunca van escritas en el código.
+el siguiente. Ese orden se elige en .env con IA_ORDEN (por defecto: groq,gemini).
+Las claves se leen SOLO de variables de entorno (archivo .env local), nunca van
+escritas en el código.
 
 Cada proveedor tiene dos métodos: preguntar() (texto) y ver() (una foto + un prompt).
 Sus funciones de respaldo son preguntar_con_respaldo() y ver_con_respaldo().
@@ -21,11 +22,33 @@ log = logging.getLogger("cecapi.proveedores")
 _MARCA_MAS = "MAS_DISPONIBLE"
 
 # Cómo debe responder la IA: la persona ESCUCHA la respuesta, no la lee.
+# Datos reales del CECAPI (Google Maps, revisado el 24/10/2026). Sin ellos la IA inventaba
+# la dirección (pruebas del 10/10 y del 24/10: daba calles de la Ciudad de México).
+DATOS_CECAPI = (
+    "Datos del CECAPI, el Centro de Capacitación para Invidentes A. C.: "
+    "está en la calle Jacarandá 1603, colonia Valle Florido, código postal 34226, "
+    "en Durango, Durango. Su teléfono es 618 455 0146. "
+    "Abre de lunes a viernes, de dos a siete de la tarde. "
+)
+
 INSTRUCCIONES = (
-    "Eres el asistente de voz de CECAPI para personas con discapacidad visual. "
+    "Eres el asistente de voz de la app del CECAPI y hablas con personas ciegas o con baja visión. "
     "Responde siempre en español de México, en frases cortas y claras, "
     "como si hablaras en voz alta: entre una y tres oraciones. "
     "No uses markdown, viñetas, tablas, emojis ni enlaces. "
+    "La persona no ve: nunca le pidas que mire, lea, observe o revise algo con la vista. "
+    "Da indicaciones que pueda seguir con el oído, el tacto, el bastón o pidiendo ayuda a alguien. "
+    "No sabes la fecha ni la hora: si te las preguntan, dile que le pregunte a la app "
+    "'qué hora es' o 'qué día es'. "
+    "No tienes acceso al teléfono: no puedes ver la batería, el volumen, el wifi, las "
+    "notificaciones ni la cámara, ni repetir lo que dijo la app. "
+    "Nunca inventes funciones, menús, botones, comandos ni pasos de la app. Si te preguntan "
+    "cómo usarla, dile que puede decir 'ayuda' o 'qué comandos hay'. "
+    + DATOS_CECAPI +
+    "Si te preguntan algo del CECAPI que no esté en esos datos, di que no lo sabes y sugiere "
+    "llamar a ese teléfono. "
+    "No inventes nombres de programas de gobierno, leyes, direcciones ni cifras: si no estás "
+    "seguro del dato exacto, dilo. "
     "Si no sabes algo, dilo con honestidad. "
     f"Si tu respuesta completa sería notablemente más larga que eso y crees que "
     f"a la persona le serviría escucharla, agrega al final, en su propia línea, "
@@ -186,8 +209,24 @@ def _quitar_razonamiento(texto: str) -> str:
     return re.sub(r"<think>.*?(</think>|$)", "", texto, flags=re.DOTALL).strip()
 
 
-# Orden del fallback: primero Gemini, si falla Groq. Vale para preguntar() y para ver().
-PROVEEDORES = [Gemini(), Groq()]
+# Orden del fallback, tomado de IA_ORDEN en .env. Vale para preguntar() y para ver().
+# Por defecto Groq va primero: desde el 10/10/2026 Google responde 403 "project denied
+# access" a la clave de Gemini. Cuando haya una clave que funcione: IA_ORDEN=gemini,groq
+_DISPONIBLES = {"gemini": Gemini, "groq": Groq}
+
+
+def _armar_lista() -> list:
+    pedidos = [n.strip().lower() for n in os.getenv("IA_ORDEN", "groq,gemini").split(",") if n.strip()]
+    desconocidos = [n for n in pedidos if n not in _DISPONIBLES]
+    if desconocidos:
+        log.warning("IA_ORDEN tiene nombres que no existen y se ignoran: %s", desconocidos)
+    orden = [n for n in dict.fromkeys(pedidos) if n in _DISPONIBLES]
+    # Los que no se nombraron van al final, para que nunca se pierda un respaldo.
+    orden += [n for n in _DISPONIBLES if n not in orden]
+    return [_DISPONIBLES[n]() for n in orden]
+
+
+PROVEEDORES = _armar_lista()
 
 
 def configurados() -> list:
