@@ -15,6 +15,12 @@ import kotlinx.coroutines.flow.Flow
 
 // ---- Módulo 6: Centro de Aprendizaje ---------------------------------------
 // Tables: ejercicios, resultados_ejercicios, niveles_aprendizaje
+//
+// AVISO: este archivo cambió respecto a la primera versión. Los ejercicios ya
+// no son "qué comando de voz dirías" — ahora son de sonido espacial (entrenar
+// el oído: de qué lado viene un sonido, si se mueve, si está cerca o lejos).
+// Por eso EjercicioEntity trae campos nuevos: qué archivo de audio usar y con
+// qué volumen suena en cada oído (para eso sirve AudioSpatialPlayer.kt).
 
 @Entity(tableName = "ejercicios")
 data class EjercicioEntity(
@@ -28,6 +34,20 @@ data class EjercicioEntity(
     val respuestaCorrecta: String,
     @ColumnInfo(name = "nivel")
     val nivel: Int,
+
+    // ---- Campos de audio espacial (nuevos) --------------------------------
+    @ColumnInfo(name = "archivo_sonido")
+    val archivoSonido: String, // nombre del archivo en res/raw, sin extensión
+    @ColumnInfo(name = "vol_izq_inicio")
+    val volIzqInicio: Float, // 0f (silencio) a 1f (volumen máximo)
+    @ColumnInfo(name = "vol_der_inicio")
+    val volDerInicio: Float,
+    @ColumnInfo(name = "vol_izq_fin")
+    val volIzqFin: Float = volIzqInicio, // igual al de inicio = sonido fijo, no se mueve
+    @ColumnInfo(name = "vol_der_fin")
+    val volDerFin: Float = volDerInicio,
+    @ColumnInfo(name = "duracion_ms")
+    val duracionMs: Long = 1500,
 )
 
 @Entity(
