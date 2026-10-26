@@ -23,6 +23,10 @@ __pycache__/
 *.pyc 
 backend/uso_diario.json
 backend/uso_diario.tmp
+backend/uso_diario.json.migrado
+backend/*.db
+backend/*.db-wal
+backend/*.db-shm
 
 # Claude Code local state (worktrees, etc.)
 .claude/

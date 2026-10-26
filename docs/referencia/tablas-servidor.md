@@ -1,8 +1,23 @@
 # Tablas del servidor del asistente
 
-> Propuesta · Dueño: Módulo 3 (asistente inteligente) · Revisado el 10 oct 2026 contra `6240887` · SQL: [database/servidor.sql](../../database/servidor.sql)
+> En parte construido · Dueño: Módulo 3 (asistente inteligente) · Revisado el 25 oct 2026 · SQL del diseño: [database/servidor.sql](../../database/servidor.sql) · Código: [backend/bd.py](../../backend/bd.py)
 
-El servidor (`backend/`) todavía **no usa base de datos**. Hoy solo guarda el contador diario en `backend/uso_diario.json` y no guarda las conversaciones. Este es el diseño de las cinco tablas para cuando se guarden.
+Este es el diseño de las cinco tablas del servidor (`backend/`). **Ya existen tres**: `conversaciones`, `mensajes` y `uso_diario`, en SQLite (`backend/cecapi.db`). `usuarios` y `proveedores` esperan a que el asesor confirme cuáles son las 5 tablas definitivas.
+
+## Lo que ya está construido (25 oct 2026)
+
+Las tablas se crean con migraciones numeradas en `bd.MIGRACIONES` (`PRAGMA user_version`). Para agregar las dos que faltan se escribe la migración 2 al final de la lista; las bases que ya existen se actualizan solas al arrancar, sin perder datos.
+
+Diferencias con el diagrama de abajo, mientras no existan `usuarios` ni `proveedores`:
+
+| Columna del diseño | Cómo quedó | Por qué |
+|---|---|---|
+| `conversaciones.id` INTEGER | `TEXT`: un UUID al azar | Es el `conversacionId` que ve la app; un número consecutivo dejaría adivinar el de otra persona. |
+| `conversaciones.usuario_id` NOT NULL, FK | Sin llave foránea; por ahora siempre NULL | La app todavía no dice quién pregunta. |
+| `mensajes.proveedor_id`, `uso_diario.proveedor_id` | `proveedor TEXT` (`groq`, `groq_vision`, `gemini`) | No hay tabla `proveedores`; la migración 2 puede llenar `proveedor_id` a partir del nombre. |
+| `mensajes.texto`, `conversaciones.titulo` | NULL mientras `GUARDAR_TEXTOS=0` (por defecto) | [Decisión 0005](../decisiones/0005-responsable-menores-datos-reales.md): no se guardan datos reales hasta que Pp lo autorice. |
+
+Lo demás (roles, tipos, `CHECK`, cascada al borrar e índices) quedó igual. El panel de uso (`GET /panel`) sale de estas tablas y solo muestra números.
 
 No son las tablas del Módulo 3 que están en `database/schema.sql` (`consultas_ia`, `respuestas_ia`, `contextos_conversacion`). Esas viven en el teléfono, con Room. Estas otras viven en la computadora donde corre el servidor.
 
@@ -67,7 +82,7 @@ erDiagram
 
 Borrar a una persona borra en cascada sus conversaciones y mensajes. Eso hace falta para "borra mi cuenta / borra mis datos".
 
-## De dónde sale cada tabla en el código de hoy
+## De dónde salió cada tabla (antes de la base de datos)
 
 | Tabla | Hoy está en | Notas |
 |---|---|---|

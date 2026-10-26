@@ -2,10 +2,10 @@
 -- CECAPI - Tablas del SERVIDOR del asistente (Módulo 3, carpeta backend/)
 -- Dialecto SQLite, igual que database/schema.sql.
 --
--- PROPUESTA: el servidor todavía no usa base de datos. Hoy solo guarda el
--- contador diario en backend/uso_diario.json y no guarda conversaciones.
--- Estas tablas son el diseño para cuando se guarden. Explicación y diagrama:
--- docs/referencia/tablas-servidor.md
+-- DISEÑO COMPLETO (5 tablas). Desde el 25/10/2026 el servidor ya usa SQLite con
+-- tres de ellas (conversaciones, mensajes, uso_diario), creadas por backend/bd.py
+-- con algunas diferencias mientras no existan usuarios ni proveedores.
+-- Explicación, diagrama y diferencias: docs/referencia/tablas-servidor.md
 --
 -- No confundir con las tablas del Módulo 3 en schema.sql (consultas_ia,
 -- respuestas_ia, contextos_conversacion): esas viven en el teléfono (Room).

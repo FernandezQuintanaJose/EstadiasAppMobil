@@ -81,7 +81,9 @@ def test_uso_responde(ia):
 
 def test_entender_reconoce_comando_sin_llamar_a_la_ia(ia):
     r = cliente.post("/entender", json={"pregunta": "¿Qué hay enfrente de mí?"})
-    assert r.json() == {"tipo": "comando", "comando": "ENVIRONMENT"}
+    datos = r.json()
+    assert datos.pop("conversacionId")
+    assert datos == {"tipo": "comando", "comando": "ENVIRONMENT"}
     assert ia.llamadas == []
 
 
@@ -98,7 +100,9 @@ def test_entender_pregunta_libre_va_a_la_ia(ia):
 def test_preguntar_devuelve_respuesta(ia):
     r = cliente.post("/preguntar", json={"pregunta": "¿Por qué el cielo es azul?"})
     assert r.status_code == 200
-    assert r.json() == {"respuesta": "Respuesta de prueba.", "proveedor": "groq", "hayMas": False}
+    datos = r.json()
+    assert datos.pop("conversacionId")
+    assert datos == {"respuesta": "Respuesta de prueba.", "proveedor": "groq", "hayMas": False}
 
 
 @pytest.mark.parametrize("ruta", ["/preguntar", "/entender"])
@@ -220,12 +224,13 @@ def test_ver_rechaza_peticiones_invalidas(ia, cuerpo):
 
 def test_cada_ruta_esta_documentada():
     rutas = cliente.get("/openapi.json").json()["paths"]
-    assert set(rutas) == {"/", "/uso", "/preguntar", "/entender", "/ver"}
+    assert set(rutas) == {"/", "/uso", "/preguntar", "/entender", "/ver", "/panel", "/panel/datos"}
     for ruta, metodos in rutas.items():
         for metodo, doc in metodos.items():
             assert doc.get("summary") and doc.get("description"), f"{metodo} {ruta} sin texto"
             assert doc.get("tags"), f"{metodo} {ruta} sin etiqueta"
-            assert "schema" in doc["responses"]["200"]["content"]["application/json"]
+            tipo = "text/html" if ruta == "/panel" else "application/json"
+            assert "schema" in doc["responses"]["200"]["content"][tipo]
             if ruta != "/":
                 assert {"401", "429"} <= set(doc["responses"]), f"{metodo} {ruta} sin errores de seguridad"
 

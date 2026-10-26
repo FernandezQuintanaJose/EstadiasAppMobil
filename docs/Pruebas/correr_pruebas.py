@@ -21,9 +21,11 @@ Qué se espera de cada frase:
 """
 
 import argparse
+import atexit
 import os
 import re
 import sys
+import tempfile
 import time
 import unicodedata
 from datetime import datetime
@@ -63,13 +65,24 @@ def leer_sinonimos() -> list[tuple[int, str, list[str]]]:
 
 
 def cargar_servidor(sin_ia: bool):
-    """Importa backend/main.py tal cual. Con --sin-ia, la IA se reemplaza por un aviso."""
+    """Importa backend/main.py tal cual. Con --sin-ia, la IA se reemplaza por un aviso.
+
+    Las pruebas no escriben en backend/cecapi.db: usan una base de datos temporal que se
+    borra al terminar (CECAPI_BD se pone antes de importar main, y load_dotenv no la
+    reemplaza). Por eso tampoco suman al uso_diario real, aunque con IA sí gastan cuota.
+    """
+    temporal = tempfile.TemporaryDirectory(prefix="cecapi_correr_pruebas_", ignore_cleanup_errors=True)
+    atexit.register(temporal.cleanup)
+    os.environ["CECAPI_BD"] = str(Path(temporal.name) / "pruebas.db")
     os.chdir(BACKEND)
     sys.path.insert(0, str(BACKEND))
     if sin_ia and not (os.getenv("GEMINI_API_KEY") or os.getenv("GROQ_API_KEY")):
         os.environ["GEMINI_API_KEY"] = "sin-ia"  # solo para que main.py arranque; nunca se usa
+    import bd
     import main
     import proveedores
+
+    atexit.register(bd.cerrar)  # atexit va al revés: primero cierra la base y luego borra la carpeta
 
     if sin_ia:
         def sin_llamar(pregunta, contexto):
