@@ -35,6 +35,30 @@ def test_separar_marca_de_hay_mas():
     assert proveedores._separar_mas("Respuesta completa.") == ("Respuesta completa.", False)
 
 
+@pytest.mark.parametrize("texto", [
+    "Pide ayuda a quien esté cerca. MAS_DISPONIBLE",     # pegada al final (pregunta 28, 25/10)
+    "Pide ayuda a quien esté cerca.MAS_DISPONIBLE",
+    "Pide ayuda a quien esté cerca.\n  MAS_DISPONIBLE  \n",
+    "Pide ayuda MAS_DISPONIBLE a quien esté cerca.",      # en medio: tampoco se debe decir
+])
+def test_separar_marca_aunque_no_este_en_su_linea(texto):
+    respuesta, hay_mas = proveedores._separar_mas(texto)
+    assert hay_mas is True
+    assert "MAS_DISPONIBLE" not in respuesta
+    assert respuesta.startswith("Pide ayuda") and respuesta.endswith("cerca.")
+
+
 def test_instrucciones_tienen_los_datos_del_cecapi():
     assert "Jacarandá 1603" in proveedores.INSTRUCCIONES
     assert "618 455 0146" in proveedores.INSTRUCCIONES
+
+
+def test_instrucciones_tienen_los_nombres_oficiales():
+    assert "Pensión para el Bienestar de las Personas con Discapacidad Permanente" in proveedores.INSTRUCCIONES
+    assert "Ley General para la Inclusión de las Personas con Discapacidad" in proveedores.INSTRUCCIONES
+    assert "guía podotáctil" in proveedores.INSTRUCCIONES
+
+
+def test_instrucciones_no_crecen_de_mas():
+    # Más texto = respuestas más lentas (25/10: 2,564 caracteres, 1,128 ms en promedio).
+    assert len(proveedores.INSTRUCCIONES) < 2200

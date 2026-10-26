@@ -15,6 +15,7 @@ from PIL import Image
 import main
 import proveedores
 import seguridad
+from prompts_vision import PROMPT_BILLETE, PROMPT_ESCENA
 
 
 class IAFalsa:
@@ -183,13 +184,64 @@ def test_ver_billete(ia):
     assert ia.llamadas[0][0] == "image/jpeg"  # imagenes.py la convirtió a JPEG
 
 
+@pytest.mark.parametrize("modo, prompt", [
+    ("billete", PROMPT_BILLETE),
+    ("escena", PROMPT_ESCENA),
+])
+def test_ver_usa_el_prompt_del_modo(ia, modo, prompt):
+    r = cliente.post("/ver", json={"imagen": foto_png_base64(), "modo": modo})
+    assert r.status_code == 200
+    assert ia.llamadas == [("image/jpeg", prompt)]
+
+
+def test_ver_escena_con_ia_caida_responde_503(monkeypatch):
+    falsa = IAFalsa(falla=True)
+    monkeypatch.setattr(proveedores, "ver_con_respaldo", falsa.ver)
+    r = cliente.post("/ver", json={"imagen": foto_png_base64(), "modo": "escena"})
+    assert r.status_code == 503
+    assert r.json()["detail"] == "El asistente no está disponible en este momento."
+
+
 @pytest.mark.parametrize("cuerpo", [
-    {"imagen": "x", "modo": "escena"},          # todavía no disponible
     {"imagen": "x", "modo": "otro"},            # modo que no existe
+    {"imagen": "x", "modo": "Escena"},          # los modos van en minúsculas
+    {"imagen": "esto no es base64!", "modo": "escena"},
+    {"imagen": base64.b64encode(b"no soy una foto").decode(), "modo": "escena"},
     {"imagen": "esto no es base64!", "modo": "billete"},
     {"imagen": base64.b64encode(b"no soy una foto").decode(), "modo": "billete"},
 ])
 def test_ver_rechaza_peticiones_invalidas(ia, cuerpo):
     r = cliente.post("/ver", json=cuerpo)
     assert r.status_code == 400
+    assert ia.llamadas == []
+
+
+# --- Documentación (/docs) -----------------------------------------------------
+
+def test_cada_ruta_esta_documentada():
+    rutas = cliente.get("/openapi.json").json()["paths"]
+    assert set(rutas) == {"/", "/uso", "/preguntar", "/entender", "/ver"}
+    for ruta, metodos in rutas.items():
+        for metodo, doc in metodos.items():
+            assert doc.get("summary") and doc.get("description"), f"{metodo} {ruta} sin texto"
+            assert doc.get("tags"), f"{metodo} {ruta} sin etiqueta"
+            assert "schema" in doc["responses"]["200"]["content"]["application/json"]
+            if ruta != "/":
+                assert {"401", "429"} <= set(doc["responses"]), f"{metodo} {ruta} sin errores de seguridad"
+
+
+@pytest.mark.parametrize("ruta, ejemplos", [
+    ("/preguntar", main.EJEMPLOS_PREGUNTA),
+    ("/entender", main.EJEMPLOS_ENTENDER),
+    ("/ver", main.EJEMPLOS_IMAGEN),
+])
+def test_los_ejemplos_de_docs_funcionan(ia, ruta, ejemplos):
+    # Lo que se ve en /docs con "Try it out" debe responder 200, no un error.
+    for ejemplo in ejemplos.values():
+        assert cliente.post(ruta, json=ejemplo["value"]).status_code == 200, ejemplo["summary"]
+
+
+def test_ejemplo_con_dato_personal_no_sale_a_la_ia(ia):
+    r = cliente.post("/preguntar", json=main.EJEMPLOS_PREGUNTA["dato_personal"]["value"])
+    assert r.json()["proveedor"] is None
     assert ia.llamadas == []

@@ -26,8 +26,7 @@ PROMPT_BILLETE = (
     "No uses markdown ni emojis."
 )
 
-# Fase 1: se escribe ahora. NO se integra todavía a /ver (ver guía, alcance
-# de esta semana: solo el modo billete queda completo).
+# Modo "escena" de /ver: qué hay frente a la persona.
 PROMPT_ESCENA = (
     "Estás ayudando a una persona con discapacidad visual a entender qué hay "
     "frente a ella a partir de una foto. "

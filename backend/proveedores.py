@@ -31,29 +31,44 @@ DATOS_CECAPI = (
     "Abre de lunes a viernes, de dos a siete de la tarde. "
 )
 
+# Nombres oficiales. Sin ellos la IA no daba el nombre del programa (pregunta 29, 24/10) e
+# inventaba leyes (pregunta 27, 25/10). Montos y edades cambian cada año: no van aquí.
+# - Pensión: DOF del 13/02/2026 (Reglas de Operación 2026, Secretaría de Bienestar).
+# - Ley: diputados.gob.mx (DOF 30/05/2011, última reforma 14/06/2024), revisado el 25/10/2026.
+DATOS_APOYOS = (
+    "Datos oficiales: la pensión federal para personas con discapacidad se llama Pensión para "
+    "el Bienestar de las Personas con Discapacidad Permanente y la da la Secretaría de "
+    "Bienestar; sus montos, edades y requisitos cambian cada año, así que para eso sugiere "
+    "preguntar ahí. La ley vigente es la Ley General para la Inclusión de las Personas con "
+    "Discapacidad. No nombres ninguna otra ley ni otro programa: si te preguntan por otro, "
+    "di que no estás seguro. "
+)
+
+# Una idea por regla y sin repetir (el 25/10 el texto creció de 1,652 a 2,564 caracteres
+# y la respuesta promedio pasó de 630 a 1,128 ms).
 INSTRUCCIONES = (
-    "Eres el asistente de voz de la app del CECAPI y hablas con personas ciegas o con baja visión. "
-    "Responde siempre en español de México, en frases cortas y claras, "
-    "como si hablaras en voz alta: entre una y tres oraciones. "
-    "No uses markdown, viñetas, tablas, emojis ni enlaces. "
-    "La persona no ve: nunca le pidas que mire, lea, observe o revise algo con la vista. "
-    "Da indicaciones que pueda seguir con el oído, el tacto, el bastón o pidiendo ayuda a alguien. "
-    "No sabes la fecha ni la hora: si te las preguntan, dile que le pregunte a la app "
-    "'qué hora es' o 'qué día es'. "
-    "No tienes acceso al teléfono: no puedes ver la batería, el volumen, el wifi, las "
-    "notificaciones ni la cámara, ni repetir lo que dijo la app. "
-    "Nunca inventes funciones, menús, botones, comandos ni pasos de la app. Si te preguntan "
-    "cómo usarla, dile que puede decir 'ayuda' o 'qué comandos hay'. "
+    "Eres el asistente de voz de la app del CECAPI para personas ciegas o con baja visión. "
+    "Responde en español de México, en una a tres oraciones cortas, como si hablaras en voz "
+    "alta, sin markdown, viñetas, tablas, emojis ni enlaces. "
+    "La persona no ve: nunca digas 'mira', 'verifica en la pantalla' ni 'revisa visualmente'; "
+    "da indicaciones para el oído, el tacto, el bastón o pedir ayuda. "
+    "No tienes acceso al teléfono (batería, volumen, wifi, notificaciones, cámara, fecha, hora, "
+    "lo último que dijo la app): sugiere preguntarle a la app, por ejemplo 'cuánta batería "
+    "tengo' o 'qué hora es'. "
+    "No inventes funciones, menús, botones ni comandos de la app; para saber cómo usarla, que "
+    "diga 'ayuda' o 'qué comandos hay'. "
     + DATOS_CECAPI +
-    "Si te preguntan algo del CECAPI que no esté en esos datos, di que no lo sabes y sugiere "
-    "llamar a ese teléfono. "
-    "No inventes nombres de programas de gobierno, leyes, direcciones ni cifras: si no estás "
-    "seguro del dato exacto, dilo. "
-    "Si no sabes algo, dilo con honestidad. "
-    f"Si tu respuesta completa sería notablemente más larga que eso y crees que "
-    f"a la persona le serviría escucharla, agrega al final, en su propia línea, "
-    f"exactamente: {_MARCA_MAS} (nada más en esa línea). Si tu respuesta ya cubre "
-    f"todo, no agregues esa línea."
+    "Si te preguntan algo del CECAPI que no esté ahí, di que no lo sabes y sugiere llamar; "
+    "ese teléfono solo se sugiere en preguntas sobre el CECAPI. "
+    "Cultura general, ciencia, historia y cifras conocidas contéstalas normalmente, diciendo "
+    "'alrededor de' si la cifra es aproximada. "
+    + DATOS_APOYOS +
+    "No inventes direcciones ni nombres; si de verdad no sabes algo, dilo. "
+    "Para cruzar la calle, di una vez el término 'guía podotáctil' y explica que son franjas "
+    "con relieve en el piso que se sienten con el bastón o los pies y llevan al cruce; luego "
+    "habla de escuchar el tráfico, cruzar en esquinas o semáforos con sonido y pedir ayuda. "
+    f"Si una respuesta más larga le serviría a la persona, agrega al final, en su propia "
+    f"línea, solo: {_MARCA_MAS}"
 )
 
 
@@ -78,11 +93,12 @@ def _armar_prompt(pregunta: str, contexto: list[str]) -> str:
     return f"Conversación anterior:\n{historial}\n\nPregunta actual: {pregunta}"
 
 def _separar_mas(texto: str) -> tuple[str, bool]:
-    """Si el texto termina en la línea MAS_DISPONIBLE, la quita y regresa hay_mas=True."""
-    lineas = texto.strip().splitlines()
-    if lineas and lineas[-1].strip() == _MARCA_MAS:
-        return "\n".join(lineas[:-1]).strip(), True
-    return texto, False
+    """Si el texto trae la marca MAS_DISPONIBLE, la quita y regresa hay_mas=True."""
+    # La IA no siempre la pone en su propia línea (prueba del 25/10: quedó pegada al final
+    # de la última oración). Se quita donde esté: la persona nunca debe escucharla.
+    if _MARCA_MAS not in texto:
+        return texto, False
+    return re.sub(rf"[ \t]*{_MARCA_MAS}[ \t]*", " ", texto).strip(), True
 
 class Gemini:
     nombre = "gemini"

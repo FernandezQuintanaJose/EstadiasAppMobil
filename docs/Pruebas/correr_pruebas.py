@@ -25,6 +25,7 @@ import os
 import re
 import sys
 import time
+import unicodedata
 from datetime import datetime
 from pathlib import Path
 
@@ -87,6 +88,18 @@ def preguntar(main, frase: str) -> dict:
     return r
 
 
+# Respuestas de la IA que hay que revisar a mano aunque no sean error (corrida del 25/10:
+# "No lo sé, llama al CECAPI" en cultura general y la marca MAS_DISPONIBLE pegada al texto
+# pasaban como ✅). Se comparan sin acentos ni mayúsculas.
+NO_SABE = ("no lo se", "no dispongo de")
+MARCA_MAS = "MAS_DISPONIBLE"
+
+
+def _normalizar(texto: str) -> str:
+    sin_acentos = unicodedata.normalize("NFD", texto.lower())
+    return "".join(c for c in sin_acentos if unicodedata.category(c) != "Mn")
+
+
 def veredicto(esperado: str, r: dict, sin_ia: bool) -> str:
     comando = r.get("comando")
     if esperado not in ("IA", "teléfono"):
@@ -95,11 +108,16 @@ def veredicto(esperado: str, r: dict, sin_ia: bool) -> str:
         return "❌"  # abrió un módulo que no era
     if r.get("tipo") == "error":
         return "⚠️"
+    respuesta = r.get("respuesta") or ""
+    if MARCA_MAS in respuesta:
+        return "⚠️"  # la persona escucharía la marca
     if esperado == "teléfono":
         return "➖"
-    if r.get("respuesta") == main_bloqueo():
+    if respuesta == main_bloqueo():
         return "⚠️"
-    return "✅" if sin_ia or r.get("respuesta") else "❌"
+    if any(frase in _normalizar(respuesta) for frase in NO_SABE):
+        return "⚠️"
+    return "✅" if sin_ia or respuesta else "❌"
 
 
 def main_bloqueo() -> str:
@@ -181,7 +199,7 @@ def main_cli() -> None:
         "",
         "Se usa la misma función que `POST /entender` (backend/main.py). Leyenda: ✅ correcto · ❌ falla · "
         "➖ la resuelve el teléfono antes de llegar al servidor (aquí solo se revisa que no abra un módulo equivocado) · "
-        "⚠️ error o bloqueo.",
+        "⚠️ error, bloqueo, respuesta \"no lo sé\" / \"no dispongo de\" o marca MAS_DISPONIBLE en el texto (revisar a mano).",
         "",
         "## Resumen",
         "",
