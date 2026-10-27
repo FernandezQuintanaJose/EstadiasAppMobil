@@ -1,0 +1,4 @@
+# Solo para correr las pruebas automáticas (python -m pytest). El servidor no las necesita.
+-r requirements.txt
+pytest
+httpx

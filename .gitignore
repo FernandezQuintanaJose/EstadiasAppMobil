@@ -26,3 +26,4 @@ backend/uso_diario.tmp
 
 # Claude Code local state (worktrees, etc.)
 .claude/
+.pytest_cache/
