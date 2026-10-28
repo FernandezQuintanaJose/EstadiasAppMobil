@@ -56,6 +56,8 @@ data class ActivitiesUiState(
     val correctCount: Int = 0,
     /** Se terminaron todos los ejercicios: se muestra el puntaje y la persona puede repetir o salir. */
     val finished: Boolean = false,
+    /** Practice mode: the answers are not saved and the level does not change. */
+    val practice: Boolean = false,
     val finalMessage: String? = null,
 ) {
     val current: ActivityItem? get() = items.getOrNull(index)
@@ -119,6 +121,7 @@ class LearningViewModel @Inject constructor(
             _state.value = _state.value.copy(level = level.value)
             voiceEngine.speak(
                 "Actividades para entrenar el oído. Escucharás un sonido y dirás de dónde viene. " +
+                    "Para notar de qué lado viene el sonido, usa audífonos. " +
                     "Di vibración para practicar con vibraciones. " + CommandCatalog.hint("actividades"),
             )
             itemsFlow.collect { list -> onItemsLoaded(list) }
@@ -152,7 +155,8 @@ class LearningViewModel @Inject constructor(
     private fun where(): String {
         val s = _state.value
         val place = if (s.mode == ActivityMode.AUDIO) "Nivel ${s.level}" else "Vibración"
-        return "$place, ejercicio ${s.index + 1} de ${s.items.size}."
+        val prefix = if (s.practice) "Práctica. " else ""
+        return "$prefix$place, ejercicio ${s.index + 1} de ${s.items.size}."
     }
 
     /**
@@ -171,6 +175,8 @@ class LearningViewModel @Inject constructor(
                 stopStimulus()
                 voiceEngine.speak(CommandCatalog.ACTIVITIES, listenAfter = true)
             }
+            has("salir de practica", "modo normal", "con puntos") -> setPractice(false)
+            has("practica", "sin puntos") -> setPractice(true)
             chosenLevel != null -> setLevel(levelNumber(chosenLevel))
             text in VIBRATION_ONLY || has("modo vibracion", "cambia a vibracion", "cambiar a vibracion", "pasa a vibracion", "ejercicios de vibracion") ->
                 setMode(ActivityMode.VIBRATION)
@@ -199,6 +205,12 @@ class LearningViewModel @Inject constructor(
         if (newMode == mode.value) return
         stopStimulus()
         mode.value = newMode
+    }
+
+    fun setPractice(enabled: Boolean) {
+        if (_state.value.practice == enabled) return
+        _state.value = _state.value.copy(practice = enabled)
+        restartActivity()
     }
 
     fun setLevel(newLevel: Int) {
@@ -359,7 +371,7 @@ class LearningViewModel @Inject constructor(
         val isLast = _state.value.index == _state.value.items.size - 1
         val nextHint = if (isLast) "Di siguiente para ver tu puntaje" else "Di siguiente para continuar"
         viewModelScope.launch {
-            val user = sessionRepository.currentUser.value
+            val user = if (_state.value.practice) null else sessionRepository.currentUser.value
             var levelUp = ""
             if (user != null) {
                 if (item.sound != null) {
