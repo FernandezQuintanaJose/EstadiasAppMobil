@@ -1,6 +1,6 @@
 # Comandos de voz de CECAPI
 
-> Vigente · Generado desde el código el 2026-10-01, main en e968668 · No se edita a mano: se vuelve a generar con `python docs/herramientas/generar_comandos.py`
+> Vigente · Generado desde el código el 2026-10-08, main en 6240887 · No se edita a mano: se vuelve a generar con `python docs/herramientas/generar_comandos.py`
 
 Esta guía repite lo que la app dice cuando alguien pide **lista de comandos** en cada pantalla, y lo que dice con **otras formas de decirlo**. La app también acepta errores pequeños del reconocimiento de voz, como una letra de más o una palabra partida en dos.
 

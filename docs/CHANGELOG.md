@@ -4,6 +4,30 @@
 
 `main` local va en e968668, sin subir; en GitHub, `main` va en 794ffe5. **e968668 se instaló en el Oppo el 1 oct: compila, migra de la versión 6 a la 7 y abre. Las funciones nuevas no se han probado una por una.**
 
+## Semana del 3 al 9 oct de 2026
+
+### Agregado
+
+- Detector de objetos con TensorFlow Lite (EfficientDet-Lite0, 4.6 MB) y más de 150 traducciones de etiquetas en «Qué hay enfrente»; la mejora de interfaz de esa rama no se trajo (6240887).
+- `main` se unió con GitHub: privacidad, `hayMas` y preguntas de prueba del Equipo 2 (e2e4fda); se corrigieron dos errores del servidor que impedían que importara y un valor mal desempacado en `/preguntar` (9507440).
+- Interfaz en proceso, sin terminar (b6a0723, 6 oct). El nombre de la app queda temporalmente en «CECAPI».
+
+### Decidido (ver decisiones 0008 a 0016)
+
+- Android solo por APK desde nuestra página y costo cero, salvo el dominio.
+- Acceso por roles, sin planes.
+- La IA como filtro entre paneles, Gemini, Groq y Wikipedia.
+- Versión mínima de Android la más baja posible (Android 5), recomendada Android 11.
+- Seis tamaños de botón y micrófono fijo en todas las pantallas.
+- Luz de la cámara: sin luz, pregunta, linterna baja, nunca flash.
+- Supabase con reglas por fila (RLS) en todas las tablas.
+- Lo que no se termina se acumula, con tope de tiempo.
+- Los equipos no dependen unos de otros; todo lo de IA es de Neurona.
+
+### Páginas
+
+- Se renovaron Planteamiento (Capítulos I a V con la plantilla de la UTD), Cronograma, Entorno y el documento Plan para equipos. La página Documentación ahora lista todas las páginas con su estado. Se actualizaron Tareas por equipo (qué hicieron y qué no al 8 de octubre) y el Reporte de avances (semana del 5 al 9).
+
 ## Semana del 26 sep al 2 oct de 2026
 
 ### Agregado
