@@ -66,8 +66,8 @@ class RequestsViewModel @Inject constructor(
             "Documentos. Elige una plantilla para comenzar. " + CommandCatalog.hint("documentos"),
             listenAfter = true,
         )
-        // What is said while a template is being filled in is the answer, so the global commands (time, internet,
-        // volume...) must not take it: "la fecha de hoy" is a date to write down, not a question about the phone.
+        // Lo que se dice mientras se llena una plantilla es la respuesta, así que los comandos globales (hora,
+        // internet, volumen...) no deben tomarlo: "la fecha de hoy" es una fecha para anotar, no una pregunta sobre el teléfono.
         viewModelScope.launch {
             _uiState.collect { s -> voiceEngine.rawInput = s.plantillaSeleccionada != null && s.textoGenerado == null }
         }
@@ -77,9 +77,9 @@ class RequestsViewModel @Inject constructor(
     }
 
     /**
-     * While a template is being filled in, whatever is said is the answer to the current question, except a few
-     * control phrases that count only when they are the whole phrase (an answer may contain "cancelar" or
-     * "otra vez"). Otherwise the person is choosing a template.
+     * Mientras se llena una plantilla, lo que se dice es la respuesta a la pregunta actual, salvo unas pocas
+     * frases de control que solo cuentan cuando son la frase completa (una respuesta puede contener "cancelar"
+     * o "otra vez"). En cualquier otro caso, la persona está eligiendo una plantilla.
      */
     private fun onSpeech(spoken: String) {
         val state = _uiState.value
@@ -110,12 +110,12 @@ class RequestsViewModel @Inject constructor(
         }
     }
 
-    /** Call from a button: reads out this screen's commands. */
+    /** Se llama desde un botón: lee en voz alta los comandos de esta pantalla. */
     fun onCommandsRequested() {
         voiceEngine.speak(CommandCatalog.DOCUMENTS, listenAfter = true)
     }
 
-    /** Two quick taps on the mic silence the assistant, for someone using touch with their hands instead of voice. */
+    /** Dos toques rápidos en el micrófono silencian al asistente, para quien usa las manos en vez de la voz. */
     fun onMicDoubleTap() = voiceEngine.mute()
 
     fun onMicTapped() {
@@ -149,9 +149,9 @@ class RequestsViewModel @Inject constructor(
     }
 
     private fun finalizarSolicitud(plantilla: PlantillaSolicitudEntity, respuestas: Map<String, String>) {
-        // The document is never withheld for lack of an account: generated and read for anyone. Only a
-        // signed-in person gets it saved to their history (generarSolicitud skips saving without one),
-        // instead of answering every question only to be told at the very end that it was all for nothing.
+        // El documento nunca se retiene por falta de cuenta: se genera y se lee para cualquiera. Solo a una
+        // persona con sesión iniciada se le guarda en su historial (generarSolicitud omite guardar sin ella),
+        // en vez de contestar todas las preguntas solo para enterarse al final de que fue en vano.
         val usuarioId = sessionRepository.currentUser.value?.id
         viewModelScope.launch {
             val solicitud = repository.generarSolicitud(usuarioId, plantilla, respuestas)

@@ -3,6 +3,7 @@ package com.cecapi.app.feature.modulo3_asistenteinteligente
 import com.cecapi.app.core.model.ModuloCecapi
 import com.cecapi.app.core.voice.AiReply
 import com.cecapi.app.core.voice.IntentFallback
+import com.cecapi.app.core.voice.VoiceEngine
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -18,6 +19,7 @@ import javax.inject.Singleton
 class AiResolverSetup @Inject constructor(
     private val intentFallback: IntentFallback,
     private val api: AiAssistantApi,
+    private val voiceEngine: VoiceEngine,
 ) {
     init {
         intentFallback.resolver = ::resolve
@@ -32,7 +34,15 @@ class AiResolverSetup @Inject constructor(
      */
     private suspend fun resolve(text: String, deep: Boolean): AiReply? {
         val pregunta = if (deep) "Explica con más detalle: $text" else text
-        val entendido = api.understand(pregunta, emptyList()).getOrNull() ?: return null
+        val resultado = api.understand(pregunta, emptyList())
+        val entendido = resultado.getOrNull() ?: run {
+            // Se dice por qué falló la IA (límite, servidor caído...) y luego Inicio busca en Wikipedia.
+            val error = resultado.exceptionOrNull()
+            if (error is AiException && error.failure != AiFailure.DISABLED) {
+                voiceEngine.speak(AiMessages.forFailure(error))
+            }
+            return null
+        }
         entendido.moduleCode?.let { code ->
             val modulo = ModuloCecapi.fromStorageCode(code) ?: return null
             return AiReply(command = modulo.title)

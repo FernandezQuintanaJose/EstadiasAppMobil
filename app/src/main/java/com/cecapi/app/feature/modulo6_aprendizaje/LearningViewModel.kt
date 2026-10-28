@@ -31,7 +31,7 @@ import javax.inject.Inject
 
 enum class ActivityMode { AUDIO, VIBRATION }
 
-/** One exercise, whether it is a sound or a vibration pattern. */
+/** Un ejercicio, sea un sonido o un patrón de vibración. */
 data class ActivityItem(
     val id: Long,
     val title: String,
@@ -48,13 +48,13 @@ data class ActivitiesUiState(
     val index: Int = 0,
     val feedback: String? = null,
     val correct: Boolean? = null,
-    /** The instruction, the sound or the vibration is playing: answers are not taken yet. */
+    /** Se está reproduciendo la instrucción, el sonido o la vibración: todavía no se toman respuestas. */
     val busy: Boolean = false,
-    /** The index already graded this round, so repeating the same answer does not add points again. */
+    /** El índice ya calificado en esta ronda, para que repetir la misma respuesta no sume puntos otra vez. */
     val answeredIndex: Int = -1,
-    /** Correct answers so far in this round (sounds or vibrations, whichever is selected). */
+    /** Respuestas correctas hasta ahora en esta ronda (sonidos o vibraciones, según lo que esté seleccionado). */
     val correctCount: Int = 0,
-    /** All the exercises were done: the score is shown and the person can repeat or leave. */
+    /** Se terminaron todos los ejercicios: se muestra el puntaje y la persona puede repetir o salir. */
     val finished: Boolean = false,
     val finalMessage: String? = null,
 ) {
@@ -62,9 +62,9 @@ data class ActivitiesUiState(
 }
 
 /**
- * Actividades: ear training. A sound (or a vibration pattern) plays and the person says where it came from
- * or what it felt like. Answers are checked, saved for the signed-in user, and the level goes up with points.
- * It also works without signing in; results are simply not saved.
+ * Actividades: entrenamiento auditivo. Se reproduce un sonido (o un patrón de vibración) y la persona dice
+ * de dónde vino o cómo se sintió. Las respuestas se revisan, se guardan para el usuario con sesión iniciada,
+ * y el nivel sube con los puntos. También funciona sin iniciar sesión; los resultados simplemente no se guardan.
  */
 @OptIn(ExperimentalCoroutinesApi::class)
 @HiltViewModel
@@ -92,7 +92,7 @@ class LearningViewModel @Inject constructor(
     private val level = MutableStateFlow(1)
     private var exerciseJob: Job? = null
 
-    // The highest level the person has reached (saved progress), to announce when it goes up.
+    // El nivel más alto que la persona ha alcanzado (progreso guardado), para anunciar cuando sube.
     private var savedLevel = 1
 
     private val itemsFlow: Flow<List<ActivityItem>> = combine(mode, level) { m, l -> m to l }
@@ -144,7 +144,7 @@ class LearningViewModel @Inject constructor(
             finalMessage = null,
         )
         if (list.isEmpty()) return
-        // Let the welcome finish before the first exercise.
+        // Deja que termine el mensaje de bienvenida antes del primer ejercicio.
         speakAndWait("")
         startExercise(intro = "${where()} ")
     }
@@ -156,10 +156,10 @@ class LearningViewModel @Inject constructor(
     }
 
     /**
-     * The commands this screen answers. A sentence that contains an answer ("el sonido vino de la izquierda",
-     * "terminó en la derecha") is an answer, even if it also has a word that is a command elsewhere; so the
-     * answer check comes before repeat, next and back. "Atrás" and "adelante" are answers in level 3, so they
-     * are not commands here.
+     * Los comandos que responde esta pantalla. Una frase que contiene una respuesta ("el sonido vino de la
+     * izquierda", "terminó en la derecha") es una respuesta, aunque también tenga una palabra que en otro
+     * lugar es un comando; por eso la revisión de respuesta va antes que repetir, siguiente y atrás.
+     * "Atrás" y "adelante" son respuestas en el nivel 3, así que ahí no son comandos.
      */
     private fun onSpeech(spoken: String) {
         val text = VoiceText.normalize(spoken)
@@ -208,7 +208,7 @@ class LearningViewModel @Inject constructor(
         level.value = newLevel
     }
 
-    /** Two quick taps on the mic silence the assistant, for someone using touch with their hands instead of voice. */
+    /** Dos toques rápidos en el micrófono silencian al asistente, para quien usa las manos en vez de la voz. */
     fun onMicDoubleTap() {
         stopStimulus()
         voiceEngine.mute()
@@ -224,7 +224,7 @@ class LearningViewModel @Inject constructor(
         voiceEngine.speak(CommandCatalog.ACTIVITIES, listenAfter = true)
     }
 
-    /** Plays the sound or the vibration again, without repeating the instruction. */
+    /** Reproduce otra vez el sonido o la vibración, sin repetir la instrucción. */
     fun repeat() {
         if (_state.value.current == null || _state.value.finished) return
         startExercise(intro = "")
@@ -233,7 +233,7 @@ class LearningViewModel @Inject constructor(
     fun next() {
         val s = _state.value
         if (s.items.isEmpty() || s.finished) return
-        // After the last exercise the round ends: say the score instead of starting over.
+        // Después del último ejercicio termina la ronda: se dice el puntaje en vez de empezar de nuevo.
         if (s.index + 1 >= s.items.size) {
             finish()
             return
@@ -242,7 +242,7 @@ class LearningViewModel @Inject constructor(
         startExercise(intro = "${where()} ")
     }
 
-    /** The round is over: says the score aloud and listens for "repetir" or "salir". */
+    /** La ronda terminó: dice el puntaje en voz alta y escucha "repetir" o "salir". */
     private fun finish() {
         stopStimulus()
         val s = _state.value
@@ -252,7 +252,7 @@ class LearningViewModel @Inject constructor(
         voiceEngine.speak(message, listenAfter = true)
     }
 
-    /** Starts the same level (or the vibrations) again from the first exercise, with the score at zero. */
+    /** Empieza de nuevo el mismo nivel (o las vibraciones) desde el primer ejercicio, con el puntaje en cero. */
     fun restartActivity() {
         val s = _state.value
         if (s.items.isEmpty()) return
@@ -274,7 +274,7 @@ class LearningViewModel @Inject constructor(
         _back.tryEmit(Unit)
     }
 
-    /** At the end, what the person says is "repetir" or "salir"; anything else gets the options again. */
+    /** Al final, lo que la persona dice es "repetir" o "salir"; cualquier otra cosa recibe las opciones otra vez. */
     private fun onFinalCommand(text: String) {
         when {
             VoiceText.hasAny(text, "repite", "repetir", "repiteme", "otra vez", "de nuevo", "volver a intentar", "reiniciar", "empezar") ->
@@ -295,7 +295,7 @@ class LearningViewModel @Inject constructor(
             _state.value = _state.value.copy(busy = true)
             val talk = (intro + if (intro.isBlank()) "" else item.instruction).trim()
             if (talk.isNotEmpty()) speakAndWait(talk)
-            // The person left the app while it was talking: nothing should play or listen behind their back.
+            // La persona salió de la aplicación mientras hablaba: nada debería reproducirse o escuchar a sus espaldas.
             if (!voiceEngine.appVisible) return@launch stopStimulus()
             delay(300)
             item.sound?.let { audioPlayer.reproducir(it) }
@@ -306,7 +306,7 @@ class LearningViewModel @Inject constructor(
         }
     }
 
-    /** The app went to the background (home button, screen lock): stop the sound, the vibration and the exercise. */
+    /** La aplicación pasó a segundo plano (botón de inicio, bloqueo de pantalla): detener el sonido, la vibración y el ejercicio. */
     fun onAppStopped() = stopStimulus()
 
     private fun stopStimulus() {
@@ -324,7 +324,7 @@ class LearningViewModel @Inject constructor(
 
     private fun answer(spoken: String) {
         val item = _state.value.current ?: return
-        // Already graded: repeating the same answer must not add points again. "Repite" only plays the sound.
+        // Ya calificado: repetir la misma respuesta no debe sumar puntos otra vez. "Repite" solo reproduce el sonido.
         if (_state.value.answeredIndex == _state.value.index) {
             voiceEngine.speak("Ya respondiste este ejercicio. Di siguiente para continuar, o repite para escucharlo otra vez.", listenAfter = true)
             return
@@ -334,13 +334,13 @@ class LearningViewModel @Inject constructor(
         val movement = movement(text)
         val expectsMovement = VoiceText.normalize(item.answer).startsWith("de ")
         val expectsMixed = VoiceText.normalize(item.answer) == "mixto"
-        // Nothing that sounds like an answer: do not grade it, the person may simply have said something else.
+        // Nada que suene a respuesta: no calificarlo, puede que la persona simplemente haya dicho otra cosa.
         if (categories.isEmpty() && movement == 0) {
             cues.play(FeedbackCues.Cue.NOT_UNDERSTOOD)
             voiceEngine.speak("No entendí tu respuesta. Dila con una sola palabra, o di repite, o siguiente.", listenAfter = true)
             return
         }
-        // Several answers at once ("cerca, lejos, centro") would always be right by luck: ask for one.
+        // Varias respuestas a la vez ("cerca, lejos, centro") siempre acertarían por suerte: pedir una sola.
         if (!expectsMovement && !expectsMixed && categories.size > 1) {
             cues.play(FeedbackCues.Cue.NOT_UNDERSTOOD)
             voiceEngine.speak("Dime una sola respuesta.", listenAfter = true)
@@ -349,7 +349,7 @@ class LearningViewModel @Inject constructor(
         val correct = matches(spoken, item.answer)
         val message = (if (correct) "Correcto" else "Incorrecto") + ", la respuesta era ${spokenAnswer(item.answer)}."
         cues.play(if (correct) FeedbackCues.Cue.SUCCESS else FeedbackCues.Cue.ERROR)
-        // answeredIndex (checked above) guarantees each exercise is counted only once per round.
+        // answeredIndex (revisado arriba) garantiza que cada ejercicio se cuente solo una vez por ronda.
         _state.value = _state.value.copy(
             feedback = message,
             correct = correct,
@@ -380,14 +380,14 @@ class LearningViewModel @Inject constructor(
         }
     }
 
-    /** How the answer is said aloud: the code stores "centro", the recordings say "ambos lados". */
+    /** Cómo se dice la respuesta en voz alta: el código guarda "centro", las grabaciones dicen "ambos lados". */
     private fun spokenAnswer(answer: String): String = if (VoiceText.normalize(answer) == "centro") "ambos lados" else answer
 
-    /** Which kinds of answer the sentence contains. One kind is a clear answer; several is not. */
+    /** Qué tipos de respuesta contiene la frase. Un solo tipo es una respuesta clara; varios no lo son. */
     private fun categoriesIn(text: String): Set<String> =
         ANSWER_WORDS.filterValues { words -> VoiceText.hasAny(text, words) }.keys
 
-    /** +1 when the sound went from left to right, -1 from right to left, 0 when the sentence does not say. */
+    /** +1 cuando el sonido fue de izquierda a derecha, -1 de derecha a izquierda, 0 cuando la frase no lo indica. */
     private fun movement(text: String): Int {
         val left = text.indexOf("izquierd")
         val right = text.indexOf("derech")
@@ -400,9 +400,10 @@ class LearningViewModel @Inject constructor(
     }
 
     /**
-     * Every answer accepts the several ways people say it. "Centro" and "ambos lados" are the same answer.
-     * Movement ("de izquierda a derecha") is judged by the order of the two sides or by where the sound went
-     * ("hacia la derecha"). Any other answer is right only when it is the one kind of answer said.
+     * Cada respuesta acepta las distintas formas en que la gente la dice. "Centro" y "ambos lados" son la
+     * misma respuesta. El movimiento ("de izquierda a derecha") se juzga por el orden de los dos lados o por
+     * hacia dónde fue el sonido ("hacia la derecha"). Cualquier otra respuesta es correcta solo cuando es el
+     * único tipo de respuesta dicho.
      */
     private fun matches(spoken: String, expected: String): Boolean {
         val text = VoiceText.normalize(spoken)
@@ -426,11 +427,11 @@ class LearningViewModel @Inject constructor(
     private companion object {
         val LEVEL_COMMAND = Regex("(?:nivel (uno|dos|tres|1|2|3)|(primer|segundo|tercer) nivel)")
 
-        // Changing the activity needs the bare word or an explicit phrase: "vibró corto" is an answer.
+        // Cambiar la actividad necesita la palabra sola o una frase explícita: "vibró corto" es una respuesta.
         val VIBRATION_ONLY = setOf("vibracion", "vibraciones", "vibrar", "la vibracion", "con vibracion", "vibrador")
         val SOUNDS_ONLY = setOf("sonidos", "sonido", "audio", "audios", "los sonidos", "con sonidos", "oido")
 
-        /** Every way of saying each answer. Whole words only, so "acerca" is not "cerca". */
+        /** Todas las formas de decir cada respuesta. Solo palabras completas, para que "acerca" no sea "cerca". */
         val ANSWER_WORDS: Map<String, List<String>> = mapOf(
             "izquierda" to listOf("izquierda", "izquierdo", "lado izquierdo", "oido izquierdo"),
             "derecha" to listOf("derecha", "derecho", "lado derecho", "oido derecho"),

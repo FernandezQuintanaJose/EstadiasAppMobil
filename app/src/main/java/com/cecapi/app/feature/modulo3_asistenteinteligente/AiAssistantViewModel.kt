@@ -62,11 +62,11 @@ class AiAssistantViewModel @Inject constructor(
             return
         }
         viewModelScope.launch {
-            val resultado = repository.ask(usuario.id, pregunta)
+            val resultado = voiceEngine.speakWhile { repository.ask(usuario.id, pregunta) }
             resultado.onSuccess { respuesta ->
                 voiceEngine.speak(respuesta)
-            }.onFailure {
-                voiceEngine.speak("No pude conectar con el asistente inteligente. Intenta de nuevo en un momento.")
+            }.onFailure { error ->
+                voiceEngine.speak(AiMessages.forFailure(error))
             }
         }
     }

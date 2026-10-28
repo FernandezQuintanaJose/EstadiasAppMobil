@@ -97,7 +97,7 @@ class EditAccountViewModel @Inject constructor(
             voiceEngine.speak("Un administrador no puede darse de baja.")
             return
         }
-        if (PasswordHasher.hash(contrasenaActual.trim()) != user.contrasenaHash) {
+        if (!sessionRepository.passwordMatches(user.contrasenaHash, contrasenaActual)) {
             cues.play(FeedbackCues.Cue.ERROR)
             voiceEngine.speak("Esa no es tu contraseña. No di de baja tu cuenta.")
             _errorMensaje.tryEmit("Esa no es tu contraseña actual.")

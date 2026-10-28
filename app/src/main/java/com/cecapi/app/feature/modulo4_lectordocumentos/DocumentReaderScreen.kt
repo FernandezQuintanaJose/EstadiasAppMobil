@@ -115,9 +115,9 @@ fun DocumentReaderScreen(
 
     var imageCapture by remember { mutableStateOf<ImageCapture?>(null) }
 
-    // Lives on the screen (not the ViewModel): it holds an ML Kit recognizer that must close with the
-    // camera, not survive configuration changes. Told "así está bien, toca el botón" and where to move the
-    // phone, said out loud, since there is no viewfinder to look at for someone who cannot see it.
+    // Vive en la pantalla (no en el ViewModel): contiene un reconocedor de ML Kit que debe cerrarse con la
+    // cámara, no sobrevivir a cambios de configuración. Dice en voz alta "así está bien, toca el botón" y
+    // hacia dónde mover el teléfono, ya que no hay visor que mirar para alguien que no puede verlo.
     val framingAnalyzer = remember { TextFramingAnalyzer(onHint = viewModel::onFramingHint) }
     DisposableEffect(Unit) { onDispose { framingAnalyzer.close() } }
 
@@ -138,7 +138,7 @@ fun DocumentReaderScreen(
     LaunchedEffect(Unit) { viewModel.back.collect { onBack() } }
     LaunchedEffect(Unit) { viewModel.routes.collect(onOpen) }
 
-    // The system picture picker: the person chooses one picture and the app sees only that one.
+    // El selector de fotos del sistema: la persona elige una foto y la aplicación solo ve esa.
     val coroutineScope = rememberCoroutineScope()
     val storageLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
         if (granted) viewModel.onSavePhoto() else viewModel.onSavePhotoDenied()
@@ -324,7 +324,7 @@ fun DocumentReaderScreen(
     }
 }
 
-/** One full-width, same-size button: a big icon badge plus a big bold label, easy to find and tap. */
+/** Un botón de ancho completo y tamaño uniforme: una insignia de icono grande más una etiqueta grande en negrita, fácil de encontrar y tocar. */
 private val RepetirTint = Color(0xFFF59E0B)
 private val FlechaTint = Color(0xFF38BDF8)
 private val OtraFotoSection = ModuleSection(Color(0xFFA78BFA), Color(0xFF2A2340))

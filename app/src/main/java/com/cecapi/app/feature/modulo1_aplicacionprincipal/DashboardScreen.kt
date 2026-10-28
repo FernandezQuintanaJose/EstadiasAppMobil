@@ -65,7 +65,7 @@ import com.cecapi.app.core.voice.VoiceMessages
 import com.cecapi.app.core.voice.VoiceState
 
 
-/** Signed-in home. Same layout and voice behavior as the public home, plus the user's own modules. */
+/** Inicio con sesión abierta. Mismo diseño y comportamiento de voz que el inicio público, más los módulos propios del usuario. */
 @Composable
 fun DashboardScreen(
     onModuleClick: (String) -> Unit,
@@ -82,14 +82,14 @@ fun DashboardScreen(
     LaunchedEffect(Unit) {
         viewModel.navEvents.collect(onModuleClick)
     }
-    // Leaving the app also frees the phone: the screen stops being kept on and the mic is released.
+    // Salir de la app también libera el teléfono: la pantalla deja de mantenerse encendida y se libera el micrófono.
     LaunchedEffect(Unit) {
         viewModel.exitEvents.collect { (context as? Activity)?.finishAffinity() }
     }
     LaunchedEffect(currentUser) {
         if (currentUser == null) onLoggedOut()
     }
-    // Dashboard stays alive under the module screens; only react to speech while it is showing.
+    // Dashboard sigue activo debajo de las pantallas de módulo; solo reacciona al habla mientras se muestra.
     DisposableEffect(Unit) {
         viewModel.setScreenActive(true)
         onDispose { viewModel.setScreenActive(false) }
@@ -107,7 +107,7 @@ fun DashboardScreen(
         hasMicPermission = granted
         if (granted) viewModel.onMicTapped() else viewModel.onMicPermissionDenied()
     }
-    // "Hola" (or the assistant's name) opens the mic while the dashboard is showing.
+    // "Hola" (o el nombre del asistente) abre el micrófono mientras se muestra el dashboard.
     DisposableEffect(hasMicPermission) {
         viewModel.setWakeWordEnabled(hasMicPermission)
         onDispose { viewModel.setWakeWordEnabled(false) }
@@ -116,8 +116,9 @@ fun DashboardScreen(
     val listening = voiceState is VoiceState.Listening
     val menu by viewModel.menu.collectAsState()
 
-    // The mic bar is fixed over the scrolling content (like the Figma prototype), not inline
-    // in the scroll flow, so it is always reachable no matter how far the person has scrolled.
+    // La barra del micrófono queda fija sobre el contenido que se desplaza (como en el prototipo de
+    // Figma), no en línea dentro del flujo de scroll, para que siempre sea alcanzable sin importar
+    // cuánto haya desplazado la persona.
     Box(modifier = Modifier.fillMaxSize()) {
     Column(
         modifier = Modifier
@@ -157,7 +158,7 @@ fun DashboardScreen(
             }
         }
 
-        // What the voice says is not repeated on screen. Only what needs attention stays visible.
+        // Lo que dice la voz no se repite en pantalla. Solo queda visible lo que necesita atención.
         if (!hasMicPermission) {
             NoticeBanner(VoiceMessages.MIC_DENIED, modifier = Modifier.padding(horizontal = 24.dp).padding(top = 16.dp))
         } else if (voiceState is VoiceState.Error) {
@@ -282,8 +283,9 @@ fun DashboardScreen(
         }
     }
 
-        // The microphone is the main control of the whole app: fixed over the scrolling
-        // content above, so it is always reachable no matter how far the person scrolled.
+        // El micrófono es el control principal de toda la app: queda fijo sobre el contenido
+        // que se desplaza arriba, para que siempre sea alcanzable sin importar cuánto haya
+        // desplazado la persona.
         MicPad(
             onDoubleTap = viewModel::onMicDoubleTap,
             listening = listening,

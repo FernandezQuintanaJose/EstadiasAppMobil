@@ -12,7 +12,7 @@ import com.cecapi.app.feature.modulo1_aplicacionprincipal.UsuarioEntity
 import kotlinx.coroutines.flow.Flow
 
 // ---- Módulo 3: Asistente Inteligente -------------------------------------
-// Tables: consultas_ia, respuestas_ia, contextos_conversacion
+// Tablas: consultas_ia, respuestas_ia, contextos_conversacion
 
 @Entity(
     tableName = "consultas_ia",
@@ -91,7 +91,7 @@ interface ConsultaIaDao {
     @Query("SELECT * FROM consultas_ia WHERE usuario_id = :usuarioId ORDER BY fecha_hora DESC LIMIT 50")
     fun observeRecent(usuarioId: Long): Flow<List<ConsultaIaEntity>>
 
-    // The answers go with their question (foreign key with cascade), so nothing is left behind.
+    // Las respuestas se van con su pregunta (clave foránea con cascada), para que no quede nada atrás.
     @Query("DELETE FROM consultas_ia WHERE id = :consultaId")
     suspend fun deleteById(consultaId: Long)
 

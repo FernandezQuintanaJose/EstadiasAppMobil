@@ -45,6 +45,7 @@ import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.cecapi.app.core.theme.CecapiAccent
+import com.cecapi.app.core.util.PasswordRules
 import com.cecapi.app.core.theme.CecapiBorder
 import com.cecapi.app.core.theme.CecapiSurface
 import com.cecapi.app.core.theme.CecapiTextMuted
@@ -161,12 +162,12 @@ fun EditAccountScreen(
                         var contrasenaBaja by remember { mutableStateOf("") }
                         OutlinedTextField(
                             value = contrasenaBaja,
-                            onValueChange = { contrasenaBaja = it.filter(Char::isDigit) },
+                            onValueChange = { contrasenaBaja = it },
                             modifier = Modifier.fillMaxWidth(),
                             label = { Text("Tu contraseña actual *") },
                             singleLine = true,
                             visualTransformation = PasswordVisualTransformation(),
-                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword),
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
                         )
                         BigBtn(
                             icon = Icons.Filled.Close,
@@ -261,7 +262,7 @@ private fun FormularioDatos(
     var actual by remember { mutableStateOf("") }
     var visible by remember { mutableStateOf(false) }
     val fecha = fechaDesde(dia, mes, anio)
-    val listo = nueva.length >= 4 && actual.isNotBlank() && fecha != null
+    val listo = PasswordRules.problem(PasswordRules.normalize(nueva)) == null && actual.isNotBlank() && fecha != null
 
     Text("EDITAR DATOS", style = MaterialTheme.typography.labelLarge, color = CecapiTextMuted)
     Text("Los campos con * son obligatorios.", style = MaterialTheme.typography.bodyMedium, color = CecapiTextMuted)
@@ -338,9 +339,9 @@ private fun FormularioDatos(
     }
     OutlinedTextField(
         value = nueva,
-        onValueChange = { nueva = it.filter(Char::isDigit) },
-        modifier = Modifier.fillMaxWidth().voiceHint("Nueva contraseña. Mínimo cuatro números."),
-        label = { Text("Nueva contraseña * (mínimo 4)") },
+        onValueChange = { nueva = it },
+        modifier = Modifier.fillMaxWidth().voiceHint("Nueva contraseña. Mínimo quince letras, sin números ni símbolos."),
+        label = { Text("Nueva contraseña * (mínimo 15 letras)") },
         leadingIcon = { Icon(Icons.Filled.Lock, contentDescription = null) },
         singleLine = true,
         visualTransformation = if (visible) VisualTransformation.None else PasswordVisualTransformation(),
@@ -352,18 +353,18 @@ private fun FormularioDatos(
                 )
             }
         },
-        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword),
+        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
         colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = CecapiAccent, unfocusedBorderColor = CecapiTextMuted),
     )
     OutlinedTextField(
         value = actual,
-        onValueChange = { actual = it.filter(Char::isDigit) },
+        onValueChange = { actual = it },
         modifier = Modifier.fillMaxWidth().voiceHint("Tu contraseña actual, para confirmar los cambios."),
         label = { Text("Contraseña actual para confirmar *") },
         leadingIcon = { Icon(Icons.Filled.Lock, contentDescription = null) },
         singleLine = true,
         visualTransformation = PasswordVisualTransformation(),
-        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword),
+        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
         colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = CecapiAccent, unfocusedBorderColor = CecapiTextMuted),
     )
 

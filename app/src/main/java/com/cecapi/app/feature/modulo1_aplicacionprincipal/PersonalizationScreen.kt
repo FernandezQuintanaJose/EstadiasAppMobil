@@ -106,7 +106,7 @@ fun PersonalizationScreen(
     var assistant by remember(savedAssistant) { mutableStateOf(savedAssistant) }
     var sub by remember { mutableStateOf<PersonalizationSub?>(null) }
 
-    // The speech engine may still be starting when this screen opens: ask again for a few seconds.
+    // El motor de voz puede estar iniciando todavía cuando se abre esta pantalla: pregunta otra vez durante unos segundos.
     var voices by remember { mutableStateOf(emptyList<VoiceOption>()) }
     LaunchedEffect(Unit) {
         repeat(20) {
@@ -418,7 +418,7 @@ fun PersonalizationScreen(
     }
 }
 
-/** A selectable option: highlighted with a thick accent border when chosen, and it explains itself when held. */
+/** Una opción seleccionable: se resalta con un borde grueso de acento cuando se elige, y se explica sola al mantenerla presionada. */
 @Composable
 private fun ChoiceRow(
     label: String,

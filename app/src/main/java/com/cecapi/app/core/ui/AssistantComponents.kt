@@ -63,10 +63,10 @@ import com.cecapi.app.core.theme.CecapiTextPrimary
 import com.cecapi.app.core.theme.CecapiWarning
 
 /**
- * The microphone is the main control of the whole app: a circular button inside its own
- * docked panel, matching the Figma prototype's MicBar exactly (132dp circle, pulse ring
- * while listening, "Di lista de comandos" caption underneath). Used on the home screen
- * and on the signed-in dashboard so both feel the same.
+ * El micrófono es el control principal de toda la app: un botón circular dentro de su propio
+ * panel acoplado, que coincide exactamente con el MicBar del prototipo de Figma (círculo de 132dp,
+ * anillo pulsante mientras escucha, leyenda "Di lista de comandos" debajo). Se usa en la pantalla de
+ * inicio y en el panel de la sesión iniciada, para que ambos se sientan igual.
  */
 @Composable
 fun MicPad(
@@ -177,7 +177,7 @@ fun MicPad(
     }
 }
 
-/** Which look a [BigBtn] takes when it has no [section]. */
+/** Qué apariencia toma un [BigBtn] cuando no tiene [section]. */
 enum class BigBtnVariant { Neutral, Accent, Danger, Success, Locked }
 
 /**
@@ -194,10 +194,11 @@ enum class BigBtnVariant { Neutral, Accent, Danger, Success, Locked }
 enum class BigBtnSize { Hero, Standard, Secondary, Compact }
 
 /**
- * The recurring full-width button from the Figma prototype: a big icon badge on top,
- * a bold label below, an optional muted subtitle under that — everything centered. This
- * is the main building block of almost every screen (Home, Login, Register, the signed-in
- * menu...), so screens should prefer this over ad-hoc buttons to stay visually consistent.
+ * El botón recurrente de ancho completo del prototipo de Figma: una insignia de icono grande
+ * arriba, una etiqueta en negrita debajo, y un subtítulo apagado opcional bajo esa — todo centrado.
+ * Es el bloque de construcción principal de casi toda pantalla (Inicio, Iniciar sesión, Registro,
+ * el menú de la sesión iniciada...), así que las pantallas deberían preferir este en vez de botones
+ * improvisados para mantenerse visualmente consistentes.
  */
 @Composable
 fun BigBtn(
@@ -209,8 +210,8 @@ fun BigBtn(
     section: ModuleSection? = null,
     variant: BigBtnVariant = BigBtnVariant.Neutral,
     enabled: Boolean = true,
-    // Two of these share one row's width when the action is not the screen's priority
-    // (e.g. Iniciar sesión / Crear cuenta on Home) — matches the Figma prototype's HalfBtn.
+    // Dos de estos comparten el ancho de una fila cuando la acción no es la prioridad de la pantalla
+    // (p. ej. Iniciar sesión / Crear cuenta en Inicio) — coincide con el HalfBtn del prototipo de Figma.
     half: Boolean = false,
     size: BigBtnSize = BigBtnSize.Standard,
 ) {
@@ -302,8 +303,8 @@ fun BigBtn(
 }
 
 /**
- * A large labeled icon button for a screen's header (sign in, sign out...). Pass a different [tint]
- * for actions that must stand out, like the red "Cerrar sesión".
+ * Un botón de icono grande con etiqueta para el encabezado de una pantalla (iniciar sesión, cerrar
+ * sesión...). Pasa un [tint] diferente para acciones que deben resaltar, como el rojo de "Cerrar sesión".
  */
 @Composable
 fun TopAction(
@@ -343,7 +344,7 @@ fun TopAction(
     }
 }
 
-/** A phrase the user can say, also tappable. Shown under "PUEDES DECIR". Tall enough to hit (48 dp). */
+/** Una frase que el usuario puede decir, también se puede tocar. Se muestra bajo "PUEDES DECIR". Suficientemente alta para tocarla (48 dp). */
 @Composable
 fun SuggestionChip(label: String, onClick: () -> Unit) {
     Box(
@@ -360,9 +361,9 @@ fun SuggestionChip(label: String, onClick: () -> Unit) {
 }
 
 /**
- * Something that needs the user's attention and is not repeated by voice on screen.
- * An optional [actionLabel]/[onAction] adds a button below the text, for when there is
- * somewhere concrete to send the person instead of only naming the problem.
+ * Algo que necesita la atención del usuario y que no se repite por voz en pantalla.
+ * Un [actionLabel]/[onAction] opcional agrega un botón debajo del texto, para cuando hay
+ * un lugar concreto a donde enviar a la persona en lugar de solo nombrar el problema.
  */
 @Composable
 fun NoticeBanner(
@@ -391,7 +392,7 @@ fun NoticeBanner(
     }
 }
 
-/** Shown only while there is no internet: answers will be less precise. */
+/** Se muestra solo mientras no hay internet: las respuestas serán menos precisas. */
 @Composable
 fun OfflineBanner(modifier: Modifier = Modifier) {
     NoticeBanner("Sin conexión a internet. Mis respuestas pueden ser menos precisas.", modifier)

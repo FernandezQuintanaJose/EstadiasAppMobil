@@ -3,21 +3,21 @@ package com.cecapi.app.core.data
 import androidx.room.migration.Migration
 import androidx.sqlite.db.SupportSQLiteDatabase
 
-/** v2: users get a role and an origin/institution, and usernames become case-insensitive (UPPERCASE). */
+/** v2: los usuarios obtienen un rol y un origen/institución, y el nombre de usuario deja de distinguir mayúsculas (se vuelve MAYÚSCULAS). */
 val MIGRATION_1_2 = object : Migration(1, 2) {
     override fun migrate(db: SupportSQLiteDatabase) {
         db.execSQL("ALTER TABLE usuarios ADD COLUMN rol TEXT NOT NULL DEFAULT 'usuario'")
         db.execSQL("ALTER TABLE usuarios ADD COLUMN origen TEXT NOT NULL DEFAULT ''")
         db.execSQL("UPDATE usuarios SET nombre_usuario = UPPER(nombre_usuario)")
-        // The shared test account that already existed becomes an administrator.
+        // La cuenta de prueba compartida que ya existía se vuelve administradora.
         db.execSQL("UPDATE usuarios SET rol = 'administrador', origen = 'admin' WHERE nombre_usuario = 'CECAPI'")
     }
 }
 
 /**
- * v3: the audio exercises of Módulo 6 now carry a sound file and the volume of each ear, and the vibration
- * exercises get their own tables. The old voice-command exercises are dropped (their results go with them,
- * by cascade); the new bank is created the first time Actividades opens.
+ * v3: los ejercicios de audio del Módulo 6 ahora llevan un archivo de sonido y el volumen de cada oído, y los
+ * ejercicios de vibración obtienen sus propias tablas. Los ejercicios viejos de comando de voz se descartan (sus
+ * resultados se van con ellos, por cascada); el banco nuevo se crea la primera vez que se abre Actividades.
  */
 val MIGRATION_2_3 = object : Migration(2, 3) {
     override fun migrate(db: SupportSQLiteDatabase) {
@@ -52,14 +52,14 @@ val MIGRATION_2_3 = object : Migration(2, 3) {
     }
 }
 
-/** v4: roles get educador, and an alumno can be linked to the educador who teaches them. */
+/** v4: los roles obtienen educador, y un alumno puede vincularse al educador que le da clase. */
 val MIGRATION_3_4 = object : Migration(3, 4) {
     override fun migrate(db: SupportSQLiteDatabase) {
         db.execSQL("ALTER TABLE usuarios ADD COLUMN educador_id INTEGER")
     }
 }
 
-/** v5: a simple way for an alumno or an independent usuario to report a problem. */
+/** v5: una forma simple para que un alumno o un usuario independiente reporte un problema. */
 val MIGRATION_4_5 = object : Migration(4, 5) {
     override fun migrate(db: SupportSQLiteDatabase) {
         db.execSQL(
@@ -74,7 +74,7 @@ val MIGRATION_4_5 = object : Migration(4, 5) {
     }
 }
 
-/** v6: an optional nickname, shown on the ranking instead of the real name (there are minors). */
+/** v6: un apodo opcional, que se muestra en la clasificación en vez del nombre real (hay menores de edad). */
 val MIGRATION_5_6 = object : Migration(5, 6) {
     override fun migrate(db: SupportSQLiteDatabase) {
         db.execSQL("ALTER TABLE usuarios ADD COLUMN apodo TEXT")
@@ -82,10 +82,10 @@ val MIGRATION_5_6 = object : Migration(5, 6) {
 }
 
 /**
- * v7: who in the chain above an account (administrador > directivo > educador > alumno, or
- * administrador > usuario) still needs to review it. Defaults new column to true so every account that
- * already existed before this migration is not retroactively flagged pending; only accounts created from
- * here on default to false (SessionRepository.register sets it explicitly either way).
+ * v7: quién en la cadena arriba de una cuenta (administrador > directivo > educador > alumno, o
+ * administrador > usuario) todavía necesita revisarla. La columna nueva usa true por defecto para que
+ * ninguna cuenta que ya existía antes de esta migración quede marcada como pendiente de forma retroactiva;
+ * solo las cuentas creadas a partir de aquí usan false por defecto (SessionRepository.register lo fija explícitamente de cualquier forma).
  */
 val MIGRATION_6_7 = object : Migration(6, 7) {
     override fun migrate(db: SupportSQLiteDatabase) {

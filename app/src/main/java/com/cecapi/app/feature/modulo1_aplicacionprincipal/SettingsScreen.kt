@@ -120,7 +120,7 @@ fun SettingsScreen(
 
     LaunchedEffect(Unit) { viewModel.loggedOut.collect { onLoggedOut() } }
 
-    // The permission is granted in Android's own settings, so check again every time we come back.
+    // El permiso se concede en los ajustes propios de Android, así que se verifica otra vez cada vez que volvemos.
     var notificationAccess by remember { mutableStateOf(viewModel.isNotificationAccessEnabled()) }
     val lifecycleOwner = LocalLifecycleOwner.current
     DisposableEffect(lifecycleOwner) {
@@ -131,12 +131,12 @@ fun SettingsScreen(
         onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
     }
 
-    // Android 13+ asks before showing the always-visible "Asistente activo" notice; the service works either way.
+    // Android 13+ pregunta antes de mostrar el aviso siempre visible de "Asistente activo"; el servicio funciona de cualquier forma.
     val notificationPermission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) {
         viewModel.onListenOutsideAppChanged(true)
     }
 
-    // The switch and the voice command ("activa escuchar fuera de la aplicación") do the same thing.
+    // El interruptor y el comando de voz ("activa escuchar fuera de la aplicación") hacen lo mismo.
     val changeListenOutside: (Boolean) -> Unit = { enabled ->
         if (enabled && Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             notificationPermission.launch(Manifest.permission.POST_NOTIFICATIONS)
@@ -353,7 +353,7 @@ fun SettingsScreen(
                     NoticeBanner("Para borrar tu cuenta, dime o escribe tu contraseña.")
                     OutlinedTextField(
                         value = deletePassword,
-                        onValueChange = { deletePassword = it.filter(Char::isDigit) },
+                        onValueChange = { deletePassword = it },
                         modifier = Modifier
                             .fillMaxWidth()
                             .heightIn(min = 64.dp)
@@ -370,7 +370,7 @@ fun SettingsScreen(
                         },
                         singleLine = true,
                         visualTransformation = if (deletePasswordVisible) VisualTransformation.None else PasswordVisualTransformation(),
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword, imeAction = ImeAction.Done),
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password, imeAction = ImeAction.Done),
                         keyboardActions = KeyboardActions(onDone = {
                             viewModel.onDeletePasswordEntered(deletePassword)
                             deletePassword = ""

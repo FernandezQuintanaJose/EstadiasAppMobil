@@ -98,7 +98,7 @@ fun EnvironmentScreen(
     LaunchedEffect(Unit) { viewModel.back.collect { onBack() } }
     LaunchedEffect(Unit) { viewModel.routes.collect(onOpen) }
 
-    // The system picture picker: the person chooses one picture and the app sees only that one.
+    // El selector de fotos del sistema: la persona elige una foto y la aplicación solo ve esa.
     val coroutineScope = rememberCoroutineScope()
     val pickLauncher = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri ->
         if (uri == null) {
@@ -117,8 +117,8 @@ fun EnvironmentScreen(
     }
 
     Box(modifier = Modifier.fillMaxSize()) {
-        // Once there is a photo, it takes over this area — its own place to look at, separate from the
-        // live feed — instead of a live camera nobody is watching anymore while the description is read.
+        // En cuanto hay una foto, ella ocupa esta área — su propio lugar donde mirar, separado de la vista
+        // en vivo — en lugar de una cámara en vivo que ya nadie observa mientras se lee la descripción.
         val photoPath = uiState.photoPath
         if (photoPath == null) {
             CameraViewfinder(

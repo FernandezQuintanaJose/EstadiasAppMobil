@@ -53,23 +53,23 @@ class MainActivity : ComponentActivity() {
     @Inject lateinit var storageReport: StorageReport
     @Inject lateinit var screenContext: ScreenContext
 
-    // Injecting it registers the commands that teach the app and adjust the voice by profile.
+    // Inyectarlo registra los comandos que enseñan la app y ajustan la voz según el perfil.
     @Inject lateinit var assistCommands: AssistCommands
 
-    // Injecting it is what connects "no entendí" to the AI backend; without this, the switch in
-    // Configuración turns a gate on that has nothing behind it.
+    // Inyectarlo es lo que conecta "no entendí" con el backend de IA; sin esto, el interruptor en
+    // Configuración activa una compuerta que no tiene nada detrás.
     @Inject lateinit var aiResolverSetup: AiResolverSetup
 
-    // Injecting it is what makes the saved voice speed and cue settings apply at startup.
+    // Inyectarlo es lo que hace que la velocidad de voz y los avisos guardados se apliquen al iniciar.
     @Inject lateinit var deviceSettings: DeviceSettings
     @Inject lateinit var launchRequests: LaunchRequests
 
-    // Injecting these is what registers the global voice commands and the optional background listening.
+    // Inyectar estos es lo que registra los comandos de voz globales y la escucha opcional en segundo plano.
     @Inject lateinit var globalVoiceCommands: GlobalVoiceCommands
     @Inject lateinit var backgroundListening: BackgroundListening
 
-    // The widget's "Hablar" button. Cold start: the first screen answers instead of its long greeting.
-    // Already open: answer right now.
+    // El botón "Hablar" del widget. Inicio en frío: la primera pantalla responde en vez de su saludo largo.
+    // Ya abierta: responde de inmediato.
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         setIntent(intent)
@@ -78,7 +78,7 @@ class MainActivity : ComponentActivity() {
 
     private fun handleLaunchIntent(intent: Intent?, alreadyRunning: Boolean) {
         if (intent?.action != ACTION_LISTEN) return
-        intent.action = null // handled: a recreated activity must not repeat it
+        intent.action = null // ya se atendió: una activity recreada no debe repetirlo
         if (alreadyRunning) {
             voiceEngine.speak(voiceEngine.wakePrompt(), listenAfter = true)
         } else {
@@ -86,7 +86,7 @@ class MainActivity : ComponentActivity() {
         }
     }
 
-    // The volume buttons change the level and the assistant says the new one out loud.
+    // Los botones de volumen cambian el nivel y el asistente dice el nuevo en voz alta.
     override fun onKeyDown(keyCode: Int, event: KeyEvent?): Boolean {
         if (keyCode == KeyEvent.KEYCODE_VOLUME_UP || keyCode == KeyEvent.KEYCODE_VOLUME_DOWN) {
             volumeControl.onVolumeKey()
@@ -98,12 +98,12 @@ class MainActivity : ComponentActivity() {
         super.onStart()
         wakeWordController.setForeground(true)
         voiceEngine.appVisible = true
-        voiceEngine.activate() // opening the app ends any "silencio" or "para"
+        voiceEngine.activate() // abrir la app termina cualquier "silencio" o "para"
         lifecycleScope.launch { backgroundListening.syncWithSetting() }
     }
 
-    // The app left the screen (home button, screen lock, another app): stop talking and listening
-    // so the phone is fully usable again. Everything resumes when the user opens CECAPI.
+    // La app salió de pantalla (botón de inicio, bloqueo, otra app): deja de hablar y escuchar
+    // para que el teléfono quede completamente usable. Todo se reanuda cuando se abre CECAPI de nuevo.
     override fun onStop() {
         wakeWordController.setForeground(false)
         voiceEngine.appVisible = false
@@ -116,14 +116,14 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         handleLaunchIntent(intent, alreadyRunning = false)
         enableEdgeToEdge()
-        // While the app is open the buttons always control media volume (what the assistant speaks with).
+        // Mientras la app está abierta, los botones siempre controlan el volumen de medios (con el que habla el asistente).
         volumeControlStream = AudioManager.STREAM_MUSIC
-        // A blind user cannot tell whether the screen went dark, so keep it on while the app is open.
+        // Una persona ciega no puede saber si la pantalla se apagó, así que se mantiene prendida mientras la app está abierta.
         window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
-        // Quiet housekeeping: temporary files older than a few days are of no use to anyone.
+        // Limpieza silenciosa: los archivos temporales de más de unos días no le sirven a nadie.
         lifecycleScope.launch { storageReport.cleanStaleCache() }
-        // Minimum brightness is set on this window only, so it ignores automatic brightness while the app
-        // is open and the phone is back to normal as soon as the app is left.
+        // El brillo mínimo se fija solo en esta ventana, así ignora el brillo automático mientras la app
+        // está abierta y el teléfono vuelve a la normalidad en cuanto se sale de la app.
         lifecycleScope.launch {
             deviceSettings.minBrightness.collect { minimum ->
                 window.attributes = window.attributes.apply {
@@ -142,11 +142,11 @@ class MainActivity : ComponentActivity() {
                     val blackScreen by deviceSettings.blackScreen.collectAsState(initial = false)
                     val route = navController.currentBackStackEntryAsState().value?.destination?.route
                     LaunchedEffect(route) { screenContext.route = route }
-                    // The camera screens keep their picture: it is what they are for.
+                    // Las pantallas de cámara conservan su imagen: es para lo que sirven.
                     val showBlack = blackScreen &&
                         route != CecapiDestinations.DOCUMENT_READER && route != CecapiDestinations.ENVIRONMENT
                     Box(modifier = Modifier.fillMaxSize()) {
-                        // Edge-to-edge draws under the status/navigation bars; keep content clear of them.
+                        // Edge-to-edge dibuja debajo de las barras de estado/navegación; el contenido debe quedar libre de ellas.
                         Box(modifier = Modifier.fillMaxSize().safeDrawingPadding()) {
                             val voiceHelp = remember { VoiceHelp(voiceEngine) }
                             CompositionLocalProvider(LocalVoiceHelp provides voiceHelp) {
@@ -156,7 +156,7 @@ class MainActivity : ComponentActivity() {
                         if (showBlack) {
                             BlackScreen(
                                 onTap = {
-                                    voiceEngine.activate() // "silencio" and "para" must not make the only touch target mute
+                                    voiceEngine.activate() // "silencio" y "para" no deben dejar mudo al único objetivo táctil
                                     voiceEngine.speak(voiceEngine.wakePrompt(), listenAfter = true)
                                 },
                                 onHold = { displayControl.setBlackScreen(false) },
@@ -169,7 +169,7 @@ class MainActivity : ComponentActivity() {
     }
 
     companion object {
-        /** Sent by the home-screen widget: open the assistant and start listening. */
+        /** Lo manda el widget de la pantalla principal: abre el asistente y empieza a escuchar. */
         const val ACTION_LISTEN = "com.cecapi.app.action.LISTEN"
     }
 }

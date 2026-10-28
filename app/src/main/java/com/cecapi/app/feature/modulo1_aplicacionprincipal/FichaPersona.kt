@@ -224,12 +224,12 @@ internal fun FichaPersona(
             Text("CONTRASEÑA", style = MaterialTheme.typography.labelLarge, color = CecapiTextMuted)
             OutlinedTextField(
                 value = nueva,
-                onValueChange = { nueva = it.filter(Char::isDigit) },
+                onValueChange = { nueva = it },
                 modifier = Modifier.fillMaxWidth(),
                 label = { Text("Nueva contraseña *") },
                 singleLine = true,
                 visualTransformation = PasswordVisualTransformation(),
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword),
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
             )
             BigBtn(
                 icon = Icons.Filled.Lock,

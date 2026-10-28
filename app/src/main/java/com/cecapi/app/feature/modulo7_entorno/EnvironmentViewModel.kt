@@ -27,7 +27,7 @@ data class EnvironmentUiState(
     val isProcessing: Boolean = false,
     val descripcion: String? = null,
     val errorMessage: String? = null,
-    /** The photo being described, shown in its own area instead of the live camera feed while there is one. */
+    /** La foto que se está describiendo, mostrada en su propia área en lugar de la vista de cámara en vivo mientras existe. */
     val photoPath: String? = null,
 )
 
@@ -47,14 +47,14 @@ class EnvironmentViewModel @Inject constructor(
     private val _uiState = MutableStateFlow(EnvironmentUiState())
     val uiState: StateFlow<EnvironmentUiState> = _uiState.asStateFlow()
 
-    // The screen owns the camera, so voice commands reach it through these.
+    // La pantalla es dueña de la cámara, así que los comandos de voz la alcanzan a través de estos.
     private val _captureRequests = MutableSharedFlow<Unit>(extraBufferCapacity = 1)
     val captureRequests: SharedFlow<Unit> = _captureRequests
 
     private val _back = MutableSharedFlow<Unit>(extraBufferCapacity = 1)
     val back: SharedFlow<Unit> = _back
 
-    // Asks the screen to open the system picture picker (it owns the activity result launcher).
+    // Le pide a la pantalla que abra el selector de fotos del sistema (ella es dueña del activity result launcher).
     private val _pickRequests = MutableSharedFlow<Unit>(extraBufferCapacity = 1)
     val pickRequests: SharedFlow<Unit> = _pickRequests
 
@@ -72,7 +72,7 @@ class EnvironmentViewModel @Inject constructor(
         )
     }
 
-    /** The commands this screen answers, most specific first. */
+    /** Los comandos que esta pantalla responde, del más específico al más general. */
     private fun onSpeech(spoken: String) {
         val text = VoiceText.normalize(spoken)
         fun has(vararg words: String) = VoiceText.hasAny(text, *words)
@@ -98,7 +98,7 @@ class EnvironmentViewModel @Inject constructor(
         }
     }
 
-    /** Every photo is kept on the phone, so with almost no room left it is better to say so than to fill it. */
+    /** Cada foto se guarda en el teléfono, así que con casi nada de espacio es mejor avisarlo que llenarlo. */
     private fun hayEspacio(): Boolean {
         if (storageReport.criticallyLow()) {
             cues.play(FeedbackCues.Cue.WARNING)
@@ -111,7 +111,7 @@ class EnvironmentViewModel @Inject constructor(
         return true
     }
 
-    /** Also what the on-screen button and the "qué hay enfrente" chip call. */
+    /** También es lo que llaman el botón en pantalla y el chip "qué hay enfrente". */
     fun pedirCaptura() {
         if (_uiState.value.isProcessing || !hayEspacio()) return
         voiceEngine.speak("Tomando foto.")
@@ -140,7 +140,7 @@ class EnvironmentViewModel @Inject constructor(
 
     fun onMicTapped() = voiceEngine.startListening()
 
-    /** Two quick taps on the mic silence the assistant, for someone using touch instead of voice. */
+    /** Dos toques rápidos en el micrófono silencian al asistente, para quien usa el tacto en vez de la voz. */
     fun onMicDoubleTap() = voiceEngine.mute()
 
     fun onCameraPermissionDenied() {
@@ -148,8 +148,9 @@ class EnvironmentViewModel @Inject constructor(
     }
 
     /**
-     * "Elige una foto": opens the system picture picker. The person picks one picture and the app sees only
-     * that one; there is no permission to the whole gallery. Said out loud first so it is always their decision.
+     * "Elige una foto": abre el selector de fotos del sistema. La persona elige una foto y la aplicación
+     * solo ve esa; no hay permiso sobre toda la galería. Se dice en voz alta primero para que siempre sea
+     * su decisión.
      */
     fun pedirGaleria() {
         if (_uiState.value.isProcessing || !hayEspacio()) return
@@ -174,8 +175,8 @@ class EnvironmentViewModel @Inject constructor(
     }
 
     fun onPhotoCaptured(imageUri: Uri, rutaImagen: String) {
-        // The camera is free for anyone: with nobody signed in, the description is still said out loud, it
-        // just is not saved to a history (processCapturedPhoto skips saving when usuarioId is null).
+        // La cámara es libre para cualquiera: sin nadie con sesión iniciada, la descripción igual se dice en
+        // voz alta, solo que no se guarda en un historial (processCapturedPhoto omite guardar cuando usuarioId es null).
         val usuarioId = sessionRepository.currentUser.value?.id
         _uiState.value = EnvironmentUiState(isProcessing = true, photoPath = rutaImagen)
         voiceEngine.speak("Analizando el entorno.")
