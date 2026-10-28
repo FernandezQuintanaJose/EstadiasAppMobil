@@ -5,16 +5,23 @@ import android.content.pm.PackageManager
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.gestures.detectVerticalDragGestures
+import androidx.compose.foundation.gestures.scrollBy
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ColumnScope
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.offset
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
@@ -36,10 +43,15 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.geometry.CornerRadius
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.semantics.contentDescription
@@ -61,11 +73,12 @@ import com.cecapi.app.core.theme.Sections
 import com.cecapi.app.core.ui.BigBtn
 import com.cecapi.app.core.ui.BigBtnSize
 import com.cecapi.app.core.ui.BigBtnVariant
-import com.cecapi.app.core.ui.MicPad
+import com.cecapi.app.core.ui.VoiceMicButton
 import com.cecapi.app.core.ui.ScreenTopBar
 import com.cecapi.app.core.ui.TopAction
 import com.cecapi.app.core.ui.voiceHint
 import com.cecapi.app.core.voice.VoiceState
+import kotlinx.coroutines.launch
 
 /**
  * Primero un menú para elegir qué actividad hacer — nada de caer directo en sonidos y tener que
@@ -105,90 +118,168 @@ fun LearningScreen(
     var recreativas by remember { mutableStateOf(false) }
     val listening = voiceState is VoiceState.Listening
 
-    // El micrófono grande va fijo en las tres pantallas de Actividades (menú, un modo, o
-    // recreativas) — el mismo control, en el mismo lugar, sea cual sea la pestaña.
+    // La zona superior se reserva para contenido y desplazamiento.
+    // El microfono conserva su posicion en el centro, independientemente del scroll.
     Box(modifier = Modifier.fillMaxSize()) {
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(horizontal = 16.dp, vertical = 16.dp)
-            .padding(bottom = 230.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp),
-    ) {
-        when {
-            recreativas -> {
-                ScreenTopBar(
-                    eyebrow = "ACTIVIDADES",
-                    title = "Juegos",
-                    onBack = { recreativas = false },
-                    onCommands = viewModel::onCommandsRequested,
-                )
-                RecreationalPage()
-            }
-            seleccion != null -> {
-                ScreenTopBar(
-                    eyebrow = "ACTIVIDADES",
-                    title = if (seleccion == ActivityMode.AUDIO) "Sonidos" else "Vibración",
-                    onBack = { seleccion = null },
-                    onCommands = viewModel::onCommandsRequested,
-                )
-                ActivityPage(
-                    pageMode = seleccion!!,
-                    state = state,
-                    onRepeat = viewModel::repeat,
-                    onNext = viewModel::next,
-                    onSetLevel = viewModel::setLevel,
-                    onLeave = viewModel::leave,
-                )
-            }
-            else -> {
-                ScreenTopBar(
-                    eyebrow = "MENÚ",
-                    title = "Actividades",
-                    onBack = onBack,
-                    onCommands = viewModel::onCommandsRequested,
-                )
-                BigBtn(
-                    icon = Icons.Filled.Hearing,
-                    label = "Sonidos",
-                    section = Sections.Activities,
-                    onClick = { viewModel.setMode(ActivityMode.AUDIO); seleccion = ActivityMode.AUDIO },
-                )
-                BigBtn(
-                    icon = Icons.Filled.Vibration,
-                    label = "Vibración",
-                    section = Sections.Activities,
-                    onClick = { viewModel.setMode(ActivityMode.VIBRATION); seleccion = ActivityMode.VIBRATION },
-                )
-                BigBtn(
-                    icon = Icons.Filled.SportsEsports,
-                    label = "Juegos",
-                    section = Sections.Activities,
-                    onClick = { recreativas = true },
-                )
-                BigBtn(
-                    icon = Icons.Filled.SportsEsports,
-                    label = "Retos IA · Próximamente",
-                    section = Sections.Activities,
-                    enabled = false,
-                    onClick = {},
-                )
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .fillMaxHeight(0.5f)
+                .padding(start = 16.dp, end = 16.dp, top = 12.dp, bottom = 52.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            when {
+                recreativas -> {
+                    ScreenTopBar(
+                        eyebrow = "ACTIVIDADES",
+                        title = "Juegos",
+                        onBack = { recreativas = false },
+                        onCommands = viewModel::onCommandsRequested,
+                    )
+                    RecreationalPage(modifier = Modifier.weight(1f))
+                }
+                seleccion != null -> {
+                    ScreenTopBar(
+                        eyebrow = "ACTIVIDADES",
+                        title = if (seleccion == ActivityMode.AUDIO) "Sonidos" else "Vibración",
+                        onBack = { seleccion = null },
+                        onCommands = viewModel::onCommandsRequested,
+                    )
+                    ActivityPage(
+                        pageMode = seleccion!!,
+                        state = state,
+                        onRepeat = viewModel::repeat,
+                        onNext = viewModel::next,
+                        onSetLevel = viewModel::setLevel,
+                        onLeave = viewModel::leave,
+                        modifier = Modifier.weight(1f),
+                    )
+                }
+                else -> {
+                    ScreenTopBar(
+                        eyebrow = "MENÚ",
+                        title = "Actividades",
+                        onBack = onBack,
+                        onCommands = viewModel::onCommandsRequested,
+                    )
+                    ActivityScrollArea(modifier = Modifier.weight(1f)) {
+                        BigBtn(
+                            icon = Icons.Filled.Hearing,
+                            label = "Sonidos",
+                            section = Sections.Activities,
+                            onClick = { viewModel.setMode(ActivityMode.AUDIO); seleccion = ActivityMode.AUDIO },
+                        )
+                        BigBtn(
+                            icon = Icons.Filled.Vibration,
+                            label = "Vibración",
+                            section = Sections.Activities,
+                            onClick = { viewModel.setMode(ActivityMode.VIBRATION); seleccion = ActivityMode.VIBRATION },
+                        )
+                        BigBtn(
+                            icon = Icons.Filled.SportsEsports,
+                            label = "Juegos",
+                            section = Sections.Activities,
+                            onClick = { recreativas = true },
+                        )
+                        BigBtn(
+                            icon = Icons.Filled.SportsEsports,
+                            label = "Retos IA · Próximamente",
+                            section = Sections.Activities,
+                            enabled = false,
+                            onClick = {},
+                        )
+                    }
+                }
             }
         }
-    }
 
-        MicPad(
-            listening = listening,
+        // Reutilizamos el boton de voz existente sin modificar su logica.
+        VoiceMicButton(
+            isListening = listening,
             onDoubleTap = viewModel::onMicDoubleTap,
-            hint = if (listening) "Escuchando…" else "Di sonidos o vibración, o toca aquí",
             onClick = {
                 val granted = ContextCompat.checkSelfPermission(
                     context, Manifest.permission.RECORD_AUDIO,
                 ) == PackageManager.PERMISSION_GRANTED
-                if (granted) viewModel.onMicTapped() else permissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
+                if (granted) viewModel.onMicTapped()
+                else permissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
             },
-            modifier = Modifier.align(Alignment.BottomCenter),
+            modifier = Modifier.align(Alignment.Center),
         )
+        Text(
+            text = if (listening) "Escuchando…" else "Di sonidos o vibración, o toca aquí",
+            style = MaterialTheme.typography.bodyLarge,
+            color = MaterialTheme.colorScheme.onBackground,
+            modifier = Modifier
+                .align(Alignment.Center)
+                .offset(y = 88.dp)
+                .padding(horizontal = 20.dp)
+                .semantics { liveRegion = LiveRegionMode.Polite },
+        )
+    }
+}
+
+/** Desplazamiento vertical con indicador visible y arrastrable, reutilizado en todas las vistas. */
+@Composable
+private fun ActivityScrollArea(
+    modifier: Modifier = Modifier,
+    content: @Composable ColumnScope.() -> Unit,
+) {
+    val scrollState = rememberScrollState()
+    val scope = rememberCoroutineScope()
+    Box(modifier = modifier.fillMaxWidth()) {
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .verticalScroll(scrollState)
+                .padding(end = 20.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
+            content = content,
+        )
+        if (scrollState.maxValue > 0) {
+            Canvas(
+                modifier = Modifier
+                    .align(Alignment.CenterEnd)
+                    .fillMaxHeight()
+                    .width(20.dp)
+                    .pointerInput(scrollState) {
+                        detectVerticalDragGestures { change, dragAmount ->
+                            change.consume()
+                            val maximum = scrollState.maxValue
+                            if (maximum > 0 && size.height > 0) {
+                                scope.launch {
+                                    scrollState.scrollBy(
+                                        dragAmount * (maximum + size.height).toFloat() / size.height,
+                                    )
+                                }
+                            }
+                        }
+                    }
+                    .semantics { contentDescription = "Barra de desplazamiento de actividades" },
+            ) {
+                val visible = (size.height / (size.height + scrollState.maxValue.toFloat()))
+                    .coerceIn(0f, 1f)
+                val thumbHeight = (size.height * visible)
+                    .coerceAtLeast(36.dp.toPx())
+                    .coerceAtMost(size.height)
+                val travel = (size.height - thumbHeight).coerceAtLeast(0f)
+                val thumbY = (scrollState.value.toFloat() / scrollState.maxValue) * travel
+                val barWidth = 6.dp.toPx()
+                val barX = (size.width - barWidth) / 2f
+                drawRoundRect(
+                    color = CecapiTextMuted.copy(alpha = 0.25f),
+                    topLeft = Offset(barX, 0f),
+                    size = Size(barWidth, size.height),
+                    cornerRadius = CornerRadius(barWidth / 2f),
+                )
+                drawRoundRect(
+                    color = CecapiAccent,
+                    topLeft = Offset(barX, thumbY),
+                    size = Size(barWidth, thumbHeight),
+                    cornerRadius = CornerRadius(barWidth / 2f),
+                )
+            }
+        }
     }
 }
 
@@ -206,14 +297,9 @@ private fun ActivityPage(
     onNext: () -> Unit,
     onSetLevel: (Int) -> Unit,
     onLeave: () -> Unit,
+    modifier: Modifier = Modifier,
 ) {
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .verticalScroll(rememberScrollState())
-            .padding(top = 8.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp),
-    ) {
+    ActivityScrollArea(modifier = modifier) {
         if (state.mode != pageMode) {
             Text(
                 "Preparando…",
@@ -221,7 +307,7 @@ private fun ActivityPage(
                 color = CecapiTextMuted,
                 modifier = Modifier.padding(8.dp),
             )
-            return@Column
+            return@ActivityScrollArea
         }
 
         if (pageMode == ActivityMode.AUDIO) {
@@ -274,7 +360,7 @@ private fun ActivityPage(
                     onClick = onLeave,
                 )
             }
-            return@Column
+            return@ActivityScrollArea
         }
 
         val item = state.current
@@ -285,7 +371,7 @@ private fun ActivityPage(
                 color = CecapiTextMuted,
                 modifier = Modifier.padding(8.dp),
             )
-            return@Column
+            return@ActivityScrollArea
         }
 
         val shape = RoundedCornerShape(24.dp)
@@ -346,11 +432,8 @@ private fun ActivityPage(
  * contenido para ir trabajando con el Equipo 4, no algo terminado todavía.
  */
 @Composable
-private fun RecreationalPage() {
-    Column(
-        modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(top = 8.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp),
-    ) {
+private fun RecreationalPage(modifier: Modifier = Modifier) {
+    ActivityScrollArea(modifier = modifier) {
         Text(
             "Ideas para divertirte y estimular tus sentidos, solo o en grupo. Esto es un primer borrador: " +
                 "iremos agregando y afinando más con el tiempo.",
