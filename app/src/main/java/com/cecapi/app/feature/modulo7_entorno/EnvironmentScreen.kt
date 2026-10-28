@@ -45,7 +45,6 @@ import com.cecapi.app.core.ui.CameraViewfinder
 import com.cecapi.app.core.ui.CapturedPhotoPreview
 import com.cecapi.app.core.ui.CaptureButton
 import com.cecapi.app.core.ui.FramingGuide
-import com.cecapi.app.core.ui.SuggestionChip
 import com.cecapi.app.core.ui.TopAction
 import com.cecapi.app.core.ui.capturePhoto
 import com.cecapi.app.core.ui.copyPickedImage
@@ -160,10 +159,6 @@ fun EnvironmentScreen(
                 }
             } else {
                 Spacer(modifier = Modifier.weight(1f))
-            }
-
-            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Center) {
-                SuggestionChip(label = "qué hay enfrente", onClick = viewModel::pedirCaptura)
             }
 
             if (uiState.descripcion != null) {
