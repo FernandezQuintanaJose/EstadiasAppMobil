@@ -1,6 +1,6 @@
 # 0014. Supabase con reglas por fila (RLS) en todas las tablas
 
-> Vigente · Dueño: Pp · Decidida el 8 oct 2026 · Fuente: documento «Plan para equipos»
+> Reemplazada por la [0017](0017-base-en-neon-detras-del-servidor.md) en lo de la plataforma (Supabase → Neon con servidor propio); sus reglas de permisos siguen vigentes · Dueño: Pp · Decidida el 8 oct 2026 · Fuente: documento «Plan para equipos»
 
 ## Contexto
 

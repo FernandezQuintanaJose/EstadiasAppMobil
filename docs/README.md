@@ -19,7 +19,7 @@ Para compartir con los equipos: [Documentación CECAPI](https://claude.ai/artifa
 | Consultar | [Qué sale del teléfono](referencia/que-sale-del-telefono.md), función por función |
 | Consultar | [Glosario](referencia/glosario.md) |
 | Entender | [Cómo funciona la voz](explicacion/voz.md) |
-| Decidir | [Registro de decisiones](decisiones/README.md): 0001 a 0016 |
+| Decidir | [Registro de decisiones](decisiones/README.md): 0001 a 0017 |
 | Seguir | [Registro de cambios](CHANGELOG.md), una entrada por semana |
 
 ## Informes de los agentes

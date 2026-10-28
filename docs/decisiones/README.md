@@ -19,6 +19,7 @@ Una decisión por archivo, numerada, con el formato de [MADR](https://adr.github
 | [0011](0011-version-minima-de-android.md) | Versión mínima de Android: la más baja posible | 8 oct 2026 | Aceptada; falta el cambio en Gradle |
 | [0012](0012-botones-y-microfono-fijos.md) | Tamaños de botón y micrófono fijo | 8 oct 2026 | Aceptada; falta unificar el micrófono |
 | [0013](0013-luz-de-la-camara.md) | Luz de la cámara | 8 oct 2026 | Aceptada; por implementar |
-| [0014](0014-reglas-por-fila-en-supabase.md) | Supabase con reglas por fila (RLS) en todas las tablas | 8 oct 2026 | Aceptada |
+| [0014](0014-reglas-por-fila-en-supabase.md) | Supabase con reglas por fila (RLS) en todas las tablas | 8 oct 2026 | Reemplazada por la 0017 en lo de la plataforma |
 | [0015](0015-lo-no-terminado-se-acumula-con-tope.md) | Lo que no se termina se acumula, con tope de tiempo | 9 oct 2026 | Aceptada |
 | [0016](0016-los-equipos-no-dependen-unos-de-otros.md) | Los equipos no dependen unos de otros; lo de IA es de Neurona | 9 oct 2026 | Aceptada |
+| [0017](0017-base-en-neon-detras-del-servidor.md) | La base va en Neon detrás del servidor propio | 28 oct 2026 | Aceptada |

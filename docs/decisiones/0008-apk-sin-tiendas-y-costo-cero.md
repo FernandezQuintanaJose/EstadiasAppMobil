@@ -11,7 +11,7 @@ Se quiere llegar a la mayor cantidad de teléfonos Android, y todo lo que cueste
 - En Android solo se distribuye el APK desde la página de descargas del proyecto, con su huella SHA-256 y un guion de instalación por voz.
 - Microsoft Store y Linux sí, porque son gratis. La versión web instalable (PWA) cubre computadoras.
 - Google Play y App Store quedan descartados por ahora.
-- El único gasto aceptado es el dominio, de unos 10 USD al año. Lo demás cabe en planes gratuitos (Render o Cloud Run, Supabase, Cloudflare Pages, GitHub Releases).
+- El único gasto aceptado es el dominio, de unos 10 USD al año. Lo demás cabe en planes gratuitos (Render o Cloud Run, Neon, Cloudflare Pages, GitHub Releases).
 
 ## Consecuencias
 

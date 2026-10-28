@@ -87,9 +87,10 @@ DECISIONES = [
     ("0011", "Versión mínima de Android", "Android 5 como mínimo y Android 11 como recomendada; la app avisa por voz qué funciones no existen en cada teléfono. Falta el cambio en Gradle."),
     ("0012", "Botones y micrófono", "Seis tamaños de tarjeta y un micrófono anclado abajo, igual en todas las pantallas."),
     ("0013", "Luz de la cámara", "Primero sin luz, luego pregunta, linterna baja y nunca flash; modo discreto para lugares públicos."),
-    ("0014", "Supabase con reglas por fila", "Cada tabla lleva RLS desde que se crea. Raíz diseña y revisa las reglas; cada equipo las aplica a sus tablas."),
+    ("0014", "Reglas por fila (Supabase)", "Reemplazada en lo de la plataforma por la 0017; sus reglas de permisos siguen vigentes: lo que no tiene regla queda prohibido y el rol nunca lo edita la persona."),
     ("0015", "Lo no terminado se acumula", "Pasa a la semana siguiente y cuenta como acumulado en el reporte: ámbar con una semana, rojo con dos. Tope de tiempo: tareas de papel antes del 19 oct, de código antes del 6 nov y nada nuevo después del 13 nov."),
     ("0016", "Los equipos no dependen unos de otros", "Cada equipo trabaja solo, con respuestas de prueba. Todo lo que necesite IA lo resuelve Neurona, que publica antes del 14 de octubre el formato y una respuesta fija por panel."),
+    ("0017", "La base va en Neon", "PostgreSQL en Neon detrás del servidor propio; la app nunca toca la base. Los permisos por rol los aplica el servidor en cada ruta. No se usa Supabase."),
 ]
 
 CAMBIOS = [

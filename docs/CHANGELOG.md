@@ -12,7 +12,7 @@
 - `main` se unió con GitHub: privacidad, `hayMas` y preguntas de prueba del Equipo 2 (e2e4fda); se corrigieron dos errores del servidor que impedían que importara y un valor mal desempacado en `/preguntar` (9507440).
 - Interfaz en proceso, sin terminar (b6a0723, 6 oct). El nombre de la app queda temporalmente en «CECAPI».
 
-### Decidido (ver decisiones 0008 a 0016)
+### Decidido (ver decisiones 0008 a 0017)
 
 - Android solo por APK desde nuestra página y costo cero, salvo el dominio.
 - Acceso por roles, sin planes.
@@ -20,7 +20,7 @@
 - Versión mínima de Android la más baja posible (Android 5), recomendada Android 11.
 - Seis tamaños de botón y micrófono fijo en todas las pantallas.
 - Luz de la cámara: sin luz, pregunta, linterna baja, nunca flash.
-- Supabase con reglas por fila (RLS) en todas las tablas.
+- Permisos por rol en todas las tablas; la base va en Neon detrás del servidor propio, no en Supabase (decisión 0017, reemplaza la 0014 en lo de la plataforma).
 - Lo que no se termina se acumula, con tope de tiempo.
 - Los equipos no dependen unos de otros; todo lo de IA es de Neurona.
 
