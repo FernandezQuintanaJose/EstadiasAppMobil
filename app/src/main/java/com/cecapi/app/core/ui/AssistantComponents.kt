@@ -110,7 +110,7 @@ fun MicPad(
             .align(Alignment.Center)
             // El centro del círculo queda a MIC_CENTER_DESDE_ARRIBA del borde superior del panel; se baja el
             // panel lo que haga falta para que ese centro coincida con la mitad del área tocable.
-            .offset(y = MIC_PANEL_ALTO / 2 - MIC_CENTER_DESDE_ARRIBA)
+            .offset(y = MIC_PANEL_ALTO / 2 - MIC_CENTER_DESDE_ARRIBA + MIC_BAJADA)
             .fillMaxWidth()
             .height(MIC_PANEL_ALTO),
         horizontalAlignment = Alignment.CenterHorizontally,
@@ -205,6 +205,9 @@ fun MicPad(
 private val MIC_PADDING_ARRIBA = 18.dp
 private val MIC_PANEL_ALTO = 279.dp
 private val MIC_CENTER_DESDE_ARRIBA = 1.dp + MIC_PADDING_ARRIBA + 66.dp
+
+// Un poco por debajo de la mitad exacta (unos 10 px en un teléfono de 2x), para que caiga donde la mano lo espera.
+private val MIC_BAJADA = 5.dp
 
 /** Qué apariencia toma un [BigBtn] cuando no tiene [section]. */
 enum class BigBtnVariant { Neutral, Accent, Danger, Success, Locked }
