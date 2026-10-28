@@ -62,12 +62,16 @@ fun HomeScreen(
     onNavigateToRegister: () -> Unit,
     onNavigateToModule: (String) -> Unit,
     onNavigateToSettings: () -> Unit,
+    onSessionActive: () -> Unit = {},
     viewModel: HomeViewModel = hiltViewModel(),
 ) {
     val context = LocalContext.current
     val voiceState by viewModel.voiceState.collectAsState()
     val isOnline by viewModel.isOnline.collectAsState()
     val assistantName by viewModel.assistantName.collectAsState()
+    val haySesion by viewModel.haySesion.collectAsState()
+    // La sesión recordada se restaura sola al abrir la app: con cuenta no hay nada que iniciar, se pasa al menú.
+    LaunchedEffect(haySesion) { if (haySesion) onSessionActive() }
     var hasMicPermission by remember {
         mutableStateOf(
             ContextCompat.checkSelfPermission(context, Manifest.permission.RECORD_AUDIO) ==

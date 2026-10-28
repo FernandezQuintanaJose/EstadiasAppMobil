@@ -56,6 +56,11 @@ fun CecapiNavGraph(navController: NavHostController = rememberNavController()) {
                 onNavigateToRegister = { navController.navigate(CecapiDestinations.REGISTER) },
                 onNavigateToModule = { route -> navController.navigate(route) },
                 onNavigateToSettings = { navController.navigate(CecapiDestinations.SETTINGS) },
+                onSessionActive = {
+                    navController.navigate(CecapiDestinations.DASHBOARD) {
+                        popUpTo(CecapiDestinations.HOME) { inclusive = true }
+                    }
+                },
             )
         }
         composable(CecapiDestinations.LOGIN) {

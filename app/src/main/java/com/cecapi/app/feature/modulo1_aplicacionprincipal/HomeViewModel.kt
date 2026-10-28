@@ -30,6 +30,7 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withTimeoutOrNull
@@ -69,6 +70,11 @@ class HomeViewModel @Inject constructor(
     val assistantName: StateFlow<String> = assistantPreferences.assistantName.stateIn(
         viewModelScope, SharingStarted.Eagerly, "",
     )
+
+    /** True cuando hay una cuenta (por ejemplo, la sesión recordada que se restaura al abrir): se entra directo al menú. */
+    val haySesion: StateFlow<Boolean> = sessionRepository.currentUser
+        .map { it != null }
+        .stateIn(viewModelScope, SharingStarted.Eagerly, false)
 
     private var holdingWakeWord = false
 
