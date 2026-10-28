@@ -1,6 +1,7 @@
 package com.cecapi.app.feature.modulo4_lectordocumentos
 
 import android.net.Uri
+import android.os.SystemClock
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.cecapi.app.core.navigation.CecapiDestinations
@@ -165,21 +166,55 @@ class DocumentReaderViewModel @Inject constructor(
         voiceEngine.speak("Sin el permiso de la cámara no puedo leer. Actívalo en los ajustes de la aplicación.")
     }
 
-    /** La última indicación de encuadre dicha en voz alta, para no repetir la misma cada ~700 ms mientras se apunta. */
-    private var ultimoFramingHint: FramingHint? = null
+    // Estado de la guía de encuadre: lo último que vio la cámara y lo último que se dijo en voz alta.
+    private var ultimaPista: FramingHint? = null
+    private var pistaRepetida = 0
+    private var pistaDicha: FramingHint? = null
+    private var momentoPistaDicha = 0L
 
     /**
      * Guía en vivo de [TextFramingAnalyzer] mientras se apunta, antes de tomar la foto: "muévelo a la
      * izquierda", "acércalo"... Solo mientras hay una vista previa en vivo para apuntar (todavía no hay
-     * foto, no se está leyendo nada) y solo cuando realmente cambió, para que narre en vez de repetir la
-     * misma línea para siempre.
+     * foto, no se está leyendo nada). Para que narre en vez de parlotear, la indicación debe repetirse en
+     * varios cuadros seguidos, no interrumpe otra frase ni al micrófono, y la misma indicación espera antes
+     * de volver a decirse. Con el asistente en silencio o la app fuera de pantalla no se dice nada.
      */
     fun onFramingHint(hint: FramingHint) {
         val state = _uiState.value
         if (state.photoPath != null || state.isProcessing || state.parrafos.isNotEmpty()) return
-        if (hint == ultimoFramingHint) return
-        ultimoFramingHint = hint
+
+        pistaRepetida = if (hint == ultimaPista) pistaRepetida + 1 else 1
+        ultimaPista = hint
+        val necesarias = if (hint == FramingHint.SIN_TEXTO) CUADROS_SIN_TEXTO else CUADROS_PISTA
+        if (pistaRepetida < necesarias) return
+        if (voiceEngine.state.value != VoiceState.Idle) return
+        if (voiceEngine.mode.value != AssistantMode.ACTIVE || !voiceEngine.appVisible) return
+        if (hint == FramingHint.LISTO && pistaDicha == FramingHint.LISTO) return
+
+        val ahora = SystemClock.elapsedRealtime()
+        val espera = when {
+            hint != pistaDicha -> ESPERA_CAMBIO_MS
+            hint == FramingHint.SIN_TEXTO -> ESPERA_SIN_TEXTO_MS
+            else -> ESPERA_REPETIR_MS
+        }
+        if (ahora - momentoPistaDicha < espera) return
+
+        pistaDicha = hint
+        momentoPistaDicha = ahora
         voiceEngine.speak(hint.mensaje)
+    }
+
+    private fun reiniciarGuia() {
+        ultimaPista = null
+        pistaRepetida = 0
+        pistaDicha = null
+        momentoPistaDicha = 0L
+    }
+
+    /** Usa lo último que vio la cámara en vivo para decir cómo corregir una foto sin texto. */
+    private fun consejoSinTexto(): String = when (val pista = ultimaPista) {
+        null, FramingHint.LISTO, FramingHint.SIN_TEXTO -> FramingHint.SIN_TEXTO.mensaje
+        else -> pista.mensaje
     }
 
     /**
@@ -258,7 +293,7 @@ class DocumentReaderViewModel @Inject constructor(
                 OcrOutcome.PocaLuz -> falloDeLectura(
                     "La imagen está muy oscura. Busca mejor iluminación e intenta de nuevo.",
                 )
-                OcrOutcome.SinTexto -> falloDeLectura("No se detectó texto en la imagen.")
+                OcrOutcome.SinTexto -> falloDeLectura("No se detectó texto en la imagen. ${consejoSinTexto()}")
                 is OcrOutcome.Error -> falloDeLectura(
                     "No se pudo leer el texto de la imagen. Intenta con mejor iluminación.",
                 )
@@ -347,7 +382,7 @@ class DocumentReaderViewModel @Inject constructor(
     private fun nuevaFoto(tomarYa: Boolean) {
         detenerLectura()
         _uiState.value = DocumentReaderUiState()
-        ultimoFramingHint = null
+        reiniciarGuia()
         if (tomarYa) {
             pedirCaptura()
         } else {
@@ -421,5 +456,13 @@ class DocumentReaderViewModel @Inject constructor(
     private companion object {
         /** Si la persona habló encima de la lectura hace tan poco, la pausa en la voz fue suya: no seguir leyendo. */
         const val BARGE_IN_WINDOW_MS = 1_500L
+
+        /** Cuadros seguidos (uno cada ~0.7 s) con la misma indicación antes de decirla. */
+        const val CUADROS_PISTA = 2
+        const val CUADROS_SIN_TEXTO = 4
+
+        const val ESPERA_CAMBIO_MS = 2_500L
+        const val ESPERA_REPETIR_MS = 5_000L
+        const val ESPERA_SIN_TEXTO_MS = 10_000L
     }
 }
