@@ -17,27 +17,31 @@ import sys
 RAIZ = pathlib.Path(__file__).resolve().parents[2]
 COMANDOS = RAIZ / "docs/referencia/comandos.md"
 
-COMMIT = "e968668"
-FECHA = "1 de octubre de 2026"
+COMMIT = "6240887"
+FECHA = "8 de octubre de 2026"
 
-# (página, liga, para quién, estado, clase de estado, nota)
+# (página, liga, para quién, estado, clase de estado, qué hace, última edición)
 PAGINAS = [
-    ("Tareas por equipo, del 26 sep al 4 oct", "https://claude.ai/artifact/HBF3rJTytZj34HZ9H1bWon", "Todos los equipos", "Vigente", "ok", "Qué le toca a cada equipo y quién depende de quién. Las tareas con evidencia al 1 de octubre ya están marcadas."),
-    ("Guía Equipo IA", "https://claude.ai/artifact/MFHP3Vihse48rqGQZj24Y9", "Equipo 2", "Con aviso", "warn", "La IA está apagada en la app hasta decidir proveedor y edades. Leer el aviso de arriba antes de avanzar."),
-    ("Guía Equipo Cámaras", "https://claude.ai/artifact/1MPBhgeFa36dUnXZCCE7Eg", "Equipos 3 y 5", "Con aviso", "warn", "Hoy la cámara funciona con ML Kit en el teléfono y ya tiene galería. Leer el aviso de arriba."),
-    ("Probar CECAPI", "https://claude.ai/artifact/My5wz3xvbvUiZHzaXy2Pai", "Compañeros", "Con aviso", "warn", "Los pasos para abrir el proyecto siguen sirviendo; el menú que describe ya cambió."),
-    ("Pantallas CECAPI", "https://claude.ai/artifact/E1j5wh4SmJ14vTNbv4wYGe", "Todos", "Vigente", "ok", "Ocho pantallas del teléfono con los colores y textos reales al 1 de octubre. Se pueden editar botones, campos y colores."),
-    ("Simulador", "https://claude.ai/artifact/F1sG8C2wmUip7oG26jQGJo", "Consulta", "Reemplazado", "off", "Muestra la app del 24 de septiembre. Lo reemplaza Pantallas CECAPI."),
-    ("Alcance", "https://claude.ai/artifact/VvoXRHZf8pST4g7CKd2EBX", "Maestro", "Vigente (v3)", "ok", "Estado, alcance y ampliaciones por integrante."),
-    ("Reporte de avances", "https://claude.ai/artifact/9xB69wgCjSYpXpQdm9gHSt", "Pp", "Vigente", "ok", "Una pestaña por semana; la más nueva primero. Desde el 9 de octubre, con métricas."),
-    ("Encargos para agentes de apoyo", "https://claude.ai/artifact/4XvQVvFmzZFaVFqqT9RVeM", "Pp y agentes", "Vigente", "ok", "Reglas comunes y tareas de los cinco agentes."),
-    ("Documentación: esquema y formatos", "https://claude.ai/artifact/5cscBPhaH7mRxdJ2dRYcwX", "Pp", "Aprobado", "ok", "Cómo se ordena la documentación y el estado de cada ronda."),
-    ("Reporte semanal, 28 sep al 2 oct", "https://claude.ai/artifact/ME9WSrduQrCTGkAQkeWpdA", "Equipos", "Reemplazado", "off", "Lo reemplaza Tareas por equipo. Se guarda como registro."),
-    ("Bitácora", "https://claude.ai/artifact/3nQUjLJtYZtb85cNj24q9v", "Maestro", "Desactualizada", "off", "No mostrar hasta que se decida la composición del Equipo 1."),
-    ("Planteamiento", "https://claude.ai/artifact/XYfZCZHHZCjuPvQYDKm27f", "Maestro", "Desactualizada", "off", "Igual."),
-    ("Cronograma", "https://claude.ai/artifact/1MyXNyG2Qjw6aJgBEigtqg", "Maestro", "Desactualizada", "off", "Igual."),
-    ("Arranque", "https://claude.ai/artifact/JaBmouCVwbUUA1dxAHxCL8", "Equipos", "Desactualizada", "off", "Igual."),
-    ("Entorno", "https://claude.ai/artifact/CtQkaauTGcYZoiRwvtSbfC", "Equipos", "Desactualizada", "off", "Igual."),
+    ("Plan para equipos", "https://claude.ai/code/artifact/aff2b58c-c4b4-4256-bd91-fb99b46e5202", "Pp", "Vigente", "ok", "Para Pp: lo que alcanzará cada equipo hasta diciembre, reglas de interfaz, fuera de la app, versiones de Android, dónde se distribuye, reglas por fila (RLS), la evaluación del PIN y lo futuro.", "8 oct"),
+    ("Tareas por equipo", "https://claude.ai/code/artifact/83005079-2b8c-42ef-8815-c8642226d2fd", "Todos los equipos (se comparte)", "Vigente", "ok", "Qué hicieron y qué no los equipos hasta el 8 de octubre (pestaña del 26 sep al 4 oct) y las tareas de la semana que sigue (pestaña del 12 al 18 oct).", "8 oct"),
+    ("Tareas y evaluación semanal", "https://claude.ai/code/artifact/a3ccaf6d-0a87-456f-804e-871f6ed23cc5", "Todos los equipos (se comparte)", "Vigente", "ok", "Tareas pequeñas del viernes 9 al martes 13 de octubre; la pestaña «Registro» guarda la semana del 28 sep al 2 oct.", "8 oct"),
+    ("Planteamiento", "https://claude.ai/artifact/XYfZCZHHZCjuPvQYDKm27f", "Todos los equipos (se comparte)", "Vigente", "ok", "Capítulos I a V de la memoria con la plantilla de la UTD, el borrador del Capítulo II de cada equipo y las guías de los capítulos III al V.", "8 oct"),
+    ("Cronograma", "https://claude.ai/artifact/1MyXNyG2Qjw6aJgBEigtqg", "Todos los equipos", "Vigente", "ok", "Las 14 semanas con la beta del 16 al 20 de noviembre, el calendario de la memoria, el tablero y los datos de git.", "8 oct"),
+    ("Entorno", "https://claude.ai/artifact/CtQkaauTGcYZoiRwvtSbfC", "Todos los equipos", "Vigente", "ok", "Qué instalar en cada equipo, emuladores de Android 5 a 15, cuentas gratuitas y teléfonos de prueba.", "8 oct"),
+    ("Documentación (esta página)", "https://claude.ai/artifact/1Cawemf7QziJfgzUkGFZ62", "Todos", "Vigente", "ok", "Índice de todas las páginas, qué hace la app hoy, comandos de voz, decisiones y cambios.", "8 oct"),
+    ("Pantallas CECAPI", "https://claude.ai/artifact/E1j5wh4SmJ14vTNbv4wYGe", "Todos", "Con aviso", "warn", "Ocho pantallas del teléfono que se pueden editar. Es del 5 de octubre y todavía no muestra el micrófono fijo ni los seis tamaños de botón.", "5 oct"),
+    ("Resultados de septiembre", "https://claude.ai/artifact/DV2c7ZuHmS3YyicCzMneKT", "Maestro y Pp", "Vigente", "ok", "Resumen de lo que se hizo en septiembre, también en PDF y PowerPoint.", "3 oct"),
+    ("Guía Equipo IA", "https://claude.ai/artifact/MFHP3Vihse48rqGQZj24Y9", "Equipo 2", "Con aviso", "warn", "Cómo trabajar el servidor de IA. Leer el aviso de arriba: la IA es ahora un filtro entre paneles y proveedores (decisión 0010).", "29 sep"),
+    ("Guía Equipo Cámaras", "https://claude.ai/artifact/1MPBhgeFa36dUnXZCCE7Eg", "Equipos 3 y 5", "Con aviso", "warn", "Cómo trabajar la cámara y el entorno. Leer el aviso de arriba: hay una sola cámara compartida, con la luz de la decisión 0013.", "29 sep"),
+    ("Probar CECAPI", "https://claude.ai/artifact/My5wz3xvbvUiZHzaXy2Pai", "Compañeros", "Con aviso", "warn", "Diez pasos para abrir y correr el proyecto. Siguen sirviendo, pero el menú que describe ya cambió. Para instalar herramientas, ver Entorno.", "29 sep"),
+    ("Reporte de avances", "https://claude.ai/code/artifact/487d3bee-e587-468b-9e53-55940bf025b5", "Pp", "Vigente", "ok", "Reporte de Pp, una pestaña por semana (la más nueva primero) con semáforo por equipo, decisiones, riesgos y métricas de git. No se comparte con los equipos.", "8 oct"),
+    ("Encargos para agentes de apoyo", "https://claude.ai/artifact/4XvQVvFmzZFaVFqqT9RVeM", "Pp y agentes", "Vigente", "ok", "Reglas comunes y tareas de los cinco agentes: pruebas, documentación, seguridad, optimización y normativa.", "28 sep"),
+    ("Documentación: esquema y formatos", "https://claude.ai/artifact/5cscBPhaH7mRxdJ2dRYcwX", "Pp", "Aprobado", "ok", "Cómo se ordena la documentación en tres capas y el estado de cada ronda.", "28 sep"),
+    ("Mapa de trabajo", "https://claude.ai/artifact/Y9ALxmLX19hkyQZaGxCUt9", "Pp", "Por revisar", "warn", "Mapa de trabajo del 28 de septiembre. Revisar si sigue sirviendo antes de compartirlo.", "28 sep"),
+    ("Alcance", "https://claude.ai/artifact/VvoXRHZf8pST4g7CKd2EBX", "Maestro", "Por revisar", "warn", "Estado, alcance y ampliaciones por integrante. Alinearlo con las decisiones 0008 a 0013 antes de mostrarlo.", "18 sep"),
+    ("Bitácora", "https://claude.ai/artifact/3nQUjLJtYZtb85cNj24q9v", "Maestro", "Desactualizada", "off", "Bitácora técnica de septiembre. No mostrar hasta actualizarla.", "1 sep"),
+    ("Arranque", "https://claude.ai/artifact/JaBmouCVwbUUA1dxAHxCL8", "Equipos", "Desactualizada", "off", "Pasos de arranque de septiembre. Lo vigente está en Entorno.", "1 sep"),
+    ("Simulador", "https://claude.ai/artifact/F1sG8C2wmUip7oG26jQGJo", "Consulta", "Reemplazado", "off", "Muestra la app del 24 de septiembre. Lo reemplaza Pantallas CECAPI.", "1 oct"),
 ]
 
 FUNCIONES = [
@@ -54,7 +58,7 @@ FUNCIONES = [
     ("Roles y Gestión", "Administrador, directivo, educador, alumno y usuario independiente. Gestión muestra a quién puede ver cada rol y las cuentas por validar."),
     ("Ayuda y soporte", "Para alumnos y usuarios: ver quién es su educador y reportar un problema."),
     ("Clasificación", "Tabla por puntos de Actividades, con apodo y nunca el nombre completo, y tabla por instituciones."),
-    ("Buscar en Wikipedia", "Responde con Wikipedia y Wikidata lo que la app no entiende, con internet. En revisión: hoy manda la frase completa, aunque la IA esté apagada."),
+    ("Buscar en Wikipedia", "Responde con Wikipedia y Wikidata lo que la app no entiende, con internet. Decidido el 8 de octubre: la IA decidirá cuándo usarla, solo con internet. Falta aplicarlo: hoy la app manda la frase completa, aunque la IA esté apagada."),
 ]
 
 SALE = [
@@ -70,16 +74,31 @@ SALE = [
 CUENTAS = [("CECAPI", "1234", "Administrador, cuenta compartida"), ("PEPE", "1234", "Administrador"), ("JORGE", "1234", "Directivo"), ("MIRIAM", "1234", "Educador"), ("JUAN", "1234", "Alumno de MIRIAM")]
 
 DECISIONES = [
-    ("0001", "Versiones congeladas", "AGP 8.5.2, Gradle 8.9 y Kotlin 2.0.21. No se actualizan sin acuerdo de Pp. Riesgo abierto: Google Play pide targetSdk 36."),
+    ("0001", "Versiones congeladas", "AGP 8.5.2, Gradle 8.9 y Kotlin 2.0.21. No se actualizan sin acuerdo de Pp. El targetSdk solo se sube si algún día se publica en Google Play (decisión 0008)."),
     ("0002", "IA apagada por defecto", "La IA solo traduce frases que la app no entiende. Queda apagada hasta decidir proveedor y edades, porque habrá menores."),
     ("0003", "Pantalla negra con salida", "Siempre se puede volver por voz o manteniendo presionada la pantalla."),
     ("0004", "Base de datos", "Va en la versión 7, con seis migraciones. Ninguna se ha probado en un teléfono que ya tenga la app."),
     ("0005", "Responsable, menores y datos", "Pp es responsable mientras solo haya cuentas de demostración. Habrá menores. Ningún dato real hasta que Pp lo autorice."),
     ("0006", "\"Silencio\" y \"para\"", "Solo cuentan si son la frase completa, porque \"para\" es una palabra común."),
     ("0007", "Escuchar fuera de la app", "Opcional y apagado al principio, con un aviso fijo y botón para detener."),
+    ("0008", "Android solo por APK, y costo cero", "El APK se descarga de nuestra página; Microsoft Store y Linux son gratis; Google Play y App Store, descartados. El único gasto es el dominio, de unos 10 USD al año."),
+    ("0009", "Acceso por roles", "Lo que ve cada persona depende de su rol. Por ahora no hay planes ni pagos."),
+    ("0010", "La IA es un filtro", "Decide entre los paneles, Gemini, Groq y Wikipedia. Sin internet solo quedan los paneles y el asistente sin conexión."),
+    ("0011", "Versión mínima de Android", "Android 5 como mínimo y Android 11 como recomendada; la app avisa por voz qué funciones no existen en cada teléfono. Falta el cambio en Gradle."),
+    ("0012", "Botones y micrófono", "Seis tamaños de tarjeta y un micrófono anclado abajo, igual en todas las pantallas."),
+    ("0013", "Luz de la cámara", "Primero sin luz, luego pregunta, linterna baja y nunca flash; modo discreto para lugares públicos."),
+    ("0014", "Reglas por fila (Supabase)", "Reemplazada en lo de la plataforma por la 0017; sus reglas de permisos siguen vigentes: lo que no tiene regla queda prohibido y el rol nunca lo edita la persona."),
+    ("0015", "Lo no terminado se acumula", "Pasa a la semana siguiente y cuenta como acumulado en el reporte: ámbar con una semana, rojo con dos. Tope de tiempo: tareas de papel antes del 19 oct, de código antes del 6 nov y nada nuevo después del 13 nov."),
+    ("0016", "Los equipos no dependen unos de otros", "Cada equipo trabaja solo, con respuestas de prueba. Todo lo que necesite IA lo resuelve Neurona, que publica antes del 14 de octubre el formato y una respuesta fija por panel."),
+    ("0017", "La base va en Neon", "PostgreSQL en Neon detrás del servidor propio; la app nunca toca la base. Los permisos por rol los aplica el servidor en cada ruta. No se usa Supabase."),
 ]
 
 CAMBIOS = [
+    ("8 oct", "Se actualizaron Tareas por equipo (qué hicieron y qué no al 8 de octubre) y el Reporte de avances (semana del 5 al 9). Este índice ya no repite documentos con otro enlace. Se registró la decisión 0014."),
+    ("8 oct", "Se renovaron las páginas Planteamiento (capítulos I a V con la plantilla de la UTD), Cronograma, Entorno y Plan para equipos. Se registraron las decisiones 0008 a 0013."),
+    ("8 oct", "main se unió con GitHub (privacidad, hayMas y pruebas del Equipo 2); se corrigió el servidor, que no importaba; el detector de objetos pasó a TensorFlow Lite (Equipo 3)."),
+    ("6 oct", "Interfaz en proceso (commit «Interfaz incompleta»)."),
+    ("3 y 4 oct", "Rediseño según el prototipo de Figma, podio en Clasificación, Mi cuenta en dos pestañas, unirse a una institución y validación; Módulo 6 unificado; el asistente entiende frases con /entender."),
     ("1 oct", "Pantallas nuevas: Gestión, Ayuda y soporte, Clasificación y Editar mi cuenta. Actividades en tarjetas deslizables con actividades recreativas. Lector con tarjetas grandes y guía de encuadre (diseño del Equipo 3). Instalado en el teléfono de prueba."),
     ("30 sep", "Roles con Educador; cámara sin cuenta; IA conectada pero apagada; backend del Equipo 2 integrado; diccionario de objetos del Equipo 5; Wikipedia y Wikidata."),
     ("29 sep", "Wikipedia como respaldo, borrar cuenta con contraseña, \"olvidé mi contraseña\", doble toque para callar al asistente, foto visible mientras se lee."),
@@ -134,8 +153,8 @@ def comandos_html():
 def main(salida: str) -> None:
     filas_paginas = "".join(
         f"<tr><td><a href=\"{e(u)}\" target=\"_blank\" rel=\"noopener\">{e(n)}</a><span class=\"nota\">{e(nota)}</span></td>"
-        f"<td>{e(quien)}</td><td><span class=\"chip {c}\">{e(est)}</span></td></tr>"
-        for n, u, quien, est, c, nota in PAGINAS
+        f"<td>{e(quien)}</td><td>{e(fecha)}</td><td><span class=\"chip {c}\">{e(est)}</span></td></tr>"
+        for n, u, quien, est, c, nota, fecha in PAGINAS
     )
     funciones = "".join(f"<div class=\"fn\"><h3>{e(t)}</h3><p>{e(d)}</p></div>" for t, d in FUNCIONES)
     sale = "".join(f"<tr><td>{e(f)}</td><td><span class=\"chip {c}\">{e(s)}</span></td><td>{e(d)}</td></tr>" for f, s, c, d in SALE)
@@ -236,7 +255,7 @@ footer {{ color: var(--soft); font-size: 0.92rem; border-top: 1px solid var(--li
   <header>
     <h1>Documentación CECAPI</h1>
     <p class="lede">Todo lo del proyecto en un solo lugar: las páginas para cada equipo, qué hace hoy la app, qué se puede decirle y qué datos salen del teléfono.</p>
-    <div class="meta"><span>Revisado el {fecha}</span><span>Código: main local en {commit}, sin subir</span><span>Sin datos reales, solo cuentas de demostración</span></div>
+    <div class="meta"><span>Revisado el {fecha}</span><span>Código: main en {commit}</span><span>Sin datos reales, solo cuentas de demostración</span></div>
     <nav aria-label="Secciones">
       <a href="#paginas">Páginas</a><a href="#app">Qué hace la app</a><a href="#datos">Qué sale del teléfono</a><a href="#comandos">Comandos de voz</a><a href="#decisiones">Decisiones</a><a href="#cambios">Cambios</a>
     </nav>
@@ -244,16 +263,16 @@ footer {{ color: var(--soft); font-size: 0.92rem; border-top: 1px solid var(--li
 
   <section id="paginas">
     <h2>Páginas del proyecto</h2>
-    <p class="intro">Abre la que te toca según tu equipo. Las marcadas con aviso tienen una nota arriba que hay que leer primero; las grises son de consulta y no se actualizan.</p>
+    <p class="intro">Estas son todas las páginas y documentos del proyecto, con lo que hace cada uno y cuándo se editó por última vez. Abre la que te toca según tu equipo. Las marcadas con aviso o por revisar se leen con cuidado antes de usarlas; las grises están desactualizadas o reemplazadas y solo sirven de consulta.</p>
     <div class="tabla"><table>
-      <thead><tr><th>Página</th><th>Para quién</th><th>Estado</th></tr></thead>
+      <thead><tr><th>Página y qué hace</th><th>Para quién</th><th>Última edición</th><th>Estado</th></tr></thead>
       <tbody>{paginas}</tbody>
     </table></div>
   </section>
 
   <section id="app">
     <h2>Qué hace la app hoy</h2>
-    <p class="intro">La versión del 1 de octubre se instaló en el teléfono de prueba: compila y abre. Las pantallas nuevas todavía no se prueban una por una, así que algo puede no funcionar igual que aquí se describe.</p>
+    <p class="intro">Esto describe la app según el código del 8 de octubre. La interfaz sigue en proceso y las pantallas nuevas todavía no se prueban una por una, así que algo puede no funcionar igual que aquí se describe.</p>
     <div class="grid">{funciones}</div>
     <h3>Cuentas de demostración</h3>
     <div class="tabla"><table>

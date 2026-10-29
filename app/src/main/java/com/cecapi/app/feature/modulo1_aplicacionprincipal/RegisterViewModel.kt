@@ -1,8 +1,10 @@
 package com.cecapi.app.feature.modulo1_aplicacionprincipal
 
+import com.cecapi.app.core.navigation.CecapiDestinations
 import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.cecapi.app.core.util.PasswordRules
 import com.cecapi.app.core.voice.FeedbackCues
 import com.cecapi.app.core.voice.VoiceEngine
 import com.cecapi.app.core.voice.VoiceMessages
@@ -32,6 +34,9 @@ data class RegisterUiState(
     val nombreCompleto: String = "",
     val nombreUsuario: String = "",
     val contrasena: String = "",
+    val confirmarContrasena: String = "",
+    /** Opcional: sirve para recuperar la cuenta y, cuando el servidor lo permita, para verificarla con un código. */
+    val email: String = "",
     val institucion: InstitucionRegistro = InstitucionRegistro.NINGUNA,
     /** Epoch millis; null hasta que la persona elige una fecha. */
     val fechaNacimiento: Long? = null,
@@ -62,15 +67,15 @@ class RegisterViewModel @Inject constructor(
     private var voiceTarget = RegisterVoiceTarget.NOMBRE_COMPLETO
 
     init {
-        // What is said here is a name or a password, so the global commands must not take it. Whole-phrase
-        // controls (cancelar, repite, lista de comandos) are handled below.
+        // Lo que se dice aquí es un nombre o una contraseña, así que los comandos globales no deben tomarlo. Los controles
+        // de frase completa (cancelar, repite, lista de comandos) se manejan más abajo.
         voiceEngine.rawInput = true
         voiceEngine.speak(
             "Vamos a crear tu cuenta. Di tu nombre completo, o escríbelo abajo. Di cancelar para volver. " +
                 CommandCatalog.hint("crear cuenta"),
         )
         viewModelScope.launch {
-            voiceEngine.recognizedSpeech.collect { speech -> onVoiceInput(speech.text.trim()) }
+            voiceEngine.speechFor(CecapiDestinations.REGISTER).collect { speech -> onVoiceInput(speech.text.trim()) }
         }
     }
 
@@ -97,10 +102,13 @@ class RegisterViewModel @Inject constructor(
             RegisterVoiceTarget.USUARIO -> {
                 onNombreUsuarioChange(texto.replace(" ", ""))
                 voiceTarget = RegisterVoiceTarget.CONTRASENA
-                voiceEngine.speak("Ahora di tu contraseña.")
+                voiceEngine.speak("Ahora di tu contraseña. Debe tener al menos quince letras; puede ser una frase, sin números ni símbolos.")
             }
             RegisterVoiceTarget.CONTRASENA -> {
-                onContrasenaChange(texto.replace(" ", ""))
+                // Dictada: se normaliza igual que al iniciar sesión, y se toma también como su confirmación.
+                val dictada = PasswordRules.normalize(texto)
+                onContrasenaChange(dictada)
+                onConfirmarContrasenaChange(dictada)
                 voiceTarget = RegisterVoiceTarget.NONE
                 submit()
             }
@@ -110,7 +118,7 @@ class RegisterViewModel @Inject constructor(
         }
     }
 
-    /** Two quick taps on the mic silence the assistant, for someone using touch with their hands instead of voice. */
+    /** Dos toques rápidos en el micrófono silencian al asistente, para alguien que usa el tacto con las manos en vez de la voz. */
     fun onMicDoubleTap() = voiceEngine.mute()
 
     fun onMicTapped() {
@@ -126,7 +134,7 @@ class RegisterViewModel @Inject constructor(
             when (voiceTarget) {
                 RegisterVoiceTarget.NOMBRE_COMPLETO -> "Di tu nombre completo."
                 RegisterVoiceTarget.USUARIO -> "Di el nombre de usuario que quieres usar."
-                RegisterVoiceTarget.CONTRASENA -> "Di tu contraseña."
+                RegisterVoiceTarget.CONTRASENA -> "Di tu contraseña, una frase de al menos quince letras."
                 RegisterVoiceTarget.NONE -> "Ya tengo tus datos. Si algo está mal, corrígelo escribiendo en la pantalla."
             },
             listenAfter = voiceTarget != RegisterVoiceTarget.NONE,
@@ -139,8 +147,9 @@ class RegisterViewModel @Inject constructor(
     }
 
     private companion object {
-        // Whole phrases only: a person's name or password could contain these words.
+        // Solo frases completas: el nombre o la contraseña de una persona podría contener estas palabras.
         val CANCEL_PHRASES = setOf("cancelar", "cancela", "volver", "vuelve", "atras", "regresar", "regresa", "salir")
+        val EMAIL_REGEX = Regex("""^[^@\s]+@[^@\s]+\.[^@\s]+$""")
         val REPEAT_PHRASES = setOf("repite", "repetir", "otra vez", "de nuevo", "repite la pregunta", "ayuda")
     }
 
@@ -154,6 +163,14 @@ class RegisterViewModel @Inject constructor(
 
     fun onContrasenaChange(value: String) {
         _uiState.value = _uiState.value.copy(contrasena = value, errorMessage = null)
+    }
+
+    fun onEmailChange(value: String) {
+        _uiState.value = _uiState.value.copy(email = value.trim(), errorMessage = null)
+    }
+
+    fun onConfirmarContrasenaChange(value: String) {
+        _uiState.value = _uiState.value.copy(confirmarContrasena = value, errorMessage = null)
     }
 
     fun onInstitucionChange(value: InstitucionRegistro) {
@@ -172,11 +189,25 @@ class RegisterViewModel @Inject constructor(
             voiceEngine.speak(message)
             return
         }
-        if (state.contrasena.length < 4) {
-            val message = "La contraseña debe tener al menos cuatro caracteres. Dime otra contraseña."
+        val contrasenaNormalizada = PasswordRules.normalize(state.contrasena)
+        val problema = PasswordRules.problem(contrasenaNormalizada)
+        if (problema != null) {
+            val message = "$problema Dime otra contraseña."
             _uiState.value = state.copy(errorMessage = message)
             voiceTarget = RegisterVoiceTarget.CONTRASENA
             voiceEngine.speak(message, listenAfter = true)
+            return
+        }
+        if (PasswordRules.normalize(state.confirmarContrasena) != contrasenaNormalizada) {
+            val message = "Las contraseñas no coinciden. Escribe la confirmación otra vez."
+            _uiState.value = state.copy(errorMessage = message, confirmarContrasena = "")
+            voiceEngine.speak(message)
+            return
+        }
+        if (state.email.isNotEmpty() && !EMAIL_REGEX.matches(state.email)) {
+            val message = "El correo no parece válido. Revísalo o déjalo vacío."
+            _uiState.value = state.copy(errorMessage = message)
+            voiceEngine.speak(message)
             return
         }
         if (state.fechaNacimiento == null) {
@@ -195,6 +226,7 @@ class RegisterViewModel @Inject constructor(
                     nombreCompleto = state.nombreCompleto,
                     origen = state.institucion.origen,
                     fechaNacimiento = state.fechaNacimiento,
+                    email = state.email.ifBlank { null },
                 )
             } catch (e: CancellationException) {
                 throw e
@@ -209,7 +241,7 @@ class RegisterViewModel @Inject constructor(
                 is RegisterResult.Success -> {
                     _uiState.value = state.copy(isSubmitting = false)
                     cues.play(FeedbackCues.Cue.SUCCESS)
-                    // No speech here: the Dashboard opens next and gives the personalized welcome.
+                    // Sin voz aquí: a continuación se abre el Dashboard, que da la bienvenida personalizada.
                     _registerSucceeded.tryEmit(Unit)
                 }
                 RegisterResult.UsernameTaken -> {

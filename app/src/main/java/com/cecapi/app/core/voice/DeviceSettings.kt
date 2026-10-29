@@ -5,6 +5,7 @@ import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.floatPreferencesKey
 import androidx.datastore.preferences.core.intPreferencesKey
+import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -65,6 +66,9 @@ class DeviceSettings @Inject constructor(
     /** Keep the assistant listening for "hola" after the app is closed (needs a visible notification). Off by default. */
     val backgroundListening: Flow<Boolean> = data.map { it[KEY_BACKGROUND] ?: false }
 
+    /** Also answer to the word "hola", not only to the assistant's name. Off by default: adults set the name first. */
+    val holaEnabled: Flow<Boolean> = data.map { it[KEY_HOLA] ?: false }
+
     /** Everything on screen is drawn black; the person works by voice. Off by default, and always has an exit. */
     val blackScreen: Flow<Boolean> = data.map { it[KEY_BLACK_SCREEN] ?: false }
 
@@ -111,7 +115,14 @@ class DeviceSettings @Inject constructor(
 
     suspend fun setAnnounceNotifications(enabled: Boolean) = context.deviceSettingsStore.edit { it[KEY_ANNOUNCE] = enabled }
 
+    /** Cuándo (epoch millis) aceptó la persona que el micrófono siga activo fuera de la app; null si nunca. */
+    val listenConsentAt: Flow<Long?> = data.map { it[KEY_LISTEN_CONSENT] }
+
+    suspend fun setListenConsent(epochMillis: Long) = context.deviceSettingsStore.edit { it[KEY_LISTEN_CONSENT] = epochMillis }
+
     suspend fun setBackgroundListening(enabled: Boolean) = context.deviceSettingsStore.edit { it[KEY_BACKGROUND] = enabled }
+
+    suspend fun setHolaEnabled(enabled: Boolean) = context.deviceSettingsStore.edit { it[KEY_HOLA] = enabled }
 
     suspend fun setBlackScreen(enabled: Boolean) = context.deviceSettingsStore.edit { it[KEY_BLACK_SCREEN] = enabled }
 
@@ -139,6 +150,8 @@ class DeviceSettings @Inject constructor(
         val KEY_SIMPLE = booleanPreferencesKey("simple_mode")
         val KEY_ANNOUNCE = booleanPreferencesKey("announce_notifications")
         val KEY_BACKGROUND = booleanPreferencesKey("background_listening")
+        val KEY_HOLA = booleanPreferencesKey("hola_enabled")
+        val KEY_LISTEN_CONSENT = longPreferencesKey("listen_consent_at")
         val KEY_BLACK_SCREEN = booleanPreferencesKey("black_screen")
         val KEY_MIN_BRIGHTNESS = booleanPreferencesKey("min_brightness")
         val KEY_AI = booleanPreferencesKey("ai_enabled")

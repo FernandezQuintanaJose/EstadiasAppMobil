@@ -1,5 +1,6 @@
 package com.cecapi.app.feature.modulo3_asistenteinteligente
 
+import com.cecapi.app.core.navigation.CecapiDestinations
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.cecapi.app.core.util.ConnectivityObserver
@@ -39,7 +40,7 @@ class AiAssistantViewModel @Inject constructor(
     init {
         voiceEngine.speak("Este es el asistente inteligente. Toca el micrófono y hazme una pregunta.")
         viewModelScope.launch {
-            voiceEngine.recognizedSpeech.collect { speech -> onQuestionAsked(speech.text) }
+            voiceEngine.speechFor(CecapiDestinations.AI_ASSISTANT).collect { speech -> onQuestionAsked(speech.text) }
         }
     }
 
@@ -61,11 +62,11 @@ class AiAssistantViewModel @Inject constructor(
             return
         }
         viewModelScope.launch {
-            val resultado = repository.ask(usuario.id, pregunta)
+            val resultado = voiceEngine.speakWhile { repository.ask(usuario.id, pregunta) }
             resultado.onSuccess { respuesta ->
                 voiceEngine.speak(respuesta)
-            }.onFailure {
-                voiceEngine.speak("No pude conectar con el asistente inteligente. Intenta de nuevo en un momento.")
+            }.onFailure { error ->
+                voiceEngine.speak(AiMessages.forFailure(error))
             }
         }
     }

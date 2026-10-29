@@ -1,5 +1,7 @@
 package com.cecapi.app.feature.modulo1_aplicacionprincipal
 
+import androidx.compose.material.icons.filled.Warning
+import androidx.compose.material.icons.filled.Phone
 import android.Manifest
 import android.app.Activity
 import android.content.pm.PackageManager
@@ -22,6 +24,7 @@ import androidx.compose.material.icons.filled.CameraAlt
 import androidx.compose.material.icons.filled.Chat
 import androidx.compose.material.icons.filled.Description
 import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.EmojiEvents
 import androidx.compose.material.icons.filled.Hearing
 import androidx.compose.material.icons.filled.Settings
@@ -38,6 +41,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -48,6 +52,7 @@ import com.cecapi.app.core.theme.CecapiAccent
 import com.cecapi.app.core.theme.CecapiError
 import com.cecapi.app.core.theme.CecapiEyebrowStyle
 import com.cecapi.app.core.theme.CecapiTextMuted
+import com.cecapi.app.core.theme.ModuleSection
 import com.cecapi.app.core.theme.Sections
 import com.cecapi.app.core.ui.BigBtn
 import com.cecapi.app.core.ui.BigBtnVariant
@@ -59,7 +64,8 @@ import com.cecapi.app.core.util.openTtsSettings
 import com.cecapi.app.core.voice.VoiceMessages
 import com.cecapi.app.core.voice.VoiceState
 
-/** Signed-in home. Same layout and voice behavior as the public home, plus the user's own modules. */
+
+/** Inicio con sesión abierta. Mismo diseño y comportamiento de voz que el inicio público, más los módulos propios del usuario. */
 @Composable
 fun DashboardScreen(
     onModuleClick: (String) -> Unit,
@@ -76,14 +82,14 @@ fun DashboardScreen(
     LaunchedEffect(Unit) {
         viewModel.navEvents.collect(onModuleClick)
     }
-    // Leaving the app also frees the phone: the screen stops being kept on and the mic is released.
+    // Salir de la app también libera el teléfono: la pantalla deja de mantenerse encendida y se libera el micrófono.
     LaunchedEffect(Unit) {
         viewModel.exitEvents.collect { (context as? Activity)?.finishAffinity() }
     }
     LaunchedEffect(currentUser) {
         if (currentUser == null) onLoggedOut()
     }
-    // Dashboard stays alive under the module screens; only react to speech while it is showing.
+    // Dashboard sigue activo debajo de las pantallas de módulo; solo reacciona al habla mientras se muestra.
     DisposableEffect(Unit) {
         viewModel.setScreenActive(true)
         onDispose { viewModel.setScreenActive(false) }
@@ -101,7 +107,7 @@ fun DashboardScreen(
         hasMicPermission = granted
         if (granted) viewModel.onMicTapped() else viewModel.onMicPermissionDenied()
     }
-    // "Hola" (or the assistant's name) opens the mic while the dashboard is showing.
+    // "Hola" (o el nombre del asistente) abre el micrófono mientras se muestra el dashboard.
     DisposableEffect(hasMicPermission) {
         viewModel.setWakeWordEnabled(hasMicPermission)
         onDispose { viewModel.setWakeWordEnabled(false) }
@@ -110,8 +116,9 @@ fun DashboardScreen(
     val listening = voiceState is VoiceState.Listening
     val menu by viewModel.menu.collectAsState()
 
-    // The mic bar is fixed over the scrolling content (like the Figma prototype), not inline
-    // in the scroll flow, so it is always reachable no matter how far the person has scrolled.
+    // La barra del micrófono queda fija sobre el contenido que se desplaza (como en el prototipo de
+    // Figma), no en línea dentro del flujo de scroll, para que siempre sea alcanzable sin importar
+    // cuánto haya desplazado la persona.
     Box(modifier = Modifier.fillMaxSize()) {
     Column(
         modifier = Modifier
@@ -151,7 +158,7 @@ fun DashboardScreen(
             }
         }
 
-        // What the voice says is not repeated on screen. Only what needs attention stays visible.
+        // Lo que dice la voz no se repite en pantalla. Solo queda visible lo que necesita atención.
         if (!hasMicPermission) {
             NoticeBanner(VoiceMessages.MIC_DENIED, modifier = Modifier.padding(horizontal = 24.dp).padding(top = 16.dp))
         } else if (voiceState is VoiceState.Error) {
@@ -184,16 +191,15 @@ fun DashboardScreen(
                 BigBtn(
                     icon = Icons.Filled.EmojiEvents,
                     label = "Clasificación",
-                    sub = "Tu lugar entre todos",
                     section = Sections.Ranking,
                     half = true,
                     onClick = viewModel::onRankingSelected,
                     modifier = Modifier.weight(1f),
                 )
                 BigBtn(
-                    icon = Icons.Filled.Edit,
+                    icon = Icons.Filled.Person,
                     label = "Mi cuenta",
-                    sub = "Nombre, apodo y contraseña",
+                    section = ModuleSection(color = Color(0xFF60A5FA), bg = Color(0xFF1A2740)),
                     half = true,
                     onClick = viewModel::onEditarCuentaSelected,
                     modifier = Modifier.weight(1f),
@@ -202,7 +208,6 @@ fun DashboardScreen(
             BigBtn(
                 icon = Icons.Filled.CameraAlt,
                 label = "Cámara",
-                sub = "Lee texto y describe el entorno",
                 section = Sections.Camera,
                 onClick = { viewModel.onMenuItemSelected(MenuItem.Camera) },
             )
@@ -210,7 +215,6 @@ fun DashboardScreen(
                 BigBtn(
                     icon = Icons.Filled.Description,
                     label = documentos.title,
-                    sub = "Solicitudes oficiales",
                     section = Sections.Documents,
                     onClick = { viewModel.onMenuItemSelected(documentos) },
                 )
@@ -219,7 +223,6 @@ fun DashboardScreen(
                 BigBtn(
                     icon = Icons.Filled.Hearing,
                     label = actividades.title,
-                    sub = "Ejercicios de mejora auditiva",
                     section = Sections.Activities,
                     onClick = { viewModel.onMenuItemSelected(actividades) },
                 )
@@ -227,64 +230,70 @@ fun DashboardScreen(
             BigBtn(
                 icon = Icons.Filled.Chat,
                 label = "Chats",
-                sub = "Historial de conversaciones",
                 section = Sections.Chats,
                 onClick = { viewModel.onMenuItemSelected(MenuItem.Chats) },
             )
             BigBtn(
                 icon = Icons.Filled.Tune,
                 label = "Personalización",
-                sub = "Tu voz y preferencias",
                 section = Sections.Personalization,
                 onClick = { viewModel.onMenuItemSelected(MenuItem.Personalization) },
-            )
-            BigBtn(
-                icon = Icons.Filled.Settings,
-                label = "Configuración",
-                sub = "Ajustes del sistema",
-                section = Sections.Settings,
-                onClick = viewModel::onSettingsSelected,
             )
             if (rol == RolUsuario.ADMINISTRADOR || rol == RolUsuario.DIRECTIVO || rol == RolUsuario.EDUCADOR) {
                 BigBtn(
                     icon = Icons.Filled.AdminPanelSettings,
                     label = "Gestión",
-                    sub = "Administrar personas y roles",
                     variant = BigBtnVariant.Accent,
                     onClick = viewModel::onGestionSelected,
                 )
             }
-            // Reportar un problema NO es universal a propósito: es para que un alumno/usuario reporte, o
-            // para que la aplicación detecte algo que ponga en riesgo a alguien y lo avise a un superior —
-            // nunca un botón libre para cualquiera, para no abrir la puerta a reportes falsos o abuso.
-            if (rol == RolUsuario.ALUMNO || rol == RolUsuario.USUARIO) {
-                BigBtn(
-                    icon = Icons.AutoMirrored.Filled.Help,
-                    label = "Ayuda y soporte",
-                    sub = "Preguntas y soporte de la app",
-                    section = Sections.Emergency,
-                    onClick = viewModel::onSoporteSelected,
-                )
-            }
+            BigBtn(
+                icon = Icons.Filled.Settings,
+                label = "Configuración",
+                section = Sections.Settings,
+                onClick = viewModel::onSettingsSelected,
+            )
             BigBtn(
                 icon = Icons.AutoMirrored.Filled.Logout,
                 label = "Cerrar sesión",
                 variant = BigBtnVariant.Danger,
                 onClick = viewModel::onLogout,
             )
+            // Ayuda y soporte es para cualquiera; el administrador ve ahí los mensajes de todos.
+            BigBtn(
+                icon = Icons.AutoMirrored.Filled.Help,
+                label = "Ayuda y soporte",
+                section = Sections.Ayuda,
+                onClick = viewModel::onSoporteSelected,
+            )
+            if (rol != RolUsuario.USUARIO) {
+                BigBtn(
+                    icon = Icons.Filled.Warning,
+                    label = "Reportar un incidente",
+                    section = Sections.Reportar,
+                    onClick = viewModel::onReportarIncidenteSelected,
+                )
+            }
+            BigBtn(
+                icon = Icons.Filled.Phone,
+                label = "Emergencias",
+                section = Sections.Emergency,
+                onClick = viewModel::onEmergenciasSelected,
+            )
         }
     }
 
-        // The microphone is the main control of the whole app: fixed over the scrolling
-        // content above, so it is always reachable no matter how far the person scrolled.
+        // El micrófono es el control principal de toda la app: queda fijo sobre el contenido
+        // que se desplaza arriba, para que siempre sea alcanzable sin importar cuánto haya
+        // desplazado la persona.
         MicPad(
             onDoubleTap = viewModel::onMicDoubleTap,
             listening = listening,
             hint = when {
                 listening -> "Escuchando…"
                 !hasMicPermission -> "Toca aquí para dar permiso"
-                assistantName.isBlank() -> "Di \"hola\" o toca aquí"
-                else -> "Di \"hola\" o \"$assistantName\", o toca aquí"
+                assistantName.isBlank() -> "Toca aquí para hablar"
+                else -> "Di \"$assistantName\" o toca aquí"
             },
             onClick = {
                 if (hasMicPermission) viewModel.onMicTapped() else permissionLauncher.launch(Manifest.permission.RECORD_AUDIO)

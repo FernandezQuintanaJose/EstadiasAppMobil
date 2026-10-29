@@ -1,5 +1,7 @@
 package com.cecapi.app.core.ui
 
+import androidx.compose.foundation.layout.height
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
@@ -13,7 +15,12 @@ import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.offset
+import androidx.compose.foundation.layout.systemBars
+import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -37,7 +44,9 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.semantics.CustomAccessibilityAction
 import androidx.compose.ui.semantics.LiveRegionMode
+import androidx.compose.ui.semantics.customActions
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.onClick
@@ -59,10 +68,15 @@ import com.cecapi.app.core.theme.CecapiTextPrimary
 import com.cecapi.app.core.theme.CecapiWarning
 
 /**
- * The microphone is the main control of the whole app: a circular button inside its own
- * docked panel, matching the Figma prototype's MicBar exactly (132dp circle, pulse ring
- * while listening, "Di lista de comandos" caption underneath). Used on the home screen
- * and on the signed-in dashboard so both feel the same.
+ * El micrófono es el control principal de toda la app: un botón circular dentro de su propio
+ * panel acoplado, que coincide exactamente con el MicBar del prototipo de Figma (círculo de 132dp,
+ * anillo pulsante mientras escucha, leyenda "Di lista de comandos" debajo). Se usa en la pantalla de
+ * inicio y en el panel de la sesión iniciada, para que ambos se sientan igual.
+ *
+ * Posición: el centro del botón queda siempre en la mitad vertical del área que la persona puede
+ * tocar (sin la barra de estado ni la de navegación, con sus flechitas o su menú). Quien no ve la
+ * pantalla lo busca siempre en el mismo lugar: la altura del panel es fija y no depende del tamaño
+ * del texto ni del contenido de la pantalla, así que nada lo mueve.
  */
 @Composable
 fun MicPad(
@@ -89,13 +103,25 @@ fun MicPad(
     val holdHelp = "Este es el micrófono. Tócalo una vez para hablarme y dime lo que necesitas, " +
         "por ejemplo: módulos disponibles, o estado del teléfono. Tócalo dos veces seguidas para que se calle."
 
-    Column(modifier = modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
+    // El contenedor ocupa toda el área tocable pero no atrapa toques: solo el panel responde.
+    Box(modifier = modifier.fillMaxSize().windowInsetsPadding(WindowInsets.systemBars)) {
+    Column(
+        modifier = Modifier
+            .align(Alignment.Center)
+            // El centro del círculo queda a MIC_CENTER_DESDE_ARRIBA del borde superior del panel; se baja el
+            // panel lo que haga falta para que ese centro coincida con la mitad del área tocable.
+            .offset(y = MIC_PANEL_ALTO / 2 - MIC_CENTER_DESDE_ARRIBA + MIC_BAJADA)
+            .fillMaxWidth()
+            .height(MIC_PANEL_ALTO),
+        horizontalAlignment = Alignment.CenterHorizontally,
+    ) {
         HorizontalDivider(color = CecapiBorder, thickness = 1.dp)
         Column(
             modifier = Modifier
                 .fillMaxWidth()
+                .weight(1f)
                 .background(CecapiSurface)
-                .padding(top = 18.dp, start = 24.dp, end = 24.dp, bottom = 22.dp),
+                .padding(top = MIC_PADDING_ARRIBA, start = 24.dp, end = 24.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
             Box(
@@ -111,6 +137,11 @@ fun MicPad(
                     .semantics {
                         contentDescription = "Micrófono. Toca dos veces para hablar con el asistente."
                         onClick(label = "Hablar") { onClick(); true }
+                        onDoubleTap?.let { silence ->
+                            customActions = listOf(
+                                CustomAccessibilityAction("Silenciar al asistente") { silence(); true },
+                            )
+                        }
                     },
                 contentAlignment = Alignment.Center,
             ) {
@@ -149,20 +180,36 @@ fun MicPad(
                 fontWeight = FontWeight.Black,
                 color = if (listening) CecapiAccent else CecapiTextPrimary,
                 textAlign = TextAlign.Center,
-                modifier = Modifier.padding(top = 14.dp),
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier
+                    .padding(top = 14.dp)
+                    .height(64.dp)
+                    .fillMaxWidth()
+                    .clickable(onClick = onClick),
             )
             Text(
                 text = "Di lista de comandos",
                 style = MaterialTheme.typography.bodyMedium,
                 color = CecapiTextMuted,
                 textAlign = TextAlign.Center,
-                modifier = Modifier.padding(top = 4.dp),
+                modifier = Modifier.padding(top = 4.dp).height(24.dp),
             )
         }
     }
+    }
 }
 
-/** Which look a [BigBtn] takes when it has no [section]. */
+// Medidas fijas del panel del micrófono (dp): 1 divisor + 18 de aire + 132 del círculo + 14 + 64 de la
+// leyenda + 4 + 24 de "Di lista de comandos" + 22 de aire abajo.
+private val MIC_PADDING_ARRIBA = 18.dp
+private val MIC_PANEL_ALTO = 279.dp
+private val MIC_CENTER_DESDE_ARRIBA = 1.dp + MIC_PADDING_ARRIBA + 66.dp
+
+// Un poco por debajo de la mitad exacta (unos 10 px en un teléfono de 2x), para que caiga donde la mano lo espera.
+private val MIC_BAJADA = 5.dp
+
+/** Qué apariencia toma un [BigBtn] cuando no tiene [section]. */
 enum class BigBtnVariant { Neutral, Accent, Danger, Success, Locked }
 
 /**
@@ -179,10 +226,11 @@ enum class BigBtnVariant { Neutral, Accent, Danger, Success, Locked }
 enum class BigBtnSize { Hero, Standard, Secondary, Compact }
 
 /**
- * The recurring full-width button from the Figma prototype: a big icon badge on top,
- * a bold label below, an optional muted subtitle under that — everything centered. This
- * is the main building block of almost every screen (Home, Login, Register, the signed-in
- * menu...), so screens should prefer this over ad-hoc buttons to stay visually consistent.
+ * El botón recurrente de ancho completo del prototipo de Figma: una insignia de icono grande
+ * arriba, una etiqueta en negrita debajo, y un subtítulo apagado opcional bajo esa — todo centrado.
+ * Es el bloque de construcción principal de casi toda pantalla (Inicio, Iniciar sesión, Registro,
+ * el menú de la sesión iniciada...), así que las pantallas deberían preferir este en vez de botones
+ * improvisados para mantenerse visualmente consistentes.
  */
 @Composable
 fun BigBtn(
@@ -194,8 +242,8 @@ fun BigBtn(
     section: ModuleSection? = null,
     variant: BigBtnVariant = BigBtnVariant.Neutral,
     enabled: Boolean = true,
-    // Two of these share one row's width when the action is not the screen's priority
-    // (e.g. Iniciar sesión / Crear cuenta on Home) — matches the Figma prototype's HalfBtn.
+    // Dos de estos comparten el ancho de una fila cuando la acción no es la prioridad de la pantalla
+    // (p. ej. Iniciar sesión / Crear cuenta en Inicio) — coincide con el HalfBtn del prototipo de Figma.
     half: Boolean = false,
     size: BigBtnSize = BigBtnSize.Standard,
 ) {
@@ -287,8 +335,8 @@ fun BigBtn(
 }
 
 /**
- * A large labeled icon button for a screen's header (sign in, sign out...). Pass a different [tint]
- * for actions that must stand out, like the red "Cerrar sesión".
+ * Un botón de icono grande con etiqueta para el encabezado de una pantalla (iniciar sesión, cerrar
+ * sesión...). Pasa un [tint] diferente para acciones que deben resaltar, como el rojo de "Cerrar sesión".
  */
 @Composable
 fun TopAction(
@@ -328,7 +376,7 @@ fun TopAction(
     }
 }
 
-/** A phrase the user can say, also tappable. Shown under "PUEDES DECIR". Tall enough to hit (48 dp). */
+/** Una frase que el usuario puede decir, también se puede tocar. Se muestra bajo "PUEDES DECIR". Suficientemente alta para tocarla (48 dp). */
 @Composable
 fun SuggestionChip(label: String, onClick: () -> Unit) {
     Box(
@@ -345,9 +393,9 @@ fun SuggestionChip(label: String, onClick: () -> Unit) {
 }
 
 /**
- * Something that needs the user's attention and is not repeated by voice on screen.
- * An optional [actionLabel]/[onAction] adds a button below the text, for when there is
- * somewhere concrete to send the person instead of only naming the problem.
+ * Algo que necesita la atención del usuario y que no se repite por voz en pantalla.
+ * Un [actionLabel]/[onAction] opcional agrega un botón debajo del texto, para cuando hay
+ * un lugar concreto a donde enviar a la persona en lugar de solo nombrar el problema.
  */
 @Composable
 fun NoticeBanner(
@@ -376,7 +424,7 @@ fun NoticeBanner(
     }
 }
 
-/** Shown only while there is no internet: answers will be less precise. */
+/** Se muestra solo mientras no hay internet: las respuestas serán menos precisas. */
 @Composable
 fun OfflineBanner(modifier: Modifier = Modifier) {
     NoticeBanner("Sin conexión a internet. Mis respuestas pueden ser menos precisas.", modifier)

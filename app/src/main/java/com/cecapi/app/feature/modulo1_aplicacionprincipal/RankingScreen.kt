@@ -51,7 +51,6 @@ import com.cecapi.app.core.theme.CecapiSurfaceElevated
 import com.cecapi.app.core.theme.CecapiTextMuted
 import com.cecapi.app.core.theme.Sections
 import com.cecapi.app.core.ui.BigBtn
-import com.cecapi.app.core.ui.BigBtnSize
 import com.cecapi.app.core.ui.BigBtnVariant
 import com.cecapi.app.core.ui.MicPad
 import com.cecapi.app.core.ui.ScreenTopBar
@@ -156,7 +155,6 @@ fun RankingScreen(
                         label = "Semana",
                         variant = BigBtnVariant.Locked,
                         half = true,
-                        size = BigBtnSize.Secondary,
                         onClick = {},
                         modifier = Modifier.weight(1f),
                     )
@@ -165,7 +163,6 @@ fun RankingScreen(
                         label = "Mes",
                         variant = BigBtnVariant.Locked,
                         half = true,
-                        size = BigBtnSize.Secondary,
                         onClick = {},
                         modifier = Modifier.weight(1f),
                     )

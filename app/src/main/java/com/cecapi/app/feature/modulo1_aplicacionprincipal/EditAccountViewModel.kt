@@ -2,6 +2,7 @@ package com.cecapi.app.feature.modulo1_aplicacionprincipal
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.cecapi.app.core.util.PasswordHasher
 import com.cecapi.app.core.voice.FeedbackCues
 import com.cecapi.app.core.voice.VoiceEngine
 import com.cecapi.app.core.voice.VoiceState
@@ -65,6 +66,49 @@ class EditAccountViewModel @Inject constructor(
     /** Two quick taps on the mic silence the assistant, for someone using touch instead of voice. */
     fun onMicDoubleTap() = voiceEngine.mute()
 
+    fun onPedirInstitucion(institucion: String) {
+        viewModelScope.launch {
+            sessionRepository.pedirInstitucion(institucion)
+            cues.play(FeedbackCues.Cue.SUCCESS)
+            voiceEngine.speak("Listo. Pedí unirme a $institucion. Mientras tanto sigo siendo usuario.")
+        }
+    }
+
+    /** Un menor no se da de baja solo: queda pedida para que la autorice un adulto responsable. */
+    fun onPedirBajaDeMenor() {
+        viewModelScope.launch {
+            sessionRepository.pedirBajaDeMenor()
+            voiceEngine.speak("Listo. Pedí tu baja. Un adulto responsable la tiene que autorizar.")
+        }
+    }
+
+    /** Un adulto se da de baja solo, confirmando con su contraseña. */
+    fun onPedirCambioEducador() {
+        viewModelScope.launch {
+            sessionRepository.pedirCambioEducador()
+            cues.play(FeedbackCues.Cue.SUCCESS)
+            voiceEngine.speak("Listo. Pedí cambiar de educador. Alguien de tu institución lo revisará.")
+        }
+    }
+
+    fun onDarseDeBaja(contrasenaActual: String) {
+        val user = currentUser.value ?: return
+        if (user.rol == RolUsuario.ADMINISTRADOR.codigo) {
+            voiceEngine.speak("Un administrador no puede darse de baja.")
+            return
+        }
+        if (!sessionRepository.passwordMatches(user.contrasenaHash, contrasenaActual)) {
+            cues.play(FeedbackCues.Cue.ERROR)
+            voiceEngine.speak("Esa no es tu contraseña. No di de baja tu cuenta.")
+            _errorMensaje.tryEmit("Esa no es tu contraseña actual.")
+            return
+        }
+        viewModelScope.launch {
+            sessionRepository.deleteCurrentAccount()
+            _back.tryEmit(Unit)
+        }
+    }
+
     /** [nuevaContrasena] vacía significa "no la cambies". */
     fun onGuardarPerfil(
         nombreCompleto: String,
@@ -72,6 +116,8 @@ class EditAccountViewModel @Inject constructor(
         usarApodoRanking: Boolean,
         contrasenaActual: String,
         nuevaContrasena: String,
+        correo: String,
+        fechaNacimiento: Long?,
     ) {
         viewModelScope.launch {
             when (
@@ -81,6 +127,8 @@ class EditAccountViewModel @Inject constructor(
                     nuevaContrasena = nuevaContrasena.ifBlank { null },
                     apodo = apodo,
                     usarApodoRanking = usarApodoRanking,
+                    email = correo,
+                    fechaNacimiento = fechaNacimiento,
                 )
             ) {
                 SessionRepository.EditarPerfilResult.Exito -> {

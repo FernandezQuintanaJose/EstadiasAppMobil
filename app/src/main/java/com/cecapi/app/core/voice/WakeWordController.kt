@@ -20,6 +20,7 @@ import javax.inject.Singleton
 class WakeWordController @Inject constructor(
     private val voiceEngine: VoiceEngine,
     assistantPreferences: AssistantPreferences,
+    deviceSettings: DeviceSettings,
 ) {
     private val holders = MutableStateFlow(0)
 
@@ -34,13 +35,16 @@ class WakeWordController @Inject constructor(
     private val backgroundService = MutableStateFlow(false)
 
     init {
+        val words = combine(assistantPreferences.assistantName, deviceSettings.holaEnabled) { name, hola ->
+            listOfNotNull(if (hola) DEFAULT_WAKE_WORD else null, name.takeIf { it.isNotBlank() })
+        }
         CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate).launch {
-            combine(assistantPreferences.assistantName, holders, openMicHolders, foreground, backgroundService) {
-                name, count, open, visible, service ->
-                Listening(name, count > 0 && (visible || service), open > 0)
+            combine(words, holders, openMicHolders, foreground, backgroundService) {
+                wakeWords, count, open, visible, service ->
+                Listening(wakeWords, count > 0 && (visible || service), open > 0)
             }.collect { state ->
                 if (state.active) {
-                    voiceEngine.startWakeWord(listOf(DEFAULT_WAKE_WORD, state.name), state.openMic)
+                    voiceEngine.startWakeWord(state.words, state.openMic)
                 } else {
                     voiceEngine.stopWakeWord()
                 }
@@ -48,7 +52,7 @@ class WakeWordController @Inject constructor(
         }
     }
 
-    private data class Listening(val name: String, val active: Boolean, val openMic: Boolean)
+    private data class Listening(val words: List<String>, val active: Boolean, val openMic: Boolean)
 
     fun setForeground(visible: Boolean) {
         foreground.value = visible

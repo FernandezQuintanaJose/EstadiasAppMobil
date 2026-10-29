@@ -3,6 +3,7 @@ package com.cecapi.app.feature.modulo3_asistenteinteligente
 import com.cecapi.app.BuildConfig
 import com.cecapi.app.core.voice.IntentFallback
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
 import org.json.JSONArray
 import org.json.JSONObject
@@ -12,34 +13,57 @@ import java.nio.charset.StandardCharsets
 import javax.inject.Inject
 import javax.inject.Singleton
 
-/** What `/entender` decided: a module to open ([moduleCode], a [com.cecapi.app.core.model.ModuloCecapi.storageCode]) or an [answer]. */
+/** Lo que `/entender` decidió: un módulo a abrir ([moduleCode], un [com.cecapi.app.core.model.ModuloCecapi.storageCode]) o una [answer]. */
 data class AiUnderstanding(
     val moduleCode: String? = null,
     val answer: String? = null,
 )
 
+/** Por qué la IA no respondió, para decirle a la persona algo útil en vez de un error genérico. */
+enum class AiFailure { DISABLED, RATE_LIMITED, UNAVAILABLE, UNREACHABLE }
+
+class AiException(val failure: AiFailure, message: String) : IllegalStateException(message)
+
+/** Los textos exactos que se dicen en voz alta; viven aquí para que Inicio y el asistente digan lo mismo. */
+object AiMessages {
+    const val RATE_LIMITED = "Hiciste muchas preguntas seguidas. Espera un minuto y vuelve a intentar."
+    const val UNAVAILABLE = "El asistente no está disponible en este momento. Intenta más tarde."
+    const val UNREACHABLE = "No pude conectar con el asistente inteligente. Intenta de nuevo en un momento."
+    const val DISABLED = "La inteligencia artificial está desactivada. Actívala en Configuración."
+
+    /** Se dice si la respuesta tarda: el servidor gratuito se duerme y tarda cerca de un minuto en despertar. */
+    const val WAKING = "El servidor estaba dormido y está despertando. Puede tardar hasta un minuto. Sigo aquí."
+
+    fun forFailure(error: Throwable): String = when ((error as? AiException)?.failure) {
+        AiFailure.RATE_LIMITED -> RATE_LIMITED
+        AiFailure.UNAVAILABLE -> UNAVAILABLE
+        AiFailure.DISABLED -> DISABLED
+        else -> UNREACHABLE
+    }
+}
+
 interface AiAssistantApi {
     suspend fun ask(pregunta: String, contexto: List<String>): Result<String>
 
-    /** Like [ask], but the backend first checks whether the phrase names a module to open. */
+    /** Igual que [ask], pero el backend primero revisa si la frase nombra un módulo a abrir. */
     suspend fun understand(pregunta: String, contexto: List<String>): Result<AiUnderstanding>
 }
 
 /**
- * Talks to a small backend YOU control — never directly to a third-party LLM
- * provider's API from the phone. Shipping any provider's API key inside an
- * Android APK means anyone who decompiles it gets the key — there is no
- * client-side secret storage that fixes this, so the request must be
- * relayed through a server this team (Módulo 3) owns and deploys.
+ * Habla con un backend pequeño que TÚ controlas — nunca directamente con la API de un proveedor
+ * de LLM externo desde el teléfono. Incluir la clave de API de cualquier proveedor dentro de un
+ * APK de Android significa que cualquiera que lo descompile obtiene la clave — no existe un
+ * almacenamiento secreto del lado del cliente que solucione esto, así que la solicitud debe
+ * retransmitirse a través de un servidor que este equipo (Módulo 3) sea dueño y despliegue.
  *
- * Recommended provider for that backend: **Gemini API** (Google AI Studio) —
- * it has a genuinely free tier with no time limit, which matters for a
- * student project with no budget. This is a backend-only choice: swapping to
- * another provider later never touches this file or any other Android code,
- * since the app only ever talks to your own endpoint below.
+ * Proveedor recomendado para ese backend: **Gemini API** (Google AI Studio) —
+ * tiene un nivel gratuito genuino sin límite de tiempo, lo cual importa para un
+ * proyecto estudiantil sin presupuesto. Esta es una decisión solo del backend: cambiar a
+ * otro proveedor después nunca toca este archivo ni ningún otro código de Android,
+ * ya que la app solo habla con tu propio endpoint de abajo.
  *
- * Backend contract (see backend/README.md):
- *   POST {AI_PROXY_BASE_URL}   (ends in /preguntar)
+ * Contrato del backend (ver backend/README.md):
+ *   POST {AI_PROXY_BASE_URL}   (termina en /preguntar)
  *   body:     {"pregunta": "...", "contexto": ["turno 1", "turno 2", ...]}
  *   response: {"respuesta": "..."}
  *   POST <same server>/entender   (same body)
@@ -55,7 +79,7 @@ class ProxyAiAssistantApi @Inject constructor(
 
     override suspend fun understand(pregunta: String, contexto: List<String>): Result<AiUnderstanding> {
         val resultado = post("/entender", pregunta, contexto)
-        // A backend from before /entender existed answers 404: ask it the plain way instead of failing.
+        // Un backend de antes de que existiera /entender responde 404: preguntarle de la forma simple en vez de fallar.
         if ((resultado.exceptionOrNull() as? HttpError)?.code == HttpURLConnection.HTTP_NOT_FOUND) {
             return ask(pregunta, contexto).map { AiUnderstanding(answer = it) }
         }
@@ -70,42 +94,73 @@ class ProxyAiAssistantApi @Inject constructor(
 
     private class HttpError(val code: Int) : IllegalStateException("El asistente no respondió (código $code).")
 
+    /** Traduce un código HTTP o un fallo de red a [AiException]; 404 se deja como [HttpError] porque `understand` lo maneja. */
+    private fun classify(error: Throwable): Throwable = when {
+        error is HttpError && error.code == 429 -> AiException(AiFailure.RATE_LIMITED, error.message.orEmpty())
+        error is HttpError && error.code in 500..599 -> AiException(AiFailure.UNAVAILABLE, error.message.orEmpty())
+        error is HttpError -> error
+        error is AiException -> error
+        else -> AiException(AiFailure.UNREACHABLE, error.message.orEmpty())
+    }
+
     private suspend fun post(path: String, pregunta: String, contexto: List<String>): Result<JSONObject> =
         withContext(Dispatchers.IO) {
-            // The person turns this on in Configuración; off by default (AI providers do not allow minors).
-            // Checked here, at the one place that actually reaches the network, so no caller can bypass it.
+            // La persona activa esto en Configuración; desactivado por defecto (los proveedores de IA no permiten menores).
+            // Se revisa aquí, en el único lugar que en realidad llega a la red, para que ningún llamador pueda evitarlo.
             if (!intentFallback.enabled) {
                 return@withContext Result.failure(
-                    IllegalStateException("La inteligencia artificial está desactivada. Actívala en Configuración."),
+                    AiException(AiFailure.DISABLED, "La inteligencia artificial está desactivada."),
                 )
             }
-            try {
-                // The setting may be the server ("http://IP:8000") or the old full URL (".../preguntar"): both work.
-                val base = BuildConfig.AI_PROXY_BASE_URL.trimEnd('/').removeSuffix("/preguntar")
-                val url = URL(base + path)
-                val connection = (url.openConnection() as HttpURLConnection).apply {
-                    requestMethod = "POST"
-                    doOutput = true
-                    connectTimeout = 15_000
-                    readTimeout = 30_000
-                    setRequestProperty("Content-Type", "application/json; charset=utf-8")
+            // El servidor gratuito se duerme tras unos minutos sin uso y tarda cerca de un minuto en despertar:
+            // se espera hasta TIMEOUT_READ_MS por la respuesta y, si ni siquiera se logró conectar, se reintenta una vez.
+            var lastError: Throwable? = null
+            repeat(ATTEMPTS) { attempt ->
+                try {
+                    return@withContext attemptPost(path, pregunta, contexto)
+                } catch (error: HttpError) {
+                    // El servidor sí contestó (429, 503...): reintentar enseguida no ayuda.
+                    return@withContext Result.failure(classify(error))
+                } catch (error: Exception) {
+                    lastError = error
+                    if (attempt < ATTEMPTS - 1) delay(RETRY_PAUSE_MS)
                 }
-
-                val body = JSONObject().apply {
-                    put("pregunta", pregunta)
-                    put("contexto", JSONArray(contexto))
-                }
-
-                connection.outputStream.use { it.write(body.toString().toByteArray(StandardCharsets.UTF_8)) }
-
-                if (connection.responseCode !in 200..299) {
-                    return@withContext Result.failure(HttpError(connection.responseCode))
-                }
-
-                val responseText = connection.inputStream.bufferedReader().use { it.readText() }
-                Result.success(JSONObject(responseText))
-            } catch (error: Exception) {
-                Result.failure(error)
             }
+            Result.failure(classify(lastError ?: IllegalStateException("Sin respuesta.")))
         }
+
+    /** Una sola petición. Lanza [HttpError] si el servidor contestó con error, o la excepción de red si no hubo respuesta. */
+    private fun attemptPost(path: String, pregunta: String, contexto: List<String>): Result<JSONObject> {
+        // La configuración puede ser el servidor ("http://IP:8000") o la URL completa anterior (".../preguntar"): ambas funcionan.
+        val base = BuildConfig.AI_PROXY_BASE_URL.trimEnd('/').removeSuffix("/preguntar")
+        val connection = (URL(base + path).openConnection() as HttpURLConnection).apply {
+            requestMethod = "POST"
+            doOutput = true
+            connectTimeout = TIMEOUT_CONNECT_MS
+            readTimeout = TIMEOUT_READ_MS
+            setRequestProperty("Content-Type", "application/json; charset=utf-8")
+        }
+        try {
+            val body = JSONObject().apply {
+                put("pregunta", pregunta)
+                put("contexto", JSONArray(contexto))
+            }
+            connection.outputStream.use { it.write(body.toString().toByteArray(StandardCharsets.UTF_8)) }
+            if (connection.responseCode !in 200..299) throw HttpError(connection.responseCode)
+            val responseText = connection.inputStream.bufferedReader().use { it.readText() }
+            return Result.success(JSONObject(responseText))
+        } finally {
+            connection.disconnect()
+        }
+    }
+
+    private companion object {
+        /** Conectar con un servidor dormido puede tardar: se da más margen que antes (5 s). */
+        const val TIMEOUT_CONNECT_MS = 15_000
+
+        /** Despertar el servidor tarda cerca de un minuto; antes se esperaban solo 12 s. */
+        const val TIMEOUT_READ_MS = 75_000
+        const val ATTEMPTS = 2
+        const val RETRY_PAUSE_MS = 2_000L
+    }
 }

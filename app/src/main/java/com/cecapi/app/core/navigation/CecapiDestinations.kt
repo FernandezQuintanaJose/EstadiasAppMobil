@@ -25,6 +25,8 @@ object CecapiDestinations {
 
     /** Only for alumno and usuario — the opposite of GESTION: see their educador, report a problem. */
     const val SOPORTE = "soporte"
+    const val EMERGENCIAS = "emergencias"
+    const val REPORTAR_INCIDENTE = "reportar_incidente"
 
     /** Individual and institution standings in Actividades. Open to anyone signed in, every role. */
     const val RANKING = "ranking"

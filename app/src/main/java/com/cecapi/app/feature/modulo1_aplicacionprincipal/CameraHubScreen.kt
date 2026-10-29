@@ -100,7 +100,7 @@ class CameraHubViewModel @Inject constructor(
             )
         }
         viewModelScope.launch {
-            voiceEngine.recognizedSpeech.collect { speech -> if (screenActive) onSpeech(speech.text) }
+            voiceEngine.speechFor(CecapiDestinations.CAMERA_HUB).collect { speech -> if (screenActive) onSpeech(speech.text) }
         }
     }
 

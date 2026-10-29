@@ -1,6 +1,8 @@
 package com.cecapi.app.feature.modulo4_lectordocumentos
 
+import com.cecapi.app.core.theme.ModuleSection
 import android.Manifest
+import android.os.Build
 import android.content.pm.PackageManager
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
@@ -25,6 +27,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CameraAlt
 import androidx.compose.material.icons.filled.Home
+import androidx.compose.material.icons.filled.Save
 import androidx.compose.material.icons.filled.Mic
 import androidx.compose.material.icons.filled.MicOff
 import androidx.compose.material.icons.filled.Pause
@@ -124,8 +127,11 @@ fun DocumentReaderScreen(
     LaunchedEffect(Unit) { viewModel.back.collect { onBack() } }
     LaunchedEffect(Unit) { viewModel.routes.collect(onOpen) }
 
-    // The system picture picker: the person chooses one picture and the app sees only that one.
+    // El selector de fotos del sistema: la persona elige una foto y la aplicación solo ve esa.
     val coroutineScope = rememberCoroutineScope()
+    val storageLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
+        if (granted) viewModel.onSavePhoto() else viewModel.onSavePhotoDenied()
+    }
     val pickLauncher = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri ->
         if (uri == null) {
             viewModel.onPickCancelled()
@@ -134,6 +140,15 @@ fun DocumentReaderScreen(
                 val copy = copyPickedImage(context, uri, "cecapi_docs")
                 if (copy == null) viewModel.onPickFailed() else viewModel.onPhotoCaptured(copy.first, copy.second)
             }
+        }
+    }
+    LaunchedEffect(Unit) {
+        viewModel.saveRequests.collect {
+            // En Android 9 o anterior guardar en la galería necesita permiso de almacenamiento.
+            val needsStorage = Build.VERSION.SDK_INT < Build.VERSION_CODES.Q &&
+                ContextCompat.checkSelfPermission(context, Manifest.permission.WRITE_EXTERNAL_STORAGE) !=
+                PackageManager.PERMISSION_GRANTED
+            if (needsStorage) storageLauncher.launch(Manifest.permission.WRITE_EXTERNAL_STORAGE) else viewModel.onSavePhoto()
         }
     }
     LaunchedEffect(Unit) {
@@ -156,6 +171,7 @@ fun DocumentReaderScreen(
             onRepeat = { viewModel.onBotonPresionado(BotonLector.REPETIR) },
             onPrevious = { viewModel.onBotonPresionado(BotonLector.ANTERIOR) },
             onNext = { viewModel.onBotonPresionado(BotonLector.SIGUIENTE) },
+            onSavePhoto = { viewModel.onBotonPresionado(BotonLector.GUARDAR) },
             onRetakePhoto = { viewModel.onBotonPresionado(BotonLector.OTRA_FOTO) },
         )
     } else {
@@ -268,6 +284,7 @@ private fun DocumentReadoutControlScreen(
     onRepeat: () -> Unit,
     onPrevious: () -> Unit,
     onNext: () -> Unit,
+    onSavePhoto: () -> Unit,
     onRetakePhoto: () -> Unit,
 ) {
     Column(
@@ -450,7 +467,53 @@ private fun DocumentReadoutControlScreen(
             }
         }
 
-        // Tarjeta 4 Futurista: TOMAR OTRA FOTO
+        // Tarjeta 4 Futurista: GUARDAR FOTO en la galería
+        val saveTint = Color(0xFF22C55E)
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .weight(1f)
+                .clip(RoundedCornerShape(24.dp))
+                .background(CecapiSurfaceElevated)
+                .border(2.dp, saveTint, RoundedCornerShape(24.dp))
+                .semantics {
+                    role = Role.Button
+                    contentDescription = "Guardar foto en la galería"
+                }
+                .clickable { onSavePhoto() },
+            contentAlignment = Alignment.Center,
+        ) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.Center,
+                modifier = Modifier.padding(16.dp),
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(56.dp)
+                        .clip(CircleShape)
+                        .background(saveTint.copy(alpha = 0.2f))
+                        .border(2.dp, saveTint, CircleShape),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Icon(
+                        imageVector = Icons.Filled.Save,
+                        contentDescription = null,
+                        tint = saveTint,
+                        modifier = Modifier.size(30.dp),
+                    )
+                }
+                Spacer(modifier = Modifier.size(16.dp))
+                Text(
+                    text = "GUARDAR FOTO",
+                    fontSize = 22.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = CecapiTextPrimary,
+                )
+            }
+        }
+
+        // Tarjeta 5 Futurista: TOMAR OTRA FOTO
         val cameraTint = ModuleCameraAccent
         Box(
             modifier = Modifier
@@ -568,6 +631,7 @@ private fun DocumentReadoutControlScreenPreview() {
             onRepeat = {},
             onPrevious = {},
             onNext = {},
+            onSavePhoto = {},
             onRetakePhoto = {},
         )
     }

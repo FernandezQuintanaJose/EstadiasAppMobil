@@ -45,23 +45,29 @@ class LearningRepository @Inject constructor(
 
     // ---- Banco inicial de ejercicios --------------------------------------
 
+    /**
+     * Siembra el banco la primera vez y, en teléfonos que ya tenían ejercicios, agrega solo los que faltan
+     * (por ejemplo, los de Nivel 3 que llegaron en una versión posterior) sin tocar los existentes ni los
+     * resultados ya guardados, que dependen de sus ids.
+     */
     suspend fun seedEjerciciosSiVacio() {
-        if (ejercicioDao.count() > 0) return
-        ejercicioDao.insertAll(bancoInicialDeEjercicios())
+        val banco = bancoInicialDeEjercicios()
+        val existentes = ejercicioDao.todos()
+        if (existentes.isEmpty()) return ejercicioDao.insertAll(banco)
+        if (existentes.size >= banco.size) return
+        val claves = existentes.map { Triple(it.archivoSonido, it.respuestaCorrecta, it.nivel) }.toSet()
+        val faltantes = banco.filter { Triple(it.archivoSonido, it.respuestaCorrecta, it.nivel) !in claves }
+        if (faltantes.isNotEmpty()) ejercicioDao.insertAll(faltantes)
     }
 
     /**
-     * Banco completo de 40 ejercicios (los 34 de "Lista de actividades v2" más
-     * los 6 de enfrente/atrás de Nivel 3, ya resueltos con audio generado por
-     * código: un click de ruido coloreado al inicio del tono, distinto según
-     * la posición — ver posicionFrenteAtras()).
+     * Banco de 34 ejercicios activos ("Lista de actividades v2"). Los 6 de
+     * enfrente/atrás de Nivel 3 siguen comentados más abajo (ver
+     * posicionFrenteAtras) hasta validar el prototipo con personas reales.
      *
      * Nombres de archivo esperados en app/src/main/res/raw/ (sin extensión):
      * tambor, aplauso, campana, clic, motor, pasos, tarareo, silbido,
-     * tono_grave, tono_medio, tono_agudo,
-     * tono_grave_enfrente, tono_grave_atras,
-     * tono_medio_enfrente, tono_medio_atras,
-     * tono_agudo_enfrente, tono_agudo_atras
+     * tono_grave, tono_medio, tono_agudo
      */
     private fun bancoInicialDeEjercicios(): List<EjercicioEntity> = listOf(
 
@@ -107,7 +113,7 @@ class LearningRepository @Inject constructor(
         distancia("Silbido", "silbido", cerca = false, 2),
 
         // =====================================================================
-        // NIVEL 3 — efecto 8D (12 de 12 activos)
+        // NIVEL 3 — efecto 8D (6 de 12 activos: izquierda/derecha; enfrente/atrás pendiente para el 17 de octubre)
         // Izquierda/derecha usan UN solo archivo por tono y la app hace el
         // paneo en tiempo real con el volumen (igual que los otros niveles).
         // Enfrente/atrás usan un archivo DISTINTO por posición (ver
@@ -121,6 +127,13 @@ class LearningRepository @Inject constructor(
         posicionFija("Tono continuo (agudo, 1760 Hz)", "tono_agudo", "derecha", 3),
         posicionFija("Tono continuo (agudo, 1760 Hz)", "tono_agudo", "izquierda", 3),
 
+        // ---- PENDIENTES: enfrente / atrás -----------------------------------
+        // Existe un prototipo (click de ruido coloreado, ver posicionFrenteAtras
+        // más abajo) con diferencia real de audio confirmada por análisis, pero
+        // SIN validar todavía con personas reales si de verdad se siente como
+        // "enfrente" o "atrás" y no solo como "dos clics distintos". Hasta no
+        // hacer esa prueba, se quedan comentados — no reportar esto como
+        // resuelto. Avanza para el 17 de octubre.
         posicionFrenteAtras("Tono continuo (grave, 110 Hz)", "tono_grave", atras = false),
         posicionFrenteAtras("Tono continuo (grave, 110 Hz)", "tono_grave", atras = true),
         posicionFrenteAtras("Tono continuo (medio, 440 Hz)", "tono_medio", atras = false),

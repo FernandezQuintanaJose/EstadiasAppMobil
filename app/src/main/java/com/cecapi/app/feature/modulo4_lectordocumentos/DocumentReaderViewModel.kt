@@ -7,6 +7,7 @@ import androidx.lifecycle.viewModelScope
 import com.cecapi.app.core.navigation.CecapiDestinations
 import com.cecapi.app.core.ui.GALLERY_WORDS
 import com.cecapi.app.core.util.StorageReport
+import com.cecapi.app.core.util.saveImageToGallery
 import com.cecapi.app.core.voice.AssistantMode
 import com.cecapi.app.core.voice.FeedbackCues
 import com.cecapi.app.core.voice.VoiceEngine
@@ -16,6 +17,8 @@ import com.cecapi.app.feature.modulo1_aplicacionprincipal.CommandCatalog
 import com.cecapi.app.feature.modulo1_aplicacionprincipal.SessionRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import dagger.hilt.android.qualifiers.ApplicationContext
+import android.content.Context
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharedFlow
@@ -40,7 +43,7 @@ data class DocumentReaderUiState(
     val capturaArmada: Boolean = false,
     /** Botón que ya se tocó una vez y explicó lo que hace; el siguiente toque sobre él lo ejecuta. */
     val botonArmado: BotonLector? = null,
-    /** The photo being read, shown in its own area instead of the live camera feed while there is one. */
+    /** La foto que se está leyendo, mostrada en su propia área en lugar de la vista de cámara en vivo mientras existe. */
     val photoPath: String? = null,
 )
 
@@ -51,6 +54,7 @@ enum class BotonLector(val ayuda: String) {
     REPETIR("Botón repetir lectura. Lee el documento desde el inicio. Toca otra vez para repetir."),
     ANTERIOR("Botón párrafo anterior. Regresa al párrafo anterior. Toca otra vez para ir atrás."),
     SIGUIENTE("Botón párrafo siguiente. Avanza al siguiente párrafo. Toca otra vez para avanzar."),
+    GUARDAR("Botón guardar foto. Guarda la foto del documento en tu galería, en la carpeta Nauren. Toca otra vez para guardarla."),
     OTRA_FOTO("Botón tomar otra foto. Regresa a la cámara para leer un documento nuevo. Toca otra vez para abrir la cámara."),
     VOLVER("Botón volver al menú principal. Sales del lector y regresas al menú. Toca otra vez para volver."),
 }
@@ -63,6 +67,7 @@ class DocumentReaderViewModel @Inject constructor(
     private val repository: DocumentReaderRepository,
     private val cues: FeedbackCues,
     private val storageReport: StorageReport,
+    @ApplicationContext private val appContext: Context,
 ) : ViewModel() {
 
     val voiceState: StateFlow<VoiceState> = voiceEngine.state.stateIn(
@@ -77,15 +82,20 @@ class DocumentReaderViewModel @Inject constructor(
         .flatMapLatest { usuario -> repository.observeRecent(usuario.id) }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
+    // La pantalla es dueña de la cámara, así que los comandos de voz la alcanzan a través de estos.
     private val _captureRequests = MutableSharedFlow<Unit>(extraBufferCapacity = 1)
     val captureRequests: SharedFlow<Unit> = _captureRequests
 
     private val _back = MutableSharedFlow<Unit>(extraBufferCapacity = 1)
     val back: SharedFlow<Unit> = _back
 
-    // Asks the screen to open the system picture picker (it owns the activity result launcher).
+    // Le pide a la pantalla que abra el selector de fotos del sistema (ella es dueña del activity result launcher).
     private val _pickRequests = MutableSharedFlow<Unit>(extraBufferCapacity = 1)
     val pickRequests: SharedFlow<Unit> = _pickRequests
+
+    // Le pide a la pantalla que guarde la foto (ella revisa el permiso de almacenamiento en Android 9 o anterior).
+    private val _saveRequests = MutableSharedFlow<Unit>(extraBufferCapacity = 1)
+    val saveRequests: SharedFlow<Unit> = _saveRequests
 
     private val _routes = MutableSharedFlow<String>(extraBufferCapacity = 1)
     val routes: SharedFlow<String> = _routes
@@ -105,7 +115,7 @@ class DocumentReaderViewModel @Inject constructor(
     init {
         observarFinDeParrafo()
         viewModelScope.launch {
-            voiceEngine.recognizedSpeech.collect { speech -> onSpeech(speech.text) }
+            voiceEngine.speechFor(CecapiDestinations.DOCUMENT_READER).collect { speech -> onSpeech(speech.text) }
         }
         voiceEngine.speak(
             "Lector de texto. Apunta la cámara a un documento y no te muevas: tomaré la foto sola cuando el texto se vea bien. " +
@@ -114,6 +124,7 @@ class DocumentReaderViewModel @Inject constructor(
         )
     }
 
+    /** Los comandos que el lector responde, del más específico al más general. */
     private fun onSpeech(spoken: String) {
         val text = VoiceText.normalize(spoken)
         fun has(vararg words: String) = VoiceText.hasAny(text, *words)
@@ -127,6 +138,7 @@ class DocumentReaderViewModel @Inject constructor(
                 detenerLectura()
                 _back.tryEmit(Unit)
             }
+            has("guarda", "guardar", "guardala") -> pedirGuardado()
             has("enfrente", "entorno", "describe", "alrededor") -> cambiarA(
                 CecapiDestinations.ENVIRONMENT,
                 "Cambiando a describir lo que hay enfrente.",
@@ -151,7 +163,7 @@ class DocumentReaderViewModel @Inject constructor(
         }
     }
 
-    /** Every photo is kept on the phone, so with almost no room left it is better to say so than to fill it. */
+    /** Cada foto se guarda en el teléfono, así que con casi nada de espacio es mejor avisarlo que llenarlo. */
     private fun hayEspacio(): Boolean {
         if (!storageReport.criticallyLow()) return true
         cues.play(FeedbackCues.Cue.WARNING)
@@ -196,6 +208,7 @@ class DocumentReaderViewModel @Inject constructor(
             BotonLector.REPETIR -> repetirLectura()
             BotonLector.ANTERIOR -> anteriorParrafo()
             BotonLector.SIGUIENTE -> siguienteParrafo()
+            BotonLector.GUARDAR -> pedirGuardado()
             BotonLector.OTRA_FOTO -> nuevaFoto(tomarYa = false)
             BotonLector.VOLVER -> {
                 detenerLectura()
@@ -238,6 +251,8 @@ class DocumentReaderViewModel @Inject constructor(
         val necesarias = if (pista == FramingHint.SIN_TEXTO) CUADROS_SIN_TEXTO else CUADROS_PISTA
         if (pistaRepetida < necesarias) return
         if (voiceEngine.state.value != VoiceState.Idle) return
+        // Con el asistente en silencio o la app fuera de pantalla no se dice nada.
+        if (voiceEngine.mode.value != AssistantMode.ACTIVE || !voiceEngine.appVisible) return
         if (pista == FramingHint.LISTO && pistaDicha == FramingHint.LISTO) return
 
         val ahora = SystemClock.elapsedRealtime()
@@ -259,6 +274,10 @@ class DocumentReaderViewModel @Inject constructor(
         else -> pista.mensaje + " Toca el botón o di toma la foto."
     }
 
+    fun onCameraPermissionDenied() {
+        voiceEngine.speak("Sin el permiso de la cámara no puedo leer. Actívalo en los ajustes de la aplicación.")
+    }
+
     private fun reiniciarGuia() {
         ultimaPista = null
         pistaRepetida = 0
@@ -266,13 +285,10 @@ class DocumentReaderViewModel @Inject constructor(
         momentoPistaDicha = 0L
     }
 
-    fun onCameraPermissionDenied() {
-        voiceEngine.speak("Sin el permiso de la cámara no puedo leer. Actívalo en los ajustes de la aplicación.")
-    }
-
     /**
-     * "Elige una foto": opens the system picture picker. The person picks one picture and the app sees only
-     * that one; there is no permission to the whole gallery. Said out loud first so it is always their decision.
+     * "Elige una foto": abre el selector de fotos del sistema. La persona elige una foto y la aplicación
+     * solo ve esa; no hay permiso sobre toda la galería. Se dice en voz alta primero para que siempre sea
+     * su decisión.
      */
     fun pedirGaleria() {
         if (_uiState.value.isProcessing || !hayEspacio()) return
@@ -298,9 +314,34 @@ class DocumentReaderViewModel @Inject constructor(
         voiceEngine.speak(message, listenAfter = true)
     }
 
+    /** "Guarda la foto" por voz o el segundo toque del botón: la pantalla revisa el permiso y luego llama a [onSavePhoto]. */
+    private fun pedirGuardado() {
+        if (_uiState.value.photoPath == null) return voiceEngine.speak("Primero toma una foto.")
+        detenerLectura()
+        _saveRequests.tryEmit(Unit)
+    }
+
+    fun onSavePhoto() {
+        val path = _uiState.value.photoPath ?: return voiceEngine.speak("Primero toma una foto.")
+        viewModelScope.launch {
+            val saved = saveImageToGallery(appContext, path)
+            voiceEngine.speak(
+                if (saved) {
+                    "Listo, la foto quedó guardada en tu galería, en la carpeta Nauren."
+                } else {
+                    "No pude guardar la foto en tu galería."
+                },
+            )
+        }
+    }
+
+    fun onSavePhotoDenied() {
+        voiceEngine.speak("Necesito permiso para guardar fotos en tu teléfono. Toca Guardar foto otra vez y acéptalo.")
+    }
+
     fun onPhotoCaptured(imageUri: Uri, rutaImagen: String, desdeCamara: Boolean = false) {
-        // The camera is free for anyone: with nobody signed in, the text is still read out loud, it just
-        // is not saved to a history (processCapturedPhoto skips saving when usuarioId is null).
+        // La cámara es libre para cualquiera: sin nadie con sesión iniciada, el texto igual se lee en voz
+        // alta, solo que no se guarda en un historial (processCapturedPhoto omite guardar cuando usuarioId es null).
         val usuarioId = sessionRepository.currentUser.value?.id
         capturaPendiente = false
         _uiState.value = _uiState.value.copy(
@@ -309,7 +350,7 @@ class DocumentReaderViewModel @Inject constructor(
             estaLeyendo = false,
             estaPausado = false,
             capturaArmada = false,
-            photoPath = rutaImagen, // shown right away, in place of the live feed, while it processes
+            photoPath = rutaImagen, // se muestra de inmediato, en lugar de la vista en vivo, mientras procesa
         )
         // Confirma la captura solo con la cámara; una foto de la galería no se "toma".
         voiceEngine.speak(if (desdeCamara) "Foto tomada. Procesando la imagen." else "Procesando la imagen.")
@@ -381,6 +422,7 @@ class DocumentReaderViewModel @Inject constructor(
 
     private fun leerParrafo(indice: Int) {
         val lista = _uiState.value.parrafos
+        // Un párrafo sin nada que pronunciar (solo símbolos) nunca arrancaría, así que se omite.
         var i = indice
         while (i < lista.size && VoiceText.forSpeech(lista[i]).isBlank()) i++
         val parrafo = lista.getOrNull(i)
@@ -396,6 +438,7 @@ class DocumentReaderViewModel @Inject constructor(
         voiceEngine.speak("Todavía no he leído nada. Di toma la foto.", listenAfter = true)
     }
 
+    /** Silencia la lectura sin dejar que el observador de párrafos avance al siguiente. */
     private fun detenerLectura() {
         if (!_uiState.value.estaLeyendo) return
         _uiState.value = _uiState.value.copy(estaLeyendo = false)
@@ -448,10 +491,10 @@ class DocumentReaderViewModel @Inject constructor(
         leerParrafo(_uiState.value.parrafoActual)
     }
 
-    /** "Tomar otra foto" button on the giant reading-controls screen. */
+    /** Botón "Tomar otra foto" en la pantalla gigante de controles de lectura. */
     fun onRetakePhoto() = nuevaFoto(tomarYa = false)
 
-    /** Clears the last document so the next photo starts fresh. */
+    /** Borra el último documento para que la siguiente foto empiece desde cero. */
     private fun nuevaFoto(tomarYa: Boolean) {
         detenerLectura()
         reiniciarGuia()
@@ -471,13 +514,14 @@ class DocumentReaderViewModel @Inject constructor(
         _routes.tryEmit(route)
     }
 
+    /** Lee en voz alta los comandos de esta pantalla; el botón del encabezado lo invoca. */
     fun onCommandsRequested() {
         voiceEngine.speak(CommandCatalog.READER, listenAfter = true)
     }
 
     fun onMicTapped() = voiceEngine.startListening()
 
-    /** Two quick taps on the mic silence the assistant, for someone using touch instead of voice. */
+    /** Dos toques rápidos en el micrófono silencian al asistente, para quien usa el tacto en vez de la voz. */
     fun onMicDoubleTap() = voiceEngine.mute()
 
     /**
@@ -542,7 +586,7 @@ class DocumentReaderViewModel @Inject constructor(
         const val ESPERA_REPETIR_MS = 5_000L
         const val ESPERA_SIN_TEXTO_MS = 10_000L
 
-        /** If the person spoke over the reading this recently, the pause in the voice was theirs: do not read on. */
+        /** Si la persona habló encima de la lectura hace tan poco, la pausa en la voz fue suya: no seguir leyendo. */
         const val BARGE_IN_WINDOW_MS = 1_500L
     }
 

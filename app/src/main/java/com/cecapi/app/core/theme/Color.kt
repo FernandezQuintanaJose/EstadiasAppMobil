@@ -47,4 +47,6 @@ object Sections {
     val Settings = ModuleSection(Color(0xFFA0A4AB), Color(0xFF2E2E2F))
     val Ranking = ModuleSection(Color(0xFFFFD60A), Color(0xFF403A1C))
     val Emergency = ModuleSection(Color(0xFFFF6B5E), Color(0xFF3D2523))
+    val Reportar = ModuleSection(Color(0xFFF59E0B), Color(0xFF332518))
+    val Ayuda = ModuleSection(Color(0xFF38BDF8), Color(0xFF0E2A3A))
 }

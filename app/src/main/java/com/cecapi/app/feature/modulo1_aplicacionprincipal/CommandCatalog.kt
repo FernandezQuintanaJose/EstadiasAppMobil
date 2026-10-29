@@ -56,6 +56,7 @@ object CommandCatalog {
             "Siguiente párrafo, o párrafo anterior, para moverte por el texto. " +
             "Pausa, para detener la lectura, y continúa, para seguir. " +
             "Otra foto, para empezar con otro papel. " +
+            "Guarda la foto, para guardarla en tu galería. " +
             "Elige una foto, para leer una imagen que ya tienes en tu teléfono; tú eliges cuál y solo veo esa. " +
             "Qué hay enfrente, para cambiar a describir lo que ve la cámara. " +
             "Atrás, para volver a la cámara. " + MORE

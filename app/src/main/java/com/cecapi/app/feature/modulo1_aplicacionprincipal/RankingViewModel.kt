@@ -1,5 +1,6 @@
 package com.cecapi.app.feature.modulo1_aplicacionprincipal
 
+import com.cecapi.app.core.navigation.CecapiDestinations
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.cecapi.app.core.voice.FeedbackCues
@@ -77,7 +78,7 @@ class RankingViewModel @Inject constructor(
             individualFlow.collect { lista -> _uiState.value = _uiState.value.copy(individual = lista) }
         }
         viewModelScope.launch {
-            voiceEngine.recognizedSpeech.collect { speech -> onSpeech(speech.text) }
+            voiceEngine.speechFor(CecapiDestinations.RANKING).collect { speech -> onSpeech(speech.text) }
         }
 
         voiceEngine.speak(

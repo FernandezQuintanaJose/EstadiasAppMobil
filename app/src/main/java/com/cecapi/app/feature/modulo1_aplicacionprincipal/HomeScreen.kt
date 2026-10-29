@@ -62,12 +62,16 @@ fun HomeScreen(
     onNavigateToRegister: () -> Unit,
     onNavigateToModule: (String) -> Unit,
     onNavigateToSettings: () -> Unit,
+    onSessionActive: () -> Unit = {},
     viewModel: HomeViewModel = hiltViewModel(),
 ) {
     val context = LocalContext.current
     val voiceState by viewModel.voiceState.collectAsState()
     val isOnline by viewModel.isOnline.collectAsState()
     val assistantName by viewModel.assistantName.collectAsState()
+    val haySesion by viewModel.haySesion.collectAsState()
+    // La sesión recordada se restaura sola al abrir la app: con cuenta no hay nada que iniciar, se pasa al menú.
+    LaunchedEffect(haySesion) { if (haySesion) onSessionActive() }
     var hasMicPermission by remember {
         mutableStateOf(
             ContextCompat.checkSelfPermission(context, Manifest.permission.RECORD_AUDIO) ==
@@ -93,7 +97,7 @@ fun HomeScreen(
         }
     }
 
-    // Ask for the mic on entry so "hola" works from the first launch, without needing a tap.
+    // Pide el micrófono al entrar para que "hola" funcione desde el primer inicio, sin necesidad de un toque.
     val entryPermissionLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestPermission(),
     ) { granted ->
@@ -104,13 +108,13 @@ fun HomeScreen(
         if (!hasMicPermission) entryPermissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
     }
 
-    // Home stays alive under Login/Register; only react to speech while it is actually showing.
+    // Home sigue activo debajo de Login/Register; solo reacciona al habla mientras realmente se muestra.
     DisposableEffect(Unit) {
         viewModel.setScreenActive(true)
         onDispose { viewModel.setScreenActive(false) }
     }
 
-    // "Hola" (or the assistant's name) opens the mic, but only while this screen is showing.
+    // "Hola" (o el nombre del asistente) abre el micrófono, pero solo mientras se muestra esta pantalla.
     DisposableEffect(hasMicPermission) {
         viewModel.setWakeWordEnabled(hasMicPermission)
         onDispose { viewModel.setWakeWordEnabled(false) }
@@ -119,8 +123,9 @@ fun HomeScreen(
     val listening = voiceState is VoiceState.Listening
     val menu = viewModel.menu
 
-    // The mic bar is fixed over the scrolling content (like the Figma prototype), not inline
-    // in the scroll flow, so it is always reachable no matter how far the person has scrolled.
+    // La barra del micrófono queda fija sobre el contenido que se desplaza (como en el prototipo de
+    // Figma), no en línea dentro del flujo de scroll, para que siempre sea alcanzable sin importar
+    // cuánto haya desplazado la persona.
     Box(modifier = Modifier.fillMaxSize()) {
     Column(
         modifier = Modifier
@@ -190,7 +195,6 @@ fun HomeScreen(
             BigBtn(
                 icon = Icons.Filled.CameraAlt,
                 label = "Cámara",
-                sub = "Lee texto y describe el entorno",
                 section = Sections.Camera,
                 onClick = { viewModel.onMenuItemSelected(MenuItem.Camera) },
             )
@@ -198,7 +202,6 @@ fun HomeScreen(
                 BigBtn(
                     icon = Icons.Filled.Description,
                     label = documentos.title,
-                    sub = "Solicitudes oficiales",
                     section = Sections.Documents,
                     onClick = { viewModel.onMenuItemSelected(documentos) },
                 )
@@ -206,20 +209,24 @@ fun HomeScreen(
             BigBtn(
                 icon = Icons.Filled.Tune,
                 label = "Personalización",
-                sub = "Tu voz y preferencias",
                 section = Sections.Personalization,
                 onClick = { viewModel.onMenuItemSelected(MenuItem.Personalization) },
             )
             BigBtn(
                 icon = Icons.Filled.Settings,
                 label = "Configuración",
-                sub = "Ajustes del sistema",
                 section = Sections.Settings,
                 onClick = viewModel::onSettingsSelected,
             )
+            BigBtn(
+                icon = Icons.AutoMirrored.Filled.Help,
+                label = "Ayuda y soporte",
+                section = Sections.Ayuda,
+                onClick = viewModel::onAyudaSelected,
+            )
         }
 
-        // What the voice says is not repeated on screen. Only what needs attention stays visible.
+        // Lo que dice la voz no se repite en pantalla. Solo queda visible lo que necesita atención.
         if (!hasMicPermission) {
             NoticeBanner(VoiceMessages.MIC_DENIED, modifier = Modifier.padding(horizontal = 24.dp).padding(top = 16.dp))
         } else if (voiceState is VoiceState.Error) {
@@ -237,24 +244,19 @@ fun HomeScreen(
             OfflineBanner(modifier = Modifier.padding(horizontal = 24.dp).padding(top = 16.dp))
         }
 
-        Text(
-            text = "Para ponerme nombre di: \"llámate Alice\"",
-            style = MaterialTheme.typography.bodyMedium,
-            color = CecapiTextMuted,
-            modifier = Modifier.padding(start = 24.dp, end = 24.dp, top = 20.dp),
-        )
     }
 
-        // The microphone is the main control of the whole app: fixed over the scrolling
-        // content above, so it is always reachable no matter how far the person scrolled.
+        // El micrófono es el control principal de toda la app: queda fijo sobre el contenido
+        // que se desplaza arriba, para que siempre sea alcanzable sin importar cuánto haya
+        // desplazado la persona.
         MicPad(
             onDoubleTap = viewModel::onMicDoubleTap,
             listening = listening,
             hint = when {
                 listening -> "Escuchando…"
                 !hasMicPermission -> "Toca aquí para dar permiso"
-                assistantName.isBlank() -> "Di \"hola\" o toca aquí"
-                else -> "Di \"hola\" o \"$assistantName\", o toca aquí"
+                assistantName.isBlank() -> "Toca aquí para hablar"
+                else -> "Di \"$assistantName\" o toca aquí"
             },
             onClick = {
                 if (hasMicPermission) {

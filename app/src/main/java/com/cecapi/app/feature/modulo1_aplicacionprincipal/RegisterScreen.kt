@@ -172,17 +172,17 @@ fun RegisterScreen(
         )
         OutlinedTextField(
             value = uiState.contrasena,
-            onValueChange = { viewModel.onContrasenaChange(it.filter(Char::isDigit)) },
+            onValueChange = { viewModel.onContrasenaChange(it) },
             modifier = Modifier
                 .fillMaxWidth()
                 .heightIn(min = 72.dp)
                 .voiceHint(
-                    help = "Campo de contraseña. Elige una clave de al menos cuatro números. " +
+                    help = "Campo de contraseña. Elige una frase de al menos quince letras, sin números ni símbolos. " +
                         "Se ve oculta y nunca la leo en voz alta.",
-                    focusLabel = "Campo de contraseña. Elige una clave de al menos cuatro números.",
+                    focusLabel = "Campo de contraseña. Elige una frase de al menos quince letras.",
                 ),
             textStyle = MaterialTheme.typography.titleLarge,
-            placeholder = { Text("Mínimo cuatro números", style = MaterialTheme.typography.titleMedium) },
+            placeholder = { Text("Mínimo quince letras (puede ser una frase)", style = MaterialTheme.typography.titleMedium) },
             leadingIcon = { Icon(Icons.Filled.Lock, contentDescription = null, modifier = Modifier.size(28.dp)) },
             trailingIcon = {
                 IconButton(onClick = { passwordVisible = !passwordVisible }) {
@@ -195,7 +195,48 @@ fun RegisterScreen(
             },
             singleLine = true,
             visualTransformation = if (passwordVisible) VisualTransformation.None else PasswordVisualTransformation(),
-            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword),
+            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
+            shape = RoundedCornerShape(16.dp),
+            colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = CecapiAccent),
+        )
+
+        OutlinedTextField(
+            value = uiState.confirmarContrasena,
+            onValueChange = { viewModel.onConfirmarContrasenaChange(it) },
+            modifier = Modifier
+                .fillMaxWidth()
+                .heightIn(min = 72.dp)
+                .padding(top = 12.dp)
+                .voiceHint("Vuelve a escribir la contraseña para confirmarla."),
+            label = { Text("Confirma tu contraseña") },
+            textStyle = MaterialTheme.typography.titleLarge,
+            singleLine = true,
+            visualTransformation = PasswordVisualTransformation(),
+            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
+            shape = RoundedCornerShape(16.dp),
+            colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = CecapiAccent),
+        )
+
+        Text(
+            text = "CORREO (OPCIONAL)",
+            style = CecapiEyebrowStyle,
+            color = CecapiTextMuted,
+            modifier = Modifier.padding(top = 24.dp, bottom = 8.dp),
+        )
+        OutlinedTextField(
+            value = uiState.email,
+            onValueChange = viewModel::onEmailChange,
+            modifier = Modifier
+                .fillMaxWidth()
+                .heightIn(min = 72.dp)
+                .voiceHint(
+                    help = "Campo de correo, opcional. Sirve para recuperar tu cuenta. Puedes dejarlo vacío.",
+                    focusLabel = "Campo de correo electrónico, opcional.",
+                ),
+            textStyle = MaterialTheme.typography.titleLarge,
+            placeholder = { Text("correo@ejemplo.com", style = MaterialTheme.typography.titleMedium) },
+            singleLine = true,
+            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email, autoCorrectEnabled = false),
             shape = RoundedCornerShape(16.dp),
             colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = CecapiAccent),
         )

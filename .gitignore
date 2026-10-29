@@ -1,5 +1,6 @@
 # Gradle
 .gradle/
+.kotlin/
 build/
 !gradle/wrapper/gradle-wrapper.jar
 
@@ -22,3 +23,7 @@ __pycache__/
 *.pyc 
 backend/uso_diario.json
 backend/uso_diario.tmp
+
+# Claude Code local state (worktrees, etc.)
+.claude/
+.pytest_cache/

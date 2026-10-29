@@ -1,5 +1,6 @@
 package com.cecapi.app.feature.modulo1_aplicacionprincipal
 
+import com.cecapi.app.core.navigation.CecapiDestinations
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.cecapi.app.core.util.PasswordHasher
@@ -20,13 +21,14 @@ import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
 /**
- * Configuración: the technical side (volume, notification access, listening outside the app, account).
- * How the assistant sounds and what it calls the person lives in Personalización.
+ * Configuración: el lado técnico (volumen, acceso a notificaciones, escuchar fuera de la aplicación, cuenta).
+ * Cómo suena el asistente y cómo llama a la persona vive en Personalización.
  */
 @HiltViewModel
 class SettingsViewModel @Inject constructor(
@@ -44,8 +46,9 @@ class SettingsViewModel @Inject constructor(
     val announceNotifications: StateFlow<Boolean> = deviceSettings.announceNotifications.stateIn(viewModelScope, SharingStarted.Eagerly, true)
     val listenOutsideApp: StateFlow<Boolean> = deviceSettings.backgroundListening.stateIn(viewModelScope, SharingStarted.Eagerly, false)
     val aiEnabled: StateFlow<Boolean> = deviceSettings.aiEnabled.stateIn(viewModelScope, SharingStarted.Eagerly, false)
+    val holaEnabled: StateFlow<Boolean> = deviceSettings.holaEnabled.stateIn(viewModelScope, SharingStarted.Eagerly, false)
 
-    /** The signed-in user, or null when Configuración was opened from the home screen. */
+    /** El usuario con sesión iniciada, o null cuando Configuración se abrió desde la pantalla de inicio. */
     val currentUser: StateFlow<UsuarioEntity?> = sessionRepository.currentUser
 
     val voiceState: StateFlow<VoiceState> = voiceEngine.state.stateIn(
@@ -58,21 +61,21 @@ class SettingsViewModel @Inject constructor(
     private val _back = MutableSharedFlow<Unit>(extraBufferCapacity = 1)
     val back: SharedFlow<Unit> = _back
 
-    // Turning listening outside the app on needs a permission the screen asks for, so the screen does the switching.
+    // Activar escuchar fuera de la aplicación necesita un permiso que la pantalla debe pedir, así que la pantalla hace el cambio.
     private val _listenOutsideRequests = MutableSharedFlow<Boolean>(extraBufferCapacity = 1)
     val listenOutsideRequests: SharedFlow<Boolean> = _listenOutsideRequests
 
     private val _storage = MutableStateFlow<StorageUsage?>(null)
     val storage: StateFlow<StorageUsage?> = _storage.asStateFlow()
 
-    /** True while the person has been asked whether to delete the old photos and has not answered. */
+    /** True mientras se le preguntó a la persona si borrar las fotos viejas y todavía no ha respondido. */
     private val _pendingClean = MutableStateFlow(false)
 
-    /** True while the person has been asked to say their password to confirm deleting their account. */
+    /** True mientras se le pidió a la persona decir su contraseña para confirmar que borra su cuenta. */
     private val _awaitingDeletePassword = MutableStateFlow(false)
     val awaitingDeletePassword: StateFlow<Boolean> = _awaitingDeletePassword.asStateFlow()
 
-    /** True while, password already confirmed, the person has been asked the final "¿borro...?", for a short time only. */
+    /** True mientras, ya confirmada la contraseña, se le preguntó a la persona el "¿borro...?" final, solo por un tiempo corto. */
     private val _pendingDeleteAccount = MutableStateFlow(false)
     val pendingDeleteAccount: StateFlow<Boolean> = _pendingDeleteAccount.asStateFlow()
     private var deleteAskedAt = 0L
@@ -82,7 +85,7 @@ class SettingsViewModel @Inject constructor(
     init {
         refreshStorage()
         viewModelScope.launch {
-            voiceEngine.recognizedSpeech.collect { speech -> onSpeech(speech.text) }
+            voiceEngine.speechFor(CecapiDestinations.SETTINGS).collect { speech -> onSpeech(speech.text) }
         }
         voiceEngine.speak(
             "Configuración. Aquí están el volumen, las notificaciones, escuchar fuera de la aplicación y tu cuenta. " +
@@ -93,8 +96,8 @@ class SettingsViewModel @Inject constructor(
     }
 
     /**
-     * The commands this screen answers. Volume and anything that names notifications are global commands
-     * (they never reach here), so the notification switch is worded as "avisos".
+     * Los comandos que esta pantalla responde. El volumen y cualquier cosa que nombre las notificaciones son
+     * comandos globales (nunca llegan aquí), por eso el interruptor de notificaciones se llama "avisos".
      */
     private fun onSpeech(spoken: String) {
         val text = VoiceText.normalize(spoken)
@@ -104,20 +107,26 @@ class SettingsViewModel @Inject constructor(
             listOf("activ*", "enciende", "prende", "pon", "quiero").let { phrases -> VoiceText.hasAny(text, phrases) } -> true
             else -> null
         }
-        // "si" and "no" must be whole words: "siguiente" contains "si".
+        // "si" y "no" deben ser palabras completas: "siguiente" contiene "si".
         val spokenWords = text.split(" ")
         fun hasWord(vararg words: String) = words.any { it in spokenWords }
         val cleaning = _pendingClean.value
         val expired = System.currentTimeMillis() - deleteAskedAt >= CONFIRM_WINDOW_MS
         val awaitingPassword = _awaitingDeletePassword.value && !expired
         val deletingAccount = _pendingDeleteAccount.value && !expired
-        // The password step opens rawInput so a spoken password is never swallowed by another command; if the
-        // person went quiet instead of answering, put the screen back to normal instead of leaving it stuck.
+        // El paso de la contraseña abre rawInput para que una contraseña hablada nunca sea absorbida por otro comando; si la
+        // persona se quedó callada en vez de responder, regresa la pantalla a lo normal en vez de dejarla atascada.
         if (_awaitingDeletePassword.value && expired) {
             _awaitingDeletePassword.value = false
             voiceEngine.rawInput = false
         }
         when {
+            // El aviso del micrófono espera "acepto" o "no acepto" antes que cualquier otro comando.
+            _pendingListenConsent.value -> when {
+                hasWord("no", "nunca", "cancela", "cancelar", "rechazo") -> declineListenConsent()
+                hasWord("acepto", "si", "claro", "dale", "adelante", "ok", "okey") || has("de acuerdo") -> acceptListenConsent()
+                else -> voiceEngine.speak("Di acepto para activarlo, o no acepto.", listenAfter = true)
+            }
             // Antes de tratar lo dicho como el intento de contraseña: si la persona quiere salir de ahí
             // ("regresar", "salir"...), eso debe cancelar el borrado, no fallar como si fuera una contraseña mala.
             awaitingPassword && has("atras", "volver", "vuelve", "regresa", "regresar", "salir", "cancelar", "cancela", "menu", "inicio") ->
@@ -151,14 +160,14 @@ class SettingsViewModel @Inject constructor(
         }
     }
 
-    /** Call from the header button: reads out this screen's commands. */
+    /** Llamado desde el botón del encabezado: lee en voz alta los comandos de esta pantalla. */
     fun onCommandsRequested() {
         voiceEngine.speak(CommandCatalog.SETTINGS, listenAfter = true)
     }
 
     fun onMicTapped() = voiceEngine.startListening()
 
-    /** Two quick taps on the mic silence the assistant, for someone using touch instead of voice. */
+    /** Dos toques rápidos en el micrófono silencian al asistente, para alguien que usa el tacto en vez de la voz. */
     fun onMicDoubleTap() = voiceEngine.mute()
 
     fun refreshStorage() {
@@ -173,7 +182,7 @@ class SettingsViewModel @Inject constructor(
         }
     }
 
-    /** Offers to delete the photos older than a month. Nothing is deleted until the person says yes. */
+    /** Ofrece borrar las fotos de más de un mes. No se borra nada hasta que la persona diga que sí. */
     fun askClean() {
         viewModelScope.launch {
             val usage = storageReport.read()
@@ -205,7 +214,7 @@ class SettingsViewModel @Inject constructor(
         }
     }
 
-    /** The temporary files hold nothing the person made, so no question is asked; the answer says how much came back. */
+    /** Los archivos temporales no contienen nada que la persona haya hecho, así que no se pregunta nada; la respuesta dice cuánto se recuperó. */
     fun clearCache() {
         viewModelScope.launch {
             val freed = storageReport.clearCache()
@@ -226,12 +235,12 @@ class SettingsViewModel @Inject constructor(
 
     fun describeStorage(usage: StorageUsage): String = storageReport.describe(usage)
 
-    // ---- Privacy: delete my account, and the AI switch ------------------------------------------------------
+    // ---- Privacidad: borrar mi cuenta, y el interruptor de la IA ------------------------------------------------------
 
-    /** Asks first, in plain words about what is lost: this cannot be undone. Needs a signed-in person. */
+    /** Pregunta primero, con palabras claras sobre lo que se pierde: esto no se puede deshacer. Necesita una persona con sesión iniciada. */
     /**
-     * Deleting an account cannot be undone, so it asks for one more thing than a plain "sí": the person's own
-     * password. This also stops a stray "sí, borrar" from someone else in the room from deleting an account.
+     * Borrar una cuenta no se puede deshacer, por eso pide algo más que un simple "sí": la contraseña de la
+     * propia persona. Esto también evita que un "sí, borrar" suelto de otra persona en la habitación borre una cuenta.
      */
     fun askDeleteAccount() {
         if (currentUser.value == null) {
@@ -240,11 +249,11 @@ class SettingsViewModel @Inject constructor(
         }
         _awaitingDeletePassword.value = true
         deleteAskedAt = System.currentTimeMillis()
-        voiceEngine.rawInput = true // a spoken password must reach here untouched, like at login
+        voiceEngine.rawInput = true // una contraseña hablada debe llegar aquí sin tocar, igual que al iniciar sesión
         voiceEngine.speak("Para borrar tu cuenta, primero dime tu contraseña.", listenAfter = true)
     }
 
-    /** For the on-screen password field, when the person types instead of speaking it. */
+    /** Para el campo de contraseña en pantalla, cuando la persona la escribe en vez de decirla. */
     fun onDeletePasswordEntered(password: String) {
         if (password.isBlank()) return
         checkDeletePassword(password)
@@ -253,7 +262,7 @@ class SettingsViewModel @Inject constructor(
     private fun checkDeletePassword(spoken: String) {
         val user = currentUser.value
         _awaitingDeletePassword.value = false
-        if (user == null || PasswordHasher.hash(spoken.trim()) != user.contrasenaHash) {
+        if (user == null || !sessionRepository.passwordMatches(user.contrasenaHash, spoken)) {
             voiceEngine.rawInput = false
             cues.play(FeedbackCues.Cue.ERROR)
             voiceEngine.speak("Esa no es tu contraseña. No borré nada.", listenAfter = true)
@@ -293,7 +302,18 @@ class SettingsViewModel @Inject constructor(
         voiceEngine.speak("De acuerdo, no borré nada.", listenAfter = true)
     }
 
-    /** The AI is optional and off by default: what the assistant does not understand is never sent anywhere unless this is on. */
+    /** La IA es opcional y está apagada por defecto: lo que el asistente no entiende nunca se envía a ningún lado a menos que esto esté activado. */
+    fun onHolaChanged(enabled: Boolean) {
+        viewModelScope.launch { deviceSettings.setHolaEnabled(enabled) }
+        voiceEngine.speak(
+            if (enabled) {
+                "Listo. Ahora también respondo cuando digas hola."
+            } else {
+                "Listo. Ya no respondo a hola. Di mi nombre para hablar conmigo."
+            },
+        )
+    }
+
     fun onAiEnabledChanged(enabled: Boolean) {
         viewModelScope.launch { deviceSettings.setAiEnabled(enabled) }
         voiceEngine.speak(
@@ -308,10 +328,16 @@ class SettingsViewModel @Inject constructor(
     }
 
     private companion object {
-        /** A confirmation to delete an account is only good for a short while. */
+        /** Una confirmación para borrar una cuenta solo es válida por un rato corto. */
         const val CONFIRM_WINDOW_MS = 30_000L
 
-        /** Whole words that confirm the deletion; a bare "ok" or "dale" is not enough for something this final. */
+        /** Se dice antes de activar la escucha fuera de la app; la aceptación se guarda con su fecha en el teléfono. */
+        const val LISTEN_CONSENT_NOTICE =
+            "Antes de activar esto: voy a mantener el micrófono encendido mientras tengas la sesión iniciada, " +
+                "aunque la aplicación no esté en pantalla. Solo escucho mi nombre y tus comandos; no grabo ni guardo lo que oigo. " +
+                "Verás un aviso fijo y puedes detenerme diciendo para. Gasta más batería. ¿Aceptas? Di acepto, o no acepto."
+
+        /** Palabras completas que confirman el borrado; un simple "ok" o "dale" no basta para algo tan definitivo. */
         val DELETE_CONFIRM_WORDS = setOf("si", "confirmo", "borrar", "borrala", "borralo", "elimina", "eliminala")
     }
 
@@ -336,8 +362,46 @@ class SettingsViewModel @Inject constructor(
         )
     }
 
-    /** Starts or stops the service that keeps listening for "hola" after the app is closed. */
+    /** Inicia o detiene el servicio que sigue escuchando "hola" después de cerrar la aplicación. */
     fun onListenOutsideAppChanged(enabled: Boolean) {
+        if (!enabled) {
+            applyListenOutside(false)
+            return
+        }
+        if (currentUser.value == null) {
+            voiceEngine.speak("Para escuchar fuera de la aplicación primero inicia sesión.")
+            return
+        }
+        viewModelScope.launch {
+            when {
+                deviceSettings.listenConsentAt.first() != null -> applyListenOutside(true)
+                // Tocar el interruptor otra vez mientras se espera la respuesta cuenta como aceptar.
+                _pendingListenConsent.value -> acceptListenConsent()
+                else -> {
+                    _pendingListenConsent.value = true
+                    voiceEngine.speak(LISTEN_CONSENT_NOTICE, listenAfter = true)
+                }
+            }
+        }
+    }
+
+    /** True mientras se leyó el aviso del micrófono y la persona todavía no acepta ni rechaza. */
+    private val _pendingListenConsent = MutableStateFlow(false)
+
+    private fun acceptListenConsent() {
+        _pendingListenConsent.value = false
+        viewModelScope.launch {
+            deviceSettings.setListenConsent(System.currentTimeMillis())
+            applyListenOutside(true)
+        }
+    }
+
+    private fun declineListenConsent() {
+        _pendingListenConsent.value = false
+        voiceEngine.speak("De acuerdo, no activé la escucha fuera de la aplicación.")
+    }
+
+    private fun applyListenOutside(enabled: Boolean) {
         viewModelScope.launch {
             deviceSettings.setBackgroundListening(enabled)
             if (enabled) backgroundListening.start() else backgroundListening.stop()

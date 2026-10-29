@@ -93,13 +93,13 @@ fun LoginScreen(
         viewModel.back.collect { onBack() }
     }
 
-    // Login stays alive under Register; only react to speech while it is actually showing.
+    // El inicio de sesión sigue vivo debajo de Registro; solo reacciona a la voz mientras realmente se está mostrando.
     DisposableEffect(Unit) {
         viewModel.setScreenActive(true)
         onDispose { viewModel.setScreenActive(false) }
     }
 
-    // "Hola" (or the assistant's name) opens the mic here too. Ask for the mic on entry if needed.
+    // "Hola" (o el nombre del asistente) también abre el micrófono aquí. Pide el micrófono al entrar si es necesario.
     var hasMicPermission by remember {
         mutableStateOf(
             ContextCompat.checkSelfPermission(context, Manifest.permission.RECORD_AUDIO) ==
@@ -161,7 +161,7 @@ fun LoginScreen(
             placeholder = { Text("Tu nombre de usuario", style = MaterialTheme.typography.titleMedium) },
             leadingIcon = { Icon(Icons.Filled.Person, contentDescription = null, modifier = Modifier.size(28.dp)) },
             singleLine = true,
-            // No autocorrect: the keyboard may swap the typed word for another when focus moves on.
+            // Sin autocorrección: el teclado podría cambiar la palabra escrita por otra cuando el foco se mueve.
             keyboardOptions = KeyboardOptions(
                 keyboardType = KeyboardType.Text,
                 capitalization = KeyboardCapitalization.Characters,
@@ -183,12 +183,12 @@ fun LoginScreen(
         )
         OutlinedTextField(
             value = uiState.password,
-            onValueChange = { viewModel.onPasswordChange(it.filter(Char::isDigit)) },
+            onValueChange = { viewModel.onPasswordChange(it) },
             modifier = Modifier
                 .fillMaxWidth()
                 .heightIn(min = 72.dp)
                 .voiceHint(
-                    help = "Campo de contraseña. Son números. Se ve oculta por seguridad. " +
+                    help = "Campo de contraseña. Son letras, sin espacios. Se ve oculta por seguridad. " +
                         "Puedes escribirla o dictarla, y nunca la leo en voz alta.",
                     focusLabel = "Campo de contraseña. Escribe tu contraseña.",
                 ),
@@ -207,7 +207,7 @@ fun LoginScreen(
             singleLine = true,
             visualTransformation = if (passwordVisible) VisualTransformation.None else PasswordVisualTransformation(),
             keyboardOptions = KeyboardOptions(
-                keyboardType = KeyboardType.NumberPassword,
+                keyboardType = KeyboardType.Password,
                 imeAction = ImeAction.Done,
             ),
             keyboardActions = KeyboardActions(onDone = { viewModel.submit() }),

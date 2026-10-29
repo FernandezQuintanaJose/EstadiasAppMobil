@@ -14,6 +14,13 @@ import com.cecapi.app.core.data.MIGRATION_5_6
 import com.cecapi.app.core.data.MIGRATION_6_7
 import com.cecapi.app.core.data.MIGRATION_7_8
 import com.cecapi.app.core.data.MIGRATION_8_9
+import com.cecapi.app.core.data.MIGRATION_9_10
+import com.cecapi.app.core.data.MIGRATION_10_11
+import com.cecapi.app.core.data.MIGRATION_11_12
+import com.cecapi.app.core.data.MIGRATION_12_13
+import com.cecapi.app.core.data.MIGRATION_13_14
+import com.cecapi.app.core.data.MIGRATION_14_15
+import com.cecapi.app.core.data.MIGRATION_15_16
 import com.cecapi.app.core.util.PasswordHasher
 import com.cecapi.app.feature.modulo3_asistenteinteligente.ConsultaIaDao
 import com.cecapi.app.feature.modulo3_asistenteinteligente.ContextoConversacionDao
@@ -30,6 +37,8 @@ import com.cecapi.app.feature.modulo6_aprendizaje.ResultadoVibracionDao
 import com.cecapi.app.feature.modulo6_aprendizaje.NivelAprendizajeDao
 import com.cecapi.app.feature.modulo6_aprendizaje.ResultadoEjercicioDao
 import com.cecapi.app.feature.modulo1_aplicacionprincipal.ConfiguracionUsuarioDao
+import com.cecapi.app.feature.modulo1_aplicacionprincipal.CambioCuentaDao
+import com.cecapi.app.feature.modulo1_aplicacionprincipal.ContactoEmergenciaDao
 import com.cecapi.app.feature.modulo1_aplicacionprincipal.IncidenciaDao
 import com.cecapi.app.feature.modulo1_aplicacionprincipal.RankingDao
 import com.cecapi.app.feature.modulo1_aplicacionprincipal.PermisosModuloDao
@@ -66,7 +75,7 @@ object DatabaseModule {
     ): AppDatabase = Room.databaseBuilder(context, AppDatabase::class.java, "cecapi.db")
         .addMigrations(
             MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6,
-            MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9,
+            MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10, MIGRATION_10_11, MIGRATION_11_12, MIGRATION_12_13, MIGRATION_13_14, MIGRATION_14_15, MIGRATION_15_16,
         )
         .addCallback(object : androidx.room.RoomDatabase.Callback() {
             override fun onCreate(db: SupportSQLiteDatabase) {
@@ -240,6 +249,12 @@ object DatabaseModule {
 
     @Provides
     fun provideIncidenciaDao(db: AppDatabase): IncidenciaDao = db.incidenciaDao()
+
+    @Provides
+    fun provideCambioCuentaDao(db: AppDatabase): CambioCuentaDao = db.cambioCuentaDao()
+
+    @Provides
+    fun provideContactoEmergenciaDao(db: AppDatabase): ContactoEmergenciaDao = db.contactoEmergenciaDao()
 
     @Provides
     fun provideRankingDao(db: AppDatabase): RankingDao = db.rankingDao()

@@ -1,5 +1,6 @@
 package com.cecapi.app.feature.modulo2_asistentevoz
 
+import com.cecapi.app.core.navigation.CecapiDestinations
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.cecapi.app.core.model.ModuloCecapi
@@ -42,7 +43,7 @@ class VoiceAssistantViewModel @Inject constructor(
                 "por ejemplo cámara inteligente o centro de aprendizaje.",
         )
         viewModelScope.launch {
-            voiceEngine.recognizedSpeech.collect { speech ->
+            voiceEngine.speechFor(CecapiDestinations.VOICE_ASSISTANT).collect { speech ->
                 val usuario = sessionRepository.currentUser.value ?: return@collect
                 val text = speech.text.lowercase()
                 val match = ModuloCecapi.entries.firstOrNull { modulo ->

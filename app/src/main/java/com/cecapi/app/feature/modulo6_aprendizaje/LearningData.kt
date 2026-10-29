@@ -116,6 +116,9 @@ interface EjercicioDao {
 
     @Query("SELECT COUNT(*) FROM ejercicios")
     suspend fun count(): Int
+
+    @Query("SELECT * FROM ejercicios")
+    suspend fun todos(): List<EjercicioEntity>
 }
 
 @Dao
