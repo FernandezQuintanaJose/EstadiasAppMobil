@@ -184,8 +184,11 @@ class SessionRepository @Inject constructor(
     /** Pide unirse a una institución; mientras no la valide, la persona sigue como usuario. */
     suspend fun pedirInstitucion(institucion: String) {
         val user = _currentUser.value ?: return
-        usuarioDao.solicitarInstitucion(user.id, institucion)
-        _currentUser.value = user.copy(institucionSolicitada = institucion, solicitaValidacion = true)
+        // Un espacio de más no debe crear otra institución: se quitan los de las orillas y se junta lo repetido.
+        val limpia = institucion.trim().replace(Regex("""\s+"""), " ")
+        if (limpia.isEmpty()) return
+        usuarioDao.solicitarInstitucion(user.id, limpia)
+        _currentUser.value = user.copy(institucionSolicitada = limpia, solicitaValidacion = true)
     }
 
     /** Un menor no se da de baja solo: queda pedida para que la autorice un adulto responsable. */
