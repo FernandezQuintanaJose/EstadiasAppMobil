@@ -24,7 +24,7 @@ class IAFalsa:
         self.falla = falla
         self.llamadas = []
 
-    def preguntar(self, pregunta, contexto):
+    def preguntar(self, pregunta, contexto, instrucciones=None):
         self.llamadas.append((pregunta, list(contexto)))
         if self.falla:
             raise proveedores.ProveedorNoDisponible("prueba")
@@ -220,11 +220,14 @@ def test_ver_rechaza_peticiones_invalidas(ia, cuerpo):
 
 def test_cada_ruta_esta_documentada():
     rutas = cliente.get("/openapi.json").json()["paths"]
-    assert set(rutas) == {"/", "/uso", "/preguntar", "/entender", "/ver"}
+    assert set(rutas) == {"/", "/uso", "/estadisticas", "/panel", "/preguntar", "/entender", "/ver", "/documento"}
     for ruta, metodos in rutas.items():
         for metodo, doc in metodos.items():
             assert doc.get("summary") and doc.get("description"), f"{metodo} {ruta} sin texto"
             assert doc.get("tags"), f"{metodo} {ruta} sin etiqueta"
+            if ruta == "/panel":  # página web: sin clave (la pide la página) y sin JSON
+                assert "text/html" in doc["responses"]["200"]["content"]
+                continue
             assert "schema" in doc["responses"]["200"]["content"]["application/json"]
             if ruta != "/":
                 assert {"401", "429"} <= set(doc["responses"]), f"{metodo} {ruta} sin errores de seguridad"
@@ -234,6 +237,7 @@ def test_cada_ruta_esta_documentada():
     ("/preguntar", main.EJEMPLOS_PREGUNTA),
     ("/entender", main.EJEMPLOS_ENTENDER),
     ("/ver", main.EJEMPLOS_IMAGEN),
+    ("/documento", main.EJEMPLOS_DOCUMENTO),
 ])
 def test_los_ejemplos_de_docs_funcionan(ia, ruta, ejemplos):
     # Lo que se ve en /docs con "Try it out" debe responder 200, no un error.
@@ -245,3 +249,67 @@ def test_ejemplo_con_dato_personal_no_sale_a_la_ia(ia):
     r = cliente.post("/preguntar", json=main.EJEMPLOS_PREGUNTA["dato_personal"]["value"])
     assert r.json()["proveedor"] is None
     assert ia.llamadas == []
+
+
+# --- /documento, /estadisticas y /panel ---------------------------------------------
+
+def test_documento_usa_las_instrucciones_de_documento(monkeypatch):
+    llamadas = []
+
+    def falsa(pregunta, contexto, instrucciones=None):
+        llamadas.append((pregunta, contexto, instrucciones))
+        return "Solicitud de permiso\n\nPor medio de la presente...", "groq", False
+
+    monkeypatch.setattr(proveedores, "preguntar_con_respaldo", falsa)
+    r = cliente.post("/documento", json={"pedido": "una carta para faltar el viernes"})
+    assert r.status_code == 200
+    assert r.json() == {
+        "documento": "Solicitud de permiso\n\nPor medio de la presente...", "aviso": None, "proveedor": "groq",
+    }
+    assert llamadas == [("una carta para faltar el viernes", [], proveedores.INSTRUCCIONES_DOCUMENTO)]
+
+
+def test_documento_con_dato_personal_no_sale_a_la_ia(ia):
+    r = cliente.post("/documento", json={"pedido": "una solicitud con mi CURP GODE561231HDFRRN09"})
+    assert r.json() == {"documento": None, "aviso": main.privacidad.MENSAJE_BLOQUEO, "proveedor": None}
+    assert ia.llamadas == []
+
+
+def test_documento_sin_ia_responde_503(monkeypatch):
+    def falla(*args, **kwargs):
+        raise proveedores.ProveedorNoDisponible("prueba")
+
+    monkeypatch.setattr(proveedores, "preguntar_con_respaldo", falla)
+    r = cliente.post("/documento", json={"pedido": "una carta"})
+    assert r.status_code == 503
+    assert r.json()["detail"] == "El asistente no está disponible en este momento."
+
+
+def test_estadisticas_cuentan_cada_ruta(ia):
+    antes = cliente.get("/estadisticas?dias=1").json()
+    cliente.post("/entender", json={"pregunta": "¿Qué hay enfrente de mí?"})  # comando
+    cliente.post("/preguntar", json={"pregunta": "¿Quién fue Louis Braille?"})  # IA
+    cliente.post("/preguntar", json={"pregunta": "Mi CURP es GODE561231HDFRRN09"})  # bloqueada
+    despues = cliente.get("/estadisticas?dias=1").json()
+    assert despues["total"] - antes["total"] == 3
+    for resultado in ("comando", "respuesta", "bloqueado"):
+        assert despues["por_resultado"].get(resultado, 0) - antes["por_resultado"].get(resultado, 0) == 1
+
+
+def test_uso_incluye_al_proveedor_de_fotos():
+    assert "groq_vision" in cliente.get("/uso").json()["proveedores"]
+
+
+def test_estadisticas_y_uso_piden_la_clave(monkeypatch):
+    monkeypatch.setenv("CECAPI_CLAVE_APP", "secreta")
+    assert cliente.get("/estadisticas").status_code == 401
+    assert cliente.get("/estadisticas", headers={"X-Clave-App": "secreta"}).status_code == 200
+
+
+def test_panel_abre_sin_clave_pero_no_trae_datos(monkeypatch):
+    monkeypatch.setenv("CECAPI_CLAVE_APP", "secreta")
+    r = cliente.get("/panel")
+    assert r.status_code == 200
+    assert r.headers["content-type"].startswith("text/html")
+    assert r.headers["cache-control"] == "no-store"
+    assert "X-Clave-App" in r.text and "secreta" not in r.text

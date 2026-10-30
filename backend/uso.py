@@ -1,29 +1,38 @@
 """
 Contador de peticiones por día y por proveedor (Módulo 3).
 
-- Guarda los conteos en uso_diario.json (junto a este archivo) para que no se
-  pierdan si se reinicia el servidor. Ese archivo no se sube al repo.
+- Guarda los conteos en la tabla uso_diario de la base (db.py): SQLite en la computadora de
+  cada quien, PostgreSQL en Neon cuando el servidor está publicado. Antes vivían en
+  uso_diario.json; ese archivo ya no se usa y se puede borrar.
 - Al llegar al 80% del límite diario de un proveedor escribe un AVISO en el log
   (una sola vez por día y proveedor) y lo marca en GET /uso.
 - Al llegar al 100% ese proveedor se salta y se usa directamente el siguiente.
 
-Los límites se configuran en .env (GEMINI_LIMITE_DIARIO, GROQ_LIMITE_DIARIO).
-El día es el de la computadora donde corre el backend.
+Los límites se configuran en .env (GEMINI_LIMITE_DIARIO, GROQ_LIMITE_DIARIO,
+GROQ_VISION_LIMITE_DIARIO). El día es el de la computadora donde corre el backend
+(en Render es la hora UTC).
 """
 
-import json
 import logging
 import os
 import threading
 from datetime import date
-from pathlib import Path
+
+from sqlalchemy import select, update
+from sqlalchemy.exc import IntegrityError
+
+import db
 
 log = logging.getLogger("cecapi.uso")
 
-ARCHIVO = Path(__file__).with_name("uso_diario.json")
 UMBRAL_AVISO = 0.8
 
+# Evita que dos hilos del mismo servidor se pisen al crear la fila del día.
 _candado = threading.Lock()
+
+
+def hoy() -> str:
+    return date.today().isoformat()
 
 
 def limite(proveedor: str) -> int:
@@ -34,57 +43,79 @@ def limite(proveedor: str) -> int:
         return 0
 
 
-def _leer() -> dict:
-    hoy = date.today().isoformat()
-    try:
-        datos = json.loads(ARCHIVO.read_text(encoding="utf-8"))
-    except (FileNotFoundError, json.JSONDecodeError):
-        datos = {}
-    if datos.get("fecha") != hoy:  # día nuevo: los contadores vuelven a cero
-        datos = {"fecha": hoy, "conteo": {}, "avisados": []}
-    return datos
+def _conteo(conexion, fecha: str) -> dict[str, tuple[int, bool]]:
+    filas = conexion.execute(
+        select(db.uso_diario.c.proveedor, db.uso_diario.c.peticiones, db.uso_diario.c.aviso_enviado)
+        .where(db.uso_diario.c.fecha == fecha)
+    ).all()
+    return {proveedor: (usadas, bool(avisado)) for proveedor, usadas, avisado in filas}
 
 
-def _guardar(datos: dict) -> None:
-    temporal = ARCHIVO.with_suffix(".tmp")
-    temporal.write_text(json.dumps(datos, indent=2), encoding="utf-8")
-    temporal.replace(ARCHIVO)
+def usadas(proveedor: str) -> int:
+    with db.motor().connect() as conexion:
+        return _conteo(conexion, hoy()).get(proveedor, (0, False))[0]
 
 
 def agotado(proveedor: str) -> bool:
     tope = limite(proveedor)
-    if tope <= 0:
-        return False
-    with _candado:
-        return _leer()["conteo"].get(proveedor, 0) >= tope
+    return tope > 0 and usadas(proveedor) >= tope
+
+
+def _sumar_uno(conexion, fecha: str, proveedor: str) -> tuple[int, bool]:
+    """Suma 1 a la fila del día y regresa (usadas, ya_avisado). La crea si no existe."""
+    t = db.uso_diario.c
+    cambio = conexion.execute(
+        update(db.uso_diario)
+        .where(t.fecha == fecha, t.proveedor == proveedor)
+        .values(peticiones=t.peticiones + 1)
+    )
+    if cambio.rowcount == 0:
+        conexion.execute(db.uso_diario.insert().values(
+            fecha=fecha, proveedor=proveedor, peticiones=1, aviso_enviado=False,
+        ))
+    usadas_, avisado = conexion.execute(
+        select(t.peticiones, t.aviso_enviado).where(t.fecha == fecha, t.proveedor == proveedor)
+    ).one()
+    return usadas_, bool(avisado)
 
 
 def registrar(proveedor: str) -> None:
     """Suma una petición al proveedor (cuenta aunque falle: la API también la cuenta)."""
+    fecha = hoy()
     with _candado:
-        datos = _leer()
-        usadas = datos["conteo"].get(proveedor, 0) + 1
-        datos["conteo"][proveedor] = usadas
+        try:
+            with db.motor().begin() as conexion:
+                usadas_, avisado = _sumar_uno(conexion, fecha, proveedor)
+        except IntegrityError:
+            # Otro proceso del servidor creó la fila del día al mismo tiempo: ahora sí existe.
+            with db.motor().begin() as conexion:
+                usadas_, avisado = _sumar_uno(conexion, fecha, proveedor)
+
         tope = limite(proveedor)
-        if tope > 0 and usadas >= tope * UMBRAL_AVISO and proveedor not in datos["avisados"]:
-            datos["avisados"].append(proveedor)
+        if tope > 0 and usadas_ >= tope * UMBRAL_AVISO and not avisado:
+            with db.motor().begin() as conexion:
+                conexion.execute(
+                    update(db.uso_diario)
+                    .where(db.uso_diario.c.fecha == fecha, db.uso_diario.c.proveedor == proveedor)
+                    .values(aviso_enviado=True)
+                )
             log.warning(
                 "AVISO: %s lleva %d de %d peticiones hoy (%d%%). Al llegar al 100%% se usará el respaldo.",
-                proveedor, usadas, tope, round(usadas * 100 / tope),
+                proveedor, usadas_, tope, round(usadas_ * 100 / tope),
             )
-        _guardar(datos)
 
 
 def resumen(proveedores: list[str]) -> dict:
-    with _candado:
-        datos = _leer()
-    salida = {"fecha": datos["fecha"], "proveedores": {}}
+    fecha = hoy()
+    with db.motor().connect() as conexion:
+        conteo = _conteo(conexion, fecha)
+    salida = {"fecha": fecha, "proveedores": {}}
     for nombre in proveedores:
-        usadas = datos["conteo"].get(nombre, 0)
+        usadas_ = conteo.get(nombre, (0, False))[0]
         tope = limite(nombre)
-        porcentaje = round(usadas * 100 / tope) if tope > 0 else None
+        porcentaje = round(usadas_ * 100 / tope) if tope > 0 else None
         salida["proveedores"][nombre] = {
-            "usadas": usadas,
+            "usadas": usadas_,
             "limite": tope or None,
             "porcentaje": porcentaje,
             "aviso": porcentaje is not None and porcentaje >= UMBRAL_AVISO * 100,

@@ -84,7 +84,7 @@ class ProveedorFalso:
         self.respuestas = list(respuestas)
         self.llamadas = []
 
-    def preguntar(self, pregunta, contexto):
+    def preguntar(self, pregunta, contexto, instrucciones=None):
         self.llamadas.append((pregunta, list(contexto)))
         respuesta = self.respuestas.pop(0)
         if isinstance(respuesta, Exception):
@@ -122,3 +122,17 @@ def test_sin_palabras_de_vista_no_se_corrige(monkeypatch, sin_conteo):
     monkeypatch.setattr(proveedores, "configurados", lambda: [falso])
     proveedores.preguntar_con_respaldo("¿Quién fue Louis Braille?", [])
     assert len(falso.llamadas) == 1
+
+
+def test_documento_no_se_corrige_por_palabras_de_vista(monkeypatch, sin_conteo):
+    falso = ProveedorFalso(["Solicitud\n\nPor medio de la presente pido revisar mi expediente."])
+    monkeypatch.setattr(proveedores, "configurados", lambda: [falso])
+    proveedores.preguntar_con_respaldo("Una solicitud", [], proveedores.INSTRUCCIONES_DOCUMENTO)
+    assert len(falso.llamadas) == 1
+
+
+def test_instrucciones_de_documento_piden_texto_plano_y_no_inventar_datos():
+    texto = proveedores.INSTRUCCIONES_DOCUMENTO
+    assert "sin markdown" in texto
+    assert "[tu nombre]" in texto
+    assert "Jacarandá 1603" in texto

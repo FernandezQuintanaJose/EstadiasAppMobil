@@ -3,6 +3,9 @@
 import base64
 import binascii
 import logging
+import time
+from datetime import date, timedelta
+from pathlib import Path
 from typing import Annotated, Literal
 
 from dotenv import load_dotenv
@@ -10,10 +13,12 @@ from dotenv import load_dotenv
 # Carga el .env ANTES de importar proveedores, que leen las claves al crearse.
 load_dotenv()
 
-from fastapi import Body, Depends, FastAPI, Header, HTTPException, Request  # noqa: E402
+from fastapi import Body, Depends, FastAPI, Header, HTTPException, Query, Request  # noqa: E402
+from fastapi.responses import HTMLResponse  # noqa: E402
 from pydantic import BaseModel, Field, StringConstraints  # noqa: E402
 
 import comandos  # noqa: E402
+import db  # noqa: E402
 import imagenes  # noqa: E402  (Owen: prepara la foto para /ver)
 import privacidad  # noqa: E402
 import proveedores  # noqa: E402
@@ -50,7 +55,9 @@ Por eso todas son cortas, en español de México, sin markdown, y los mensajes d
 - **/entender**: decide si lo que dijo la persona abre un módulo de la app o es una pregunta libre.
 - **/preguntar**: responde una pregunta libre con la IA.
 - **/ver**: describe una foto (billete mexicano o lo que hay enfrente).
-- **/uso**: cuántas peticiones lleva hoy cada proveedor de IA.
+- **/documento**: redacta un documento (carta, solicitud...) para la pantalla Consultas.
+- **/uso** y **/estadisticas**: cuántas peticiones lleva cada proveedor y cómo le va al servidor.
+- **/panel**: página para ver lo anterior desde el navegador.
 
 ### Proveedores de IA
 Se usan Groq y Gemini, en el orden de `IA_ORDEN`. Si el primero falla o ya gastó su
@@ -64,6 +71,8 @@ límite del día, se prueba el siguiente. El campo `proveedor` de la respuesta d
 - **Privacidad**: si la pregunta trae correo, teléfono, tarjeta, CURP, RFC o contraseña, no
   se manda a la IA y se responde con un aviso. Del `contexto` se quitan las líneas con esos datos.
 - **Fotos**: se enderezan, se reducen y se les quita el EXIF (GPS, modelo del teléfono) antes de mandarlas a la IA.
+- **Registro**: de cada petición solo se guarda la ruta, el resultado, la IA que contestó y cuánto
+  tardó. Nunca el texto, la foto ni la IP.
 """
 
 ETIQUETAS = [
@@ -212,17 +221,28 @@ class Comando(BaseModel):
     )
 
 
+def _anotar(ruta: str, resultado: str, proveedor: str | None, inicio: float) -> None:
+    """Guarda la petición en la base (sin su contenido). Si la base falla, la persona igual recibe su respuesta."""
+    try:
+        db.anotar_peticion(ruta, resultado, proveedor, round((time.perf_counter() - inicio) * 1000))
+    except Exception:
+        log.exception("No se pudo anotar la petición en la base")
+
+
 def _contexto_seguro(body: Pregunta) -> list[str]:
     """Últimas líneas del historial, sin las que traigan datos sensibles."""
     return privacidad.limpiar_contexto(body.contexto)[-LINEAS_QUE_USA_LA_IA:]
 
 
-def _preguntar(body: Pregunta) -> tuple[str, str, bool]:
+def _preguntar(body: Pregunta, ruta: str, inicio: float) -> tuple[str, str, bool]:
     try:
-        return proveedores.preguntar_con_respaldo(body.pregunta, _contexto_seguro(body))
+        resultado = proveedores.preguntar_con_respaldo(body.pregunta, _contexto_seguro(body))
     except proveedores.ProveedorNoDisponible:
+        _anotar(ruta, "no_disponible", None, inicio)
         # Mensaje genérico hacia la app; el detalle queda solo en el log del servidor.
         raise HTTPException(status_code=503, detail="El asistente no está disponible en este momento.")
+    _anotar(ruta, "respuesta", resultado[1], inicio)
+    return resultado
 
 
 class Estado(BaseModel):
@@ -264,8 +284,9 @@ class Uso(BaseModel):
     response_model=Uso, responses=ERRORES_PROTEGIDA,
 )
 def ver_uso():
-    """Peticiones de hoy por proveedor; `aviso` se vuelve true al pasar el 80% del límite."""
-    return uso.resumen([p.nombre for p in proveedores.PROVEEDORES])
+    """Peticiones de hoy por proveedor (texto y visión); `aviso` se vuelve true al pasar el 80% del límite."""
+    nombres = [n for p in proveedores.PROVEEDORES for n in (p.nombre, p.nombre_vision)]
+    return uso.resumen(list(dict.fromkeys(nombres)))
 
 
 # `def` y no `async def`: los SDK son bloqueantes y así FastAPI los corre en otro hilo
@@ -281,9 +302,11 @@ def responder(body: Annotated[Pregunta, Body(openapi_examples=EJEMPLOS_PREGUNTA)
     Si la pregunta trae datos personales (correo, teléfono, tarjeta, CURP, RFC o
     contraseña) **no se manda a la IA**: se responde con un aviso y `proveedor` es `null`.
     """
+    inicio = time.perf_counter()
     if privacidad.contiene_dato_sensible(body.pregunta):
+        _anotar("preguntar", "bloqueado", None, inicio)
         return {"respuesta": privacidad.MENSAJE_BLOQUEO, "proveedor": None, "hayMas": False}
-    respuesta, proveedor, hay_mas = _preguntar(body)
+    respuesta, proveedor, hay_mas = _preguntar(body, "preguntar", inicio)
     return {"respuesta": respuesta, "proveedor": proveedor, "hayMas": hay_mas}
 
 
@@ -304,14 +327,17 @@ def entender(body: Annotated[Pregunta, Body(openapi_examples=EJEMPLOS_ENTENDER)]
     - `"comando"`: la app abre el módulo de `comando` (ej. `{"tipo": "comando", "comando": "ENVIRONMENT"}`).
     - `"respuesta"`: lo mismo que /preguntar, más `"tipo": "respuesta"`.
     """
+    inicio = time.perf_counter()
     comando = comandos.detectar(body.pregunta)
     if comando:
+        _anotar("entender", "comando", None, inicio)
         return {"tipo": "comando", "comando": comando}
 
     if privacidad.contiene_dato_sensible(body.pregunta):
+        _anotar("entender", "bloqueado", None, inicio)
         return {"tipo": "respuesta", "respuesta": privacidad.MENSAJE_BLOQUEO, "proveedor": None, "hayMas": False}
 
-    respuesta, proveedor, hay_mas = _preguntar(body)
+    respuesta, proveedor, hay_mas = _preguntar(body, "entender", inicio)
     return {"tipo": "respuesta", "respuesta": respuesta, "proveedor": proveedor, "hayMas": hay_mas}
 
 
@@ -384,6 +410,17 @@ def ver(body: Annotated[Imagen, Body(openapi_examples=EJEMPLOS_IMAGEN)]):
 
     Antes de mandarla, la foto se endereza, se reduce (`IMAGEN_LADO_MAX`) y se le quita el EXIF.
     """
+    inicio = time.perf_counter()
+    try:
+        respuesta, proveedor = _ver(body)
+    except HTTPException as error:
+        _anotar("ver", "no_disponible" if error.status_code == 503 else "error", None, inicio)
+        raise
+    _anotar("ver", "respuesta", proveedor, inicio)
+    return {"respuesta": respuesta, "proveedor": proveedor}
+
+
+def _ver(body: Imagen) -> tuple[str, str]:
     prompt = PROMPTS_VISION.get(body.modo)
     if prompt is None:
         raise HTTPException(status_code=400, detail="Modo no reconocido.")
@@ -405,8 +442,119 @@ def ver(body: Annotated[Imagen, Body(openapi_examples=EJEMPLOS_IMAGEN)]):
         raise HTTPException(status_code=400, detail="La foto no es válida o es demasiado grande.")
 
     try:
-        respuesta, proveedor = proveedores.ver_con_respaldo(foto, tipo_mime, prompt)
+        return proveedores.ver_con_respaldo(foto, tipo_mime, prompt)
     except proveedores.ProveedorNoDisponible:
         raise HTTPException(status_code=503, detail="El asistente no está disponible en este momento.")
 
-    return {"respuesta": respuesta, "proveedor": proveedor}
+
+# --- Documentos (pantalla Consultas) ---------------------------------------------
+
+class PedidoDocumento(BaseModel):
+    pedido: str = Field(
+        min_length=1, max_length=2000,
+        description="Qué documento quiere la persona, como lo dijo o lo escribió "
+                    "(ej. \"una carta para pedir permiso de faltar el viernes\").",
+    )
+
+
+class Documento(BaseModel):
+    documento: str | None = Field(
+        description="El documento en texto plano, con el título en la primera línea. Los datos "
+                    "que la IA no sabe quedan entre corchetes, como `[tu nombre]`. `null` si se bloqueó.",
+    )
+    aviso: str | None = Field(
+        description="Si el pedido traía datos personales no se manda a la IA y aquí viene el aviso "
+                    "para decir en voz alta. `null` si todo salió bien.",
+    )
+    proveedor: str | None = Field(description="IA que lo redactó (`groq` o `gemini`); `null` si se bloqueó.")
+
+    model_config = {"json_schema_extra": {"examples": [{
+        "documento": "Solicitud de permiso\n\nDurango, Durango, a [fecha].\n\nPor medio de la presente...",
+        "aviso": None,
+        "proveedor": "groq",
+    }]}}
+
+
+EJEMPLOS_DOCUMENTO = {
+    "carta": {
+        "summary": "Carta",
+        "value": {"pedido": "Una carta para pedir permiso de faltar el viernes al curso del CECAPI"},
+    },
+    "dato_personal": {
+        "summary": "Trae un dato personal (no sale a la IA)",
+        "value": {"pedido": "Una solicitud con mi CURP GODE561231HDFRRN09"},
+    },
+}
+
+
+@app.post(
+    "/documento", dependencies=Protegida, tags=["Asistente"], summary="Redactar un documento",
+    response_model=Documento, responses={**ERRORES_PROTEGIDA, 503: ERROR_503},
+)
+def documento(body: Annotated[PedidoDocumento, Body(openapi_examples=EJEMPLOS_DOCUMENTO)]):
+    """
+    Redacta el documento que pidió la persona en la pantalla Consultas (carta, solicitud, oficio...).
+
+    A diferencia de /preguntar, la respuesta puede ser larga: se muestra en pantalla y se lee
+    con "lee el documento". Usa el mismo respaldo entre proveedores y el mismo filtro de
+    privacidad: si el pedido trae CURP, RFC, teléfono, correo, tarjeta o contraseña, no se
+    manda a la IA. La persona puede escribir esos datos después, a mano, en el documento.
+    """
+    inicio = time.perf_counter()
+    if privacidad.contiene_dato_sensible(body.pedido):
+        _anotar("documento", "bloqueado", None, inicio)
+        return {"documento": None, "aviso": privacidad.MENSAJE_BLOQUEO, "proveedor": None}
+    try:
+        texto, proveedor, _ = proveedores.preguntar_con_respaldo(
+            body.pedido, [], proveedores.INSTRUCCIONES_DOCUMENTO,
+        )
+    except proveedores.ProveedorNoDisponible:
+        _anotar("documento", "no_disponible", None, inicio)
+        raise HTTPException(status_code=503, detail="El asistente no está disponible en este momento.")
+    _anotar("documento", "respuesta", proveedor, inicio)
+    return {"documento": texto, "aviso": None, "proveedor": proveedor}
+
+
+# --- Panel de uso ------------------------------------------------------------------
+
+class UsoDelDia(BaseModel):
+    fecha: str
+    proveedor: str
+    peticiones: int
+
+
+class Estadisticas(BaseModel):
+    dias: int = Field(description="Cuántos días hacia atrás se contaron (incluye hoy).")
+    total: int = Field(description="Peticiones a /preguntar, /entender, /ver y /documento.")
+    por_ruta: dict[str, int]
+    por_resultado: dict[str, int] = Field(
+        description="`respuesta`, `comando`, `bloqueado` (datos personales), `error` (foto o modo "
+                    "inválido) y `no_disponible` (ninguna IA respondió).",
+    )
+    por_proveedor: dict[str, int] = Field(description="`ninguno` = no se llamó a la IA.")
+    promedio_ms: int | None = Field(description="Tiempo promedio de todas las peticiones.")
+    promedio_ia_ms: int | None = Field(description="Tiempo promedio solo de las que llamaron a la IA.")
+    uso_por_dia: list[UsoDelDia] = Field(description="Peticiones a cada proveedor por día.")
+
+
+@app.get(
+    "/estadisticas", dependencies=Protegida, tags=["Servidor"], summary="Cómo le va al servidor",
+    response_model=Estadisticas, responses=ERRORES_PROTEGIDA,
+)
+def ver_estadisticas(dias: int = Query(7, ge=1, le=90, description="Días hacia atrás, incluido hoy.")):
+    """Totales de los últimos `dias` días. No incluye textos ni IP: no se guardan."""
+    desde = db.ahora() - timedelta(days=dias)
+    desde_fecha = (date.today() - timedelta(days=dias - 1)).isoformat()
+    return {"dias": dias, **db.estadisticas(desde), "uso_por_dia": db.uso_por_dia(desde_fecha)}
+
+
+PANEL_HTML = Path(__file__).with_name("panel.html")
+
+
+@app.get("/panel", tags=["Servidor"], summary="Panel de uso (página web)", response_class=HTMLResponse)
+def panel():
+    """
+    Página para ver /uso y /estadisticas desde el navegador. La página no trae datos: los pide
+    con la clave de la app que escribe quien la abre, en el encabezado `X-Clave-App`.
+    """
+    return HTMLResponse(PANEL_HTML.read_text(encoding="utf-8"), headers={"Cache-Control": "no-store"})

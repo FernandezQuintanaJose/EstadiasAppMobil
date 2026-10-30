@@ -10,6 +10,7 @@ Cómo correrlas (dentro de backend/, con el entorno virtual):  python -m pytest 
 
 import os
 import sys
+import tempfile
 from pathlib import Path
 
 # Antes de importar main: load_dotenv() no reemplaza variables que ya existen,
@@ -19,5 +20,7 @@ os.environ["GEMINI_API_KEY"] = ""
 os.environ["IA_ORDEN"] = "groq,gemini"
 os.environ["CECAPI_CLAVE_APP"] = ""
 os.environ["LIMITE_POR_MINUTO"] = "1000"
+# Base de datos de las pruebas: un SQLite temporal, nunca backend/cecapi.db ni la de Neon.
+os.environ["DATABASE_URL"] = f"sqlite:///{Path(tempfile.mkdtemp(prefix='cecapi-pruebas-')) / 'pruebas.db'}"
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))

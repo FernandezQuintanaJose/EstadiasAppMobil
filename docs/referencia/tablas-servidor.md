@@ -2,7 +2,12 @@
 
 > Propuesta · Dueño: Módulo 3 (asistente inteligente) · Revisado el 10 oct 2026 contra `6240887` · SQL: [database/servidor.sql](../../database/servidor.sql)
 
-El servidor (`backend/`) todavía **no usa base de datos**. Hoy solo guarda el contador diario en `backend/uso_diario.json` y no guarda las conversaciones. Este es el diseño de las cinco tablas para cuando se guarden.
+**Actualización del 30 oct 2026:** el servidor ya tiene base (`backend/db.py`, con Alembic): SQLite en la computadora de cada quien y PostgreSQL en Neon publicado (decisión 0017). Por ahora solo existen dos tablas:
+
+- `uso_diario` (fecha, proveedor, peticiones, aviso_enviado): reemplaza a `uso_diario.json`. Usa el nombre del proveedor como texto en vez de `proveedor_id`, porque la tabla `proveedores` todavía no existe.
+- `peticiones` (ruta, resultado, proveedor, duracion_ms, creado_en): una fila por petición, **sin** texto, foto ni IP. Alimenta `/estadisticas` y `/panel`.
+
+`usuarios`, `conversaciones`, `mensajes` y `proveedores` siguen siendo el diseño de abajo. Esperan a que el servidor tenga cuentas y a que se decida qué se guarda del chat (ficha del backend: "idealmente ninguno o mínimos").
 
 No son las tablas del Módulo 3 que están en `database/schema.sql` (`consultas_ia`, `respuestas_ia`, `contextos_conversacion`). Esas viven en el teléfono, con Room. Estas otras viven en la computadora donde corre el servidor.
 

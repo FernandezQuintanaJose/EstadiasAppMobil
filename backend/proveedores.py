@@ -72,6 +72,20 @@ INSTRUCCIONES = (
 )
 
 
+# Para /documento (pantalla Consultas): aquí sí se quiere un texto largo, a diferencia de las
+# respuestas habladas de INSTRUCCIONES. Sin markdown porque el lector de pantalla lo lee en voz alta.
+INSTRUCCIONES_DOCUMENTO = (
+    "Eres el asistente de la app del CECAPI para personas ciegas o con baja visión. Redacta en "
+    "español de México el documento que te piden (carta, solicitud, oficio, recado, lista...). "
+    "Entrega solo el documento, listo para usar, con un título en la primera línea, sin "
+    "explicaciones antes ni después. Texto plano: sin markdown, asteriscos, numerales, tablas, "
+    "emojis ni enlaces; separa las partes con renglones en blanco y, si hace falta una lista, "
+    "empieza cada punto con un guion. Donde falte un dato de la persona (nombre, fecha, "
+    "dirección, CURP, firma), deja un espacio entre corchetes, por ejemplo [tu nombre]; nunca "
+    "lo inventes. No inventes leyes, artículos, montos ni nombres de dependencias. "
+    + DATOS_CECAPI
+)
+
 TIEMPO_LIMITE_S = float(os.getenv("IA_TIEMPO_LIMITE_S", "20"))
 
 # Temperatura de Groq para las preguntas. Su valor por defecto es 1; con gpt-oss-20b eso
@@ -103,7 +117,7 @@ def tiene_lenguaje_visual(texto: str) -> bool:
 # ver() es aparte de preguntar(): recibe la foto ya comprimida (imagenes.py) y el prompt
 # del modo (billete o escena). No usa INSTRUCCIONES ni contexto: el prompt trae todo.
 # Respuesta corta a propósito: la persona la escucha, y el plan gratis de Groq limita
-# los tokens de respuesta por minuto (1,000 en qwen/qwen3.8-27b; con 150 caben ~6 fotos/min).
+# los tokens por minuto (8,000 en qwen/qwen3.8-27b, consola del 30/10/2026; la foto también cuenta).
 VISION_MAX_TOKENS = int(os.getenv("VISION_MAX_TOKENS", "150"))
 
 
@@ -148,13 +162,13 @@ class Gemini:
             )
         return self._cliente
 
-    def preguntar(self, pregunta: str, contexto: list[str]) -> str:
+    def preguntar(self, pregunta: str, contexto: list[str], instrucciones: str = INSTRUCCIONES) -> str:
         from google.genai import types
 
         respuesta = self._cliente_listo().models.generate_content(
             model=self.modelo,
             contents=_armar_prompt(pregunta, contexto),
-            config=types.GenerateContentConfig(system_instruction=INSTRUCCIONES),
+            config=types.GenerateContentConfig(system_instruction=instrucciones),
         )
         texto = (respuesta.text or "").strip()
         if not texto:
@@ -203,12 +217,12 @@ class Groq:
             self._cliente = ClienteGroq(api_key=self.clave, timeout=TIEMPO_LIMITE_S, max_retries=0)
         return self._cliente
 
-    def preguntar(self, pregunta: str, contexto: list[str]) -> str:
+    def preguntar(self, pregunta: str, contexto: list[str], instrucciones: str = INSTRUCCIONES) -> str:
         extra = {"temperature": float(GROQ_TEMPERATURA)} if GROQ_TEMPERATURA else {}
         respuesta = self._cliente_listo().chat.completions.create(
             model=self.modelo,
             messages=[
-                {"role": "system", "content": INSTRUCCIONES},
+                {"role": "system", "content": instrucciones},
                 {"role": "user", "content": _armar_prompt(pregunta, contexto)},
             ],
             **extra,
@@ -298,19 +312,26 @@ def ver_con_respaldo(imagen: bytes, tipo_mime: str, prompt: str) -> tuple[str, s
     raise ProveedorNoDisponible("Ninguna IA con visión respondió")
 
 
-def preguntar_con_respaldo(pregunta: str, contexto: list[str]) -> tuple[str, str, bool]:
-    """Devuelve (respuesta, nombre_del_proveedor, hay_mas). Lanza ProveedorNoDisponible si todos fallan."""
+def preguntar_con_respaldo(
+    pregunta: str, contexto: list[str], instrucciones: str = INSTRUCCIONES,
+) -> tuple[str, str, bool]:
+    """Devuelve (respuesta, nombre_del_proveedor, hay_mas). Lanza ProveedorNoDisponible si todos fallan.
+
+    Con las INSTRUCCIONES de voz, si la respuesta trae palabras de vista se pide corregir una vez.
+    Con otras (INSTRUCCIONES_DOCUMENTO) no: un documento sí puede decir "pantalla" o "revisar".
+    """
     for proveedor in configurados():
         if uso.agotado(proveedor.nombre):
             log.info("%s ya usó su límite de hoy; se salta", proveedor.nombre)
             continue
         uso.registrar(proveedor.nombre)
         try:
-            texto = proveedor.preguntar(pregunta, contexto)
+            texto = proveedor.preguntar(pregunta, contexto, instrucciones)
         except Exception as error:
             log.warning("Falló %s (%s); probando el siguiente", proveedor.nombre, type(error).__name__)
             continue
-        if tiene_lenguaje_visual(texto) and not uso.agotado(proveedor.nombre):
+        hablado = instrucciones is INSTRUCCIONES
+        if hablado and tiene_lenguaje_visual(texto) and not uso.agotado(proveedor.nombre):
             texto = _corregir_visual(proveedor, pregunta, contexto, texto)
         respuesta, hay_mas = _separar_mas(texto)
         return respuesta, proveedor.nombre, hay_mas

@@ -1,0 +1,180 @@
+<!doctype html>
+<html lang="es-MX">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>Panel de uso · Asistente CECAPI</title>
+<style>
+  :root {
+    --fondo: #f6f5f1; --tarjeta: #ffffff; --texto: #1d1d1b; --suave: #5b5a55;
+    --borde: #dcdad2; --acento: #0b5cad; --aviso: #9a4b00; --aviso-fondo: #fff1e0;
+    --error: #a1261b; --barra: #0b5cad; --barra-fondo: #e6eef7;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --fondo: #141413; --tarjeta: #1f1f1d; --texto: #f0efe9; --suave: #b3b1a8;
+      --borde: #3a3935; --acento: #79b4f2; --aviso: #ffb366; --aviso-fondo: #3a2814;
+      --error: #ff8a7a; --barra: #79b4f2; --barra-fondo: #26313d;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--fondo); color: var(--texto);
+    font: 18px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  }
+  main { max-width: 960px; margin: 0 auto; padding: 24px 16px 48px; }
+  h1 { font-size: 1.6rem; margin: 0 0 4px; }
+  h2 { font-size: 1.15rem; margin: 0 0 12px; }
+  p.sub { color: var(--suave); margin: 0 0 24px; }
+  form { display: flex; flex-wrap: wrap; gap: 8px; align-items: end; margin-bottom: 24px; }
+  label { display: flex; flex-direction: column; gap: 4px; font-weight: 600; }
+  input, select, button { font: inherit; padding: 10px 12px; border-radius: 8px; border: 1px solid var(--borde); }
+  input, select { background: var(--tarjeta); color: var(--texto); min-width: 0; }
+  button { background: var(--acento); color: var(--fondo); border-color: var(--acento); font-weight: 600; cursor: pointer; }
+  button:focus-visible, input:focus-visible, select:focus-visible { outline: 3px solid var(--acento); outline-offset: 2px; }
+  .rejilla { display: grid; gap: 16px; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); margin-bottom: 16px; }
+  .tarjeta { background: var(--tarjeta); border: 1px solid var(--borde); border-radius: 12px; padding: 16px; }
+  .cifra { font-size: 2rem; font-weight: 700; font-variant-numeric: tabular-nums; }
+  .pie { color: var(--suave); font-size: .9rem; }
+  .medidor { height: 12px; background: var(--barra-fondo); border-radius: 6px; overflow: hidden; margin: 8px 0 4px; }
+  .medidor > span { display: block; height: 100%; background: var(--barra); }
+  .tarjeta.alerta { border-color: var(--aviso); background: var(--aviso-fondo); }
+  .tarjeta.alerta .medidor > span { background: var(--aviso); }
+  table { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; }
+  th, td { text-align: left; padding: 6px 8px; border-bottom: 1px solid var(--borde); }
+  td.n, th.n { text-align: right; }
+  #estado { min-height: 1.5em; margin: 0 0 16px; }
+  #estado.error { color: var(--error); font-weight: 600; }
+  .tabla-ancha { overflow-x: auto; }
+  .oculto { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+</style>
+</head>
+<body>
+<main>
+  <h1>Panel de uso del asistente</h1>
+  <p class="sub">Cuántas preguntas recibe el servidor del Módulo 3, qué IA las contesta y cuánto tardan. No guarda textos, fotos ni direcciones IP.</p>
+
+  <form id="forma">
+    <label>Clave de la app
+      <input id="clave" type="password" autocomplete="off" placeholder="Vacía si el servidor no pide clave">
+    </label>
+    <label>Periodo
+      <select id="dias">
+        <option value="1">Hoy</option>
+        <option value="7" selected>Últimos 7 días</option>
+        <option value="30">Últimos 30 días</option>
+      </select>
+    </label>
+    <button type="submit">Ver</button>
+  </form>
+
+  <p id="estado" role="status" aria-live="polite"></p>
+
+  <section aria-labelledby="t-hoy">
+    <h2 id="t-hoy">Hoy, contra el límite diario</h2>
+    <div class="rejilla" id="hoy"></div>
+  </section>
+
+  <section aria-labelledby="t-periodo">
+    <h2 id="t-periodo">Periodo</h2>
+    <div class="rejilla" id="resumen"></div>
+    <div class="rejilla" id="desglose"></div>
+  </section>
+
+  <section class="tarjeta" aria-labelledby="t-dias">
+    <h2 id="t-dias">Peticiones a cada IA por día</h2>
+    <div class="tabla-ancha" id="por-dia"></div>
+  </section>
+</main>
+
+<script>
+(() => {
+  const $ = (id) => document.getElementById(id);
+  const NOMBRES = {
+    groq: "Groq (texto)", groq_vision: "Groq (fotos)", gemini: "Gemini", ninguno: "Sin IA",
+    preguntar: "/preguntar", entender: "/entender", ver: "/ver", documento: "/documento",
+    respuesta: "Contestó la IA", comando: "Abrió un módulo", bloqueado: "Bloqueadas por datos personales",
+    error: "Foto o modo inválido", no_disponible: "Ninguna IA respondió",
+  };
+  const nombre = (k) => NOMBRES[k] || k;
+  const num = (n) => (n ?? 0).toLocaleString("es-MX");
+  const esc = (t) => String(t).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+
+  // La clave solo se recuerda en esta pestaña, nunca en la URL.
+  try { $("clave").value = sessionStorage.getItem("cecapi-clave") || ""; } catch (_) {}
+
+  async function pedir(ruta, clave) {
+    const r = await fetch(ruta, { headers: clave ? { "X-Clave-App": clave } : {}, cache: "no-store" });
+    if (!r.ok) {
+      let detalle = `El servidor respondió ${r.status}.`;
+      try { detalle = (await r.json()).detail || detalle; } catch (_) {}
+      throw new Error(detalle);
+    }
+    return r.json();
+  }
+
+  function tarjetaHoy(prov, d) {
+    const pct = d.porcentaje;
+    const ancho = pct == null ? 0 : Math.min(pct, 100);
+    const limite = d.limite == null ? "sin límite configurado" : `de ${num(d.limite)} al día`;
+    return `<div class="tarjeta${d.aviso ? " alerta" : ""}">
+      <div>${esc(nombre(prov))}</div>
+      <div class="cifra">${num(d.usadas)}</div>
+      <div class="medidor" role="img" aria-label="${pct == null ? "Sin límite" : pct + " por ciento del límite"}"><span style="width:${ancho}%"></span></div>
+      <div class="pie">${limite}${pct == null ? "" : ` · ${pct}%`}${d.aviso ? " · pasó el 80%" : ""}</div>
+    </div>`;
+  }
+
+  function tarjetaCifra(titulo, valor, pie) {
+    return `<div class="tarjeta"><div>${esc(titulo)}</div><div class="cifra">${valor}</div><div class="pie">${esc(pie)}</div></div>`;
+  }
+
+  function tarjetaLista(titulo, datos) {
+    const filas = Object.entries(datos).sort((a, b) => b[1] - a[1])
+      .map(([k, v]) => `<tr><td>${esc(nombre(k))}</td><td class="n">${num(v)}</td></tr>`).join("");
+    return `<div class="tarjeta"><h2>${esc(titulo)}</h2>${filas ? `<table><tbody>${filas}</tbody></table>` : '<p class="pie">Sin peticiones.</p>'}</div>`;
+  }
+
+  function tablaPorDia(filas) {
+    if (!filas.length) return '<p class="pie">Sin peticiones en este periodo.</p>';
+    const provs = [...new Set(filas.map((f) => f.proveedor))];
+    const fechas = [...new Set(filas.map((f) => f.fecha))].reverse();
+    const celda = (f, p) => num((filas.find((x) => x.fecha === f && x.proveedor === p) || {}).peticiones);
+    return `<table><caption class="oculto">Peticiones por día y proveedor</caption><thead><tr><th>Día</th>${provs.map((p) => `<th class="n">${esc(nombre(p))}</th>`).join("")}</tr></thead>
+      <tbody>${fechas.map((f) => `<tr><td>${esc(f)}</td>${provs.map((p) => `<td class="n">${celda(f, p)}</td>`).join("")}</tr>`).join("")}</tbody></table>`;
+  }
+
+  async function cargar(e) {
+    if (e) e.preventDefault();
+    const clave = $("clave").value.trim();
+    const dias = $("dias").value;
+    try { sessionStorage.setItem("cecapi-clave", clave); } catch (_) {}
+    $("estado").className = "";
+    $("estado").textContent = "Cargando…";
+    try {
+      const [uso, est] = await Promise.all([pedir("uso", clave), pedir(`estadisticas?dias=${dias}`, clave)]);
+      $("hoy").innerHTML = Object.entries(uso.proveedores).map(([p, d]) => tarjetaHoy(p, d)).join("");
+      const ms = (v) => (v == null ? "—" : `${num(v)} ms`);
+      $("resumen").innerHTML =
+        tarjetaCifra("Peticiones", num(est.total), est.dias === 1 ? "en las últimas 24 horas" : `en los últimos ${est.dias} días`) +
+        tarjetaCifra("Tiempo con IA", ms(est.promedio_ia_ms), "promedio de las que llamaron a la IA") +
+        tarjetaCifra("Sin respuesta", num(est.por_resultado.no_disponible || 0), "veces que ninguna IA contestó");
+      $("desglose").innerHTML =
+        tarjetaLista("Por ruta", est.por_ruta) +
+        tarjetaLista("Por resultado", est.por_resultado) +
+        tarjetaLista("Por IA", est.por_proveedor);
+      $("por-dia").innerHTML = tablaPorDia(est.uso_por_dia);
+      $("estado").textContent = `Actualizado a las ${new Date().toLocaleTimeString("es-MX")} · día del contador: ${uso.fecha}.`;
+    } catch (error) {
+      $("estado").className = "error";
+      $("estado").textContent = error.message;
+    }
+  }
+
+  $("forma").addEventListener("submit", cargar);
+  cargar();
+})();
+</script>
+</body>
+</html>

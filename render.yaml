@@ -1,0 +1,41 @@
+# Render Blueprint del servidor del asistente (Módulo 3). Guía: backend/PUBLICAR.md
+# Las claves NO van aquí: Render las pide al crear el servicio (sync: false).
+services:
+  - type: web
+    name: cecapi-asistente
+    runtime: python
+    rootDir: backend
+    plan: free
+    region: ohio
+    buildCommand: pip install -r requirements.txt
+    # Primero pone al día las tablas de Neon; luego arranca. --proxy-headers hace que el
+    # límite por minuto vea la IP real de cada teléfono y no la del proxy de Render.
+    startCommand: alembic upgrade head && uvicorn main:app --host 0.0.0.0 --port $PORT --proxy-headers --forwarded-allow-ips '*'
+    healthCheckPath: /
+    envVars:
+      - key: PYTHON_VERSION
+        value: "3.12.8"
+      - key: DATABASE_URL
+        sync: false
+      - key: GROQ_API_KEY
+        sync: false
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: CECAPI_CLAVE_APP
+        generateValue: true
+      - key: IA_ORDEN
+        value: groq,gemini
+      - key: GROQ_MODEL
+        value: openai/gpt-oss-20b
+      - key: GROQ_VISION_MODEL
+        value: qwen/qwen3.8-27b
+      - key: GROQ_LIMITE_DIARIO
+        value: "250"
+      - key: GROQ_VISION_LIMITE_DIARIO
+        value: "150"
+      - key: GEMINI_LIMITE_DIARIO
+        value: "250"
+      - key: GROQ_TEMPERATURA
+        value: "0.3"
+      - key: LIMITE_POR_MINUTO
+        value: "20"
