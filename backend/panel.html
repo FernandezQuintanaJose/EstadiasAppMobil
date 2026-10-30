@@ -4,6 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="robots" content="noindex">
+<link rel="icon" href="data:,">
 <title>Panel de uso · Asistente CECAPI</title>
 <style>
   :root {
@@ -44,6 +45,7 @@
   table { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; }
   th, td { text-align: left; padding: 6px 8px; border-bottom: 1px solid var(--borde); }
   td.n, th.n { text-align: right; }
+  td:first-child { white-space: nowrap; }
   #estado { min-height: 1.5em; margin: 0 0 16px; }
   #estado.error { color: var(--error); font-weight: 600; }
   .tabla-ancha { overflow-x: auto; }
@@ -106,6 +108,9 @@
 
   async function pedir(ruta, clave) {
     const r = await fetch(ruta, { headers: clave ? { "X-Clave-App": clave } : {}, cache: "no-store" });
+    if (r.status === 401) {
+      throw new Error(clave ? "La clave no coincide con CECAPI_CLAVE_APP del servidor." : "Escribe la clave de la app (CECAPI_CLAVE_APP) y presiona Ver.");
+    }
     if (!r.ok) {
       let detalle = `El servidor respondió ${r.status}.`;
       try { detalle = (await r.json()).detail || detalle; } catch (_) {}
