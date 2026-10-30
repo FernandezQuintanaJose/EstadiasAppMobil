@@ -45,6 +45,7 @@ import com.cecapi.app.core.theme.Sections
 import com.cecapi.app.core.ui.BigBtn
 import com.cecapi.app.core.ui.BigBtnVariant
 import com.cecapi.app.core.ui.MicPad
+import com.cecapi.app.core.ui.PantallaConMicrofono
 import com.cecapi.app.core.ui.ScreenTopBar
 import com.cecapi.app.core.ui.VoiceCaptionBubble
 import com.cecapi.app.core.voice.VoiceState
@@ -72,12 +73,11 @@ fun RequestsScreen(
     val listening = voiceState is VoiceState.Listening
     val enPregunta = uiState.plantillaSeleccionada != null
 
-    Box(modifier = Modifier.fillMaxSize()) {
+    PantallaConMicrofono {
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .padding(24.dp)
-            .padding(bottom = 230.dp),
+            .padding(24.dp),
     ) {
         ScreenTopBar(
             eyebrow = "DOCUMENTOS",
@@ -160,7 +160,6 @@ fun RequestsScreen(
                 ) == PackageManager.PERMISSION_GRANTED
                 if (granted) viewModel.onMicTapped() else permissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
             },
-            modifier = Modifier.align(Alignment.BottomCenter),
         )
     }
 }

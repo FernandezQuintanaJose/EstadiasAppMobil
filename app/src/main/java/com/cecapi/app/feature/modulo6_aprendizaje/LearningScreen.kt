@@ -73,7 +73,8 @@ import com.cecapi.app.core.theme.Sections
 import com.cecapi.app.core.ui.BigBtn
 import com.cecapi.app.core.ui.BigBtnSize
 import com.cecapi.app.core.ui.BigBtnVariant
-import com.cecapi.app.core.ui.VoiceMicButton
+import com.cecapi.app.core.ui.MicPad
+import com.cecapi.app.core.ui.PantallaConMicrofono
 import com.cecapi.app.core.ui.ScreenTopBar
 import com.cecapi.app.core.ui.TopAction
 import com.cecapi.app.core.ui.voiceHint
@@ -118,14 +119,13 @@ fun LearningScreen(
     var recreativas by remember { mutableStateOf(false) }
     val listening = voiceState is VoiceState.Listening
 
-    // La zona superior se reserva para contenido y desplazamiento.
-    // El microfono conserva su posicion en el centro, independientemente del scroll.
-    Box(modifier = Modifier.fillMaxSize()) {
+    // Pantalla dividida (igual que el resto de la app): arriba el contenido con su desplazamiento y abajo,
+    // en la zona del micrófono, todo el botón de voz.
+    PantallaConMicrofono {
         Column(
             modifier = Modifier
-                .fillMaxWidth()
-                .fillMaxHeight(0.5f)
-                .padding(start = 16.dp, end = 16.dp, top = 12.dp, bottom = 52.dp),
+                .fillMaxSize()
+                .padding(start = 16.dp, end = 16.dp, top = 12.dp, bottom = 8.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
             when {
@@ -193,9 +193,9 @@ fun LearningScreen(
             }
         }
 
-        // Reutilizamos el boton de voz existente sin modificar su logica.
-        VoiceMicButton(
-            isListening = listening,
+        MicPad(
+            listening = listening,
+            hint = if (listening) "Escuchando…" else "Di sonidos o vibración, o toca aquí",
             onDoubleTap = viewModel::onMicDoubleTap,
             onClick = {
                 val granted = ContextCompat.checkSelfPermission(
@@ -204,17 +204,6 @@ fun LearningScreen(
                 if (granted) viewModel.onMicTapped()
                 else permissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
             },
-            modifier = Modifier.align(Alignment.Center),
-        )
-        Text(
-            text = if (listening) "Escuchando…" else "Di sonidos o vibración, o toca aquí",
-            style = MaterialTheme.typography.bodyLarge,
-            color = MaterialTheme.colorScheme.onBackground,
-            modifier = Modifier
-                .align(Alignment.Center)
-                .offset(y = 88.dp)
-                .padding(horizontal = 20.dp)
-                .semantics { liveRegion = LiveRegionMode.Polite },
         )
     }
 }
