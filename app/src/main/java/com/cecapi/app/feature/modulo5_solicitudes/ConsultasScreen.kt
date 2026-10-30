@@ -102,8 +102,8 @@ fun ConsultasScreen(
                         titulo = "Tu consulta",
                         value = texto,
                         onValueChange = { texto = it },
-                        placeholder = "Por ejemplo: una carta para pedir un justificante",
-                        ayuda = "Campo de consulta. Escribe o di qué documento necesitas.",
+                        placeholder = "Pregunta algo o pide un documento, por ejemplo: una carta para pedir un justificante",
+                        ayuda = "Campo de consulta. Escribe o di tu pregunta, o qué documento necesitas.",
                         icono = Icons.Filled.Description,
                         singleLine = false,
                         minLines = 3,
@@ -115,7 +115,7 @@ fun ConsultasScreen(
                     }
                     BigBtn(
                         icon = Icons.Filled.AutoAwesome,
-                        label = "Generar documento",
+                        label = "Enviar consulta",
                         section = Sections.Documents,
                         enabled = texto.isNotBlank(),
                         onClick = { viewModel.generar(texto) },
@@ -129,7 +129,7 @@ fun ConsultasScreen(
                     )
                 }
                 ConsultaPaso.GENERANDO -> TarjetaLectura(
-                    titulo = "Generando tu documento…",
+                    titulo = "Pensando tu respuesta…",
                     cuerpo = estado.consulta,
                     icono = Icons.Filled.HourglassTop,
                     section = Sections.Documents,
@@ -144,18 +144,18 @@ fun ConsultasScreen(
                     // El documento es un cuadro editable: se puede corregir lo que generó la IA, o pegar aquí el texto
                     // que dio otro asistente, y lo que se lee en voz alta es lo que está escrito.
                     CampoTexto(
-                        titulo = "Documento",
+                        titulo = if (estado.esDocumento) "Documento" else "Respuesta",
                         value = estado.documento.orEmpty(),
                         onValueChange = viewModel::editarDocumento,
                         placeholder = "Escribe o pega aquí el texto",
-                        ayuda = "Documento. Es un cuadro de texto: puedes corregirlo o escribir encima. Lo que leo es lo que está aquí.",
+                        ayuda = "Es un cuadro de texto: puedes corregirlo o escribir encima. Lo que leo es lo que está aquí.",
                         icono = Icons.Filled.Description,
                         singleLine = false,
                         minLines = 8,
                     )
                     BigBtn(
                         icon = Icons.Filled.VolumeUp,
-                        label = "Leer el documento",
+                        label = if (estado.esDocumento) "Leer el documento" else "Leer la respuesta",
                         section = Sections.Documents,
                         onClick = viewModel::leerDocumento,
                     )
@@ -181,7 +181,7 @@ fun ConsultasScreen(
         MicPad(
             listening = listening,
             onDoubleTap = viewModel::onMicDoubleTap,
-            hint = if (listening) "Escuchando…" else "Di qué documento necesitas, o toca aquí",
+            hint = if (listening) "Escuchando…" else "Pregunta o pide un documento, o toca aquí",
             onClick = {
                 val granted = ContextCompat.checkSelfPermission(
                     context, Manifest.permission.RECORD_AUDIO,

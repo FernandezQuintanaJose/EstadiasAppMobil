@@ -241,7 +241,8 @@ class EditAccountViewModel @Inject constructor(
                 append(if (user.usarApodoRanking) "En clasificación te ven con tu apodo. " else "En clasificación te ven con tu nombre. ")
             }
             append("Tu usuario es ${user.nombreUsuario}. ")
-            append("Tu rol es ${user.rol}. ")
+            // El rol solo se dice a quien administra; para los demás no aporta nada.
+            if (user.rol == RolUsuario.ADMINISTRADOR.codigo) append("Eres administrador. ")
             append(
                 when {
                     user.origen.isNotBlank() -> "Perteneces a ${user.origen}. "

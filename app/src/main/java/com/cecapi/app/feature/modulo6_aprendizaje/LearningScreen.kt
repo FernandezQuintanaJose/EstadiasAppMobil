@@ -17,6 +17,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
@@ -31,6 +32,8 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Hearing
 import androidx.compose.material.icons.filled.Replay
+import androidx.compose.material.icons.filled.TouchApp
+import androidx.compose.material.icons.filled.SkipPrevious
 import androidx.compose.material.icons.filled.SkipNext
 import androidx.compose.material.icons.filled.SportsEsports
 import androidx.compose.material.icons.filled.Vibration
@@ -152,6 +155,8 @@ fun LearningScreen(
                         state = state,
                         onRepeat = viewModel::repeat,
                         onNext = viewModel::next,
+                        onPrevious = viewModel::previous,
+                        onAnswer = viewModel::responder,
                         onSetLevel = viewModel::setLevel,
                         onLeave = viewModel::leave,
                         modifier = Modifier.weight(1f),
@@ -279,6 +284,8 @@ private fun ActivityPage(
     state: ActivitiesUiState,
     onRepeat: () -> Unit,
     onNext: () -> Unit,
+    onPrevious: () -> Unit,
+    onAnswer: (String) -> Unit,
     onSetLevel: (Int) -> Unit,
     onLeave: () -> Unit,
     modifier: Modifier = Modifier,
@@ -384,11 +391,43 @@ private fun ActivityPage(
             )
         }
 
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceEvenly,
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
+        // Responder con botones grandes (también se puede decir): las opciones dependen del tipo de ejercicio.
+        val yaRespondido = state.index in state.respondidos
+        opcionesDe(item.answer).takeIf { it.isNotEmpty() }?.let { opciones ->
+            Text("TU RESPUESTA", style = MaterialTheme.typography.labelLarge, color = CecapiTextMuted)
+            opciones.chunked(3).forEach { fila ->
+                Row(horizontalArrangement = Arrangement.spacedBy(12.dp), modifier = Modifier.fillMaxWidth()) {
+                    fila.forEach { (etiqueta, respuesta) ->
+                        BigBtn(
+                            icon = Icons.Filled.TouchApp,
+                            label = etiqueta,
+                            section = Sections.Activities,
+                            half = true,
+                            size = BigBtnSize.Secondary,
+                            enabled = !yaRespondido && !state.busy,
+                            motivoDeshabilitado = if (state.busy) "Espera a que termine el sonido." else "Ya respondiste este ejercicio. Toca siguiente.",
+                            onClick = { onAnswer(respuesta) },
+                            modifier = Modifier.weight(1f),
+                        )
+                    }
+                    if (fila.size == 1) Spacer(modifier = Modifier.weight(1f))
+                }
+            }
+        }
+
+        Text("MOVERME", style = MaterialTheme.typography.labelLarge, color = CecapiTextMuted)
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
+            BigBtn(
+                section = Sections.Activities,
+                size = BigBtnSize.Secondary,
+                half = true,
+                modifier = Modifier.weight(1f),
+                icon = Icons.Filled.SkipPrevious,
+                label = "Anterior",
+                enabled = state.index > 0,
+                motivoDeshabilitado = "Estás en el primer ejercicio.",
+                onClick = onPrevious,
+            )
             BigBtn(
                 section = Sections.Activities,
                 size = BigBtnSize.Secondary,
@@ -409,6 +448,17 @@ private fun ActivityPage(
             )
         }
     }
+}
+
+/** Las respuestas posibles de un ejercicio, como (lo que dice el botón, lo que se manda como respuesta). */
+private fun opcionesDe(respuesta: String): List<Pair<String, String>> = when (respuesta.lowercase()) {
+    "izquierda", "derecha", "centro" -> listOf("Izquierda" to "izquierda", "Los dos lados" to "los dos lados", "Derecha" to "derecha")
+    "enfrente", "atras", "atrás" -> listOf("Enfrente" to "enfrente", "Atrás" to "atrás")
+    "cerca", "lejos" -> listOf("Cerca" to "cerca", "Lejos" to "lejos")
+    "corto", "largo", "mixto" -> listOf("Corto" to "corto", "Largo" to "largo", "Mixto" to "mixto")
+    "de izquierda a derecha", "de derecha a izquierda" ->
+        listOf("De izquierda a derecha" to "de izquierda a derecha", "De derecha a izquierda" to "de derecha a izquierda")
+    else -> emptyList()
 }
 
 /**

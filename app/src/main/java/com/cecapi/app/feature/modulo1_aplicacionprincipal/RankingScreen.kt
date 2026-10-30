@@ -51,6 +51,7 @@ import com.cecapi.app.core.theme.CecapiSurfaceElevated
 import com.cecapi.app.core.theme.CecapiTextMuted
 import com.cecapi.app.core.theme.Sections
 import com.cecapi.app.core.ui.BigBtn
+import com.cecapi.app.core.ui.TarjetaLectura
 import com.cecapi.app.core.ui.desplazableConBarra
 import com.cecapi.app.core.ui.BigBtnVariant
 import com.cecapi.app.core.ui.MicPad
@@ -100,14 +101,27 @@ fun RankingScreen(
             null -> {
                 ScreenTopBar(eyebrow = "ACTIVIDADES", title = "Clasificación", onBack = onBack, onCommands = viewModel::onCommandsRequested)
 
+                // Arriba, lo que más importa: dónde voy yo. Se lee al tocarla.
+                val miFila = state.individual.getOrNull(miPosicion)
+                TarjetaLectura(
+                    titulo = if (miFila != null) "Vas en el lugar ${miPosicion + 1}" else "Todavía no tienes puntos",
+                    cuerpo = if (miFila != null) {
+                        "${miFila.puntosTotales} puntos, nivel ${miFila.nivelActual}."
+                    } else {
+                        "Practica en Actividades, en los sonidos, para aparecer en la tabla."
+                    },
+                    icono = Icons.Filled.EmojiEvents,
+                    section = Sections.Ranking,
+                )
+
                 Row(horizontalArrangement = Arrangement.spacedBy(12.dp), modifier = Modifier.fillMaxWidth()) {
                     BigBtn(
                         icon = Icons.Filled.BarChart,
-                        label = "Ver mi ranking",
+                        label = "Mi posición",
                         section = Sections.Ranking,
-                        variant = BigBtnVariant.Accent,
                         half = true,
                         enabled = miPosicion >= 0,
+                        motivoDeshabilitado = "Todavía no tienes puntos. Practica en Actividades para aparecer.",
                         onClick = { sub = RankingSub.MI_RANKING },
                         modifier = Modifier.weight(1f),
                     )
@@ -117,16 +131,16 @@ fun RankingScreen(
                         section = Sections.Ranking,
                         half = true,
                         enabled = state.individual.isNotEmpty(),
+                        motivoDeshabilitado = "Todavía nadie tiene puntos.",
                         onClick = { sub = RankingSub.TOP5 },
                         modifier = Modifier.weight(1f),
                     )
                 }
 
-                Text("TABLA INDIVIDUAL", style = MaterialTheme.typography.labelLarge, color = CecapiTextMuted)
-
                 if (state.tieneInstitucion) {
                     // "Competir con alumnos de su institución y de otras": las dos vistas, una u otra, no mezcladas.
                     // Las instituciones en sí no compiten entre ellas — esto solo filtra a qué personas se ve.
+                    Text("VER", style = MaterialTheme.typography.labelLarge, color = CecapiTextMuted)
                     Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                         BigBtn(
                             icon = Icons.Filled.School,
@@ -147,27 +161,8 @@ fun RankingScreen(
                     }
                 }
 
-                // Espacio reservado para competencias por tiempo (eventos/dinámicas de un educador o
-                // globales de la institución, con puntos por 1°, 2° o 3° lugar) — todavía sin datos
-                // reales que mostrar, así que quedan bloqueadas en vez de simular algo que no existe.
-                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                    BigBtn(
-                        icon = Icons.Filled.CalendarViewWeek,
-                        label = "Semana",
-                        variant = BigBtnVariant.Locked,
-                        half = true,
-                        onClick = {},
-                        modifier = Modifier.weight(1f),
-                    )
-                    BigBtn(
-                        icon = Icons.Filled.CalendarMonth,
-                        label = "Mes",
-                        variant = BigBtnVariant.Locked,
-                        half = true,
-                        onClick = {},
-                        modifier = Modifier.weight(1f),
-                    )
-                }
+                // Semana y Mes (competencias por tiempo) se quitaron hasta que haya eventos reales que mostrar.
+                Text("TABLA", style = MaterialTheme.typography.labelLarge, color = CecapiTextMuted)
 
                 if (state.individual.isEmpty()) {
                     val mensaje = if (state.alcance == AlcanceRanking.MI_INSTITUCION) {

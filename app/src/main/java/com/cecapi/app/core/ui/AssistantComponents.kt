@@ -407,6 +407,8 @@ fun BigBtn(
     section: ModuleSection? = null,
     variant: BigBtnVariant = BigBtnVariant.Neutral,
     enabled: Boolean = true,
+    /** Si el botón está deshabilitado, esto es lo que dice al tocarlo: nadie debe quedarse sin saber por qué no responde. */
+    motivoDeshabilitado: String? = null,
     // Dos de estos comparten el ancho de una fila cuando la acción no es la prioridad de la pantalla
     // (p. ej. Iniciar sesión / Crear cuenta en Inicio) — coincide con el HalfBtn del prototipo de Figma.
     half: Boolean = false,
@@ -464,7 +466,8 @@ fun BigBtn(
             // Al volver a la pantalla se recupera la tarjeta donde estaba la persona; si no hay ninguna
             // guardada, la primera tarjeta de módulo nace seleccionada.
             val tomarla = if (guardada != null) guardada == help else section != null && seleccion.actual == null
-            if (tomarla && seleccion.actual == null) {
+            // Un botón deshabilitado nunca nace seleccionado: se vería como "agarrado" sin poder usarse.
+            if (enabled && tomarla && seleccion.actual == null) {
                 seleccion.elegir(yo, help)
                 seleccion.silenciar = true
                 try {
@@ -482,7 +485,7 @@ fun BigBtn(
             .clip(shape)
             .background(fondo)
             .border(borderWidth, borderColor, shape)
-            .alpha(if (enabled) 1f else 0.4f)
+            .alpha(if (enabled) 1f else 0.6f)
             .focusRequester(foco)
             .onFocusChanged { estado ->
                 if (estado.isFocused) {
@@ -496,7 +499,17 @@ fun BigBtn(
                     enFocoLocal = false
                 }
             }
-            .clickable(enabled = enabled && !locked, onClick = { seleccion?.elegir(yo, help); onClick() })
+            .clickable(
+                enabled = (enabled || motivoDeshabilitado != null) && !locked,
+                onClick = {
+                    if (enabled) {
+                        seleccion?.elegir(yo, help)
+                        onClick()
+                    } else {
+                        helper?.speak(motivoDeshabilitado.orEmpty())
+                    }
+                },
+            )
             .semantics { contentDescription = help }
             .voiceHint(help, onHold = { seleccion?.elegir(yo, help) })
             .padding(
