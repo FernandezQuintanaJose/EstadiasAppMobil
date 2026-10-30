@@ -174,6 +174,7 @@ fun DocumentReaderScreen(
             onNext = { viewModel.onBotonPresionado(BotonLector.SIGUIENTE) },
             onSavePhoto = { viewModel.onBotonPresionado(BotonLector.GUARDAR) },
             onRetakePhoto = { viewModel.onBotonPresionado(BotonLector.OTRA_FOTO) },
+            onEnfrente = viewModel::cambiarAEntorno,
         )
     } else {
         // Pantalla 1: Vista previa de cámara limpia a pantalla completa
@@ -239,7 +240,6 @@ private fun DocumentCameraScreen(
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
             VolverAlMenuButton(onClick = onBack)
-            SelectorModoCamara(leyendoTexto = true, onLeerTexto = {}, onEnfrente = onEnfrente)
 
             Spacer(modifier = Modifier.weight(1f))
 
@@ -290,6 +290,7 @@ private fun DocumentReadoutControlScreen(
     onNext: () -> Unit,
     onSavePhoto: () -> Unit,
     onRetakePhoto: () -> Unit,
+    onEnfrente: () -> Unit = {},
 ) {
     Column(
         modifier = Modifier
@@ -563,6 +564,8 @@ private fun DocumentReadoutControlScreen(
             }
         }
 
+        // Después de la foto se elige qué hacer con la cámara: seguir leyendo texto o pasar a qué hay enfrente.
+        SelectorModoCamara(leyendoTexto = true, onLeerTexto = {}, onEnfrente = onEnfrente)
         VolverAlMenuButton(onClick = onBack)
     }
 }

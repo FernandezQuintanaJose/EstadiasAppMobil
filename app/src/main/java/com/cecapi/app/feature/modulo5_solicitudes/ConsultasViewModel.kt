@@ -51,6 +51,7 @@ class ConsultasViewModel @Inject constructor(
     private val sessionRepository: SessionRepository,
     private val repository: AiAssistantRepository,
     private val cues: FeedbackCues,
+    private val intentFallback: com.cecapi.app.core.voice.IntentFallback,
     connectivityObserver: ConnectivityObserver,
 ) : ViewModel() {
 
@@ -75,6 +76,7 @@ class ConsultasViewModel @Inject constructor(
         // Lo que se dice aquí es el pedido de un documento, no un comando del teléfono: "la hora de entrada" o
         // "el volumen de ventas" no deben tomarse como "qué hora es" o "sube el volumen".
         voiceEngine.rawInput = true
+        intentFallback.soloConsultas = true
         voiceEngine.speak(
             "Consultas. Dime qué documento necesitas, por ejemplo: una carta para pedir un justificante. " +
                 CommandCatalog.hint("consultas"),
@@ -154,6 +156,19 @@ class ConsultasViewModel @Inject constructor(
         voiceEngine.speak("$mensaje Puedes volver a pedirlo.", listenAfter = true)
     }
 
+    /** La persona corrige el documento a mano; lo que se lee en voz alta es siempre lo que está en pantalla. */
+    fun editarDocumento(texto: String) {
+        val estado = _uiState.value
+        if (estado.paso == ConsultaPaso.LISTO) _uiState.value = estado.copy(documento = texto)
+    }
+
+    /** Para quien ya tiene el texto (por ejemplo, de otro asistente de IA): lo escribe o pega y lo edita aquí. */
+    fun escribirPropio() {
+        voiceEngine.stopSpeaking()
+        _uiState.value = ConsultasUiState(paso = ConsultaPaso.LISTO, consulta = "Texto escrito por mí", documento = "")
+        voiceEngine.speak("Escribe o pega tu texto en el cuadro. Después puedes pedirme que lo lea.")
+    }
+
     fun leerDocumento() {
         val documento = _uiState.value.documento ?: return voiceEngine.speak("Todavía no hay un documento. Dime qué necesitas.", listenAfter = true)
         voiceEngine.speak(documento)
@@ -173,6 +188,7 @@ class ConsultasViewModel @Inject constructor(
 
     override fun onCleared() {
         voiceEngine.rawInput = false
+        intentFallback.soloConsultas = false
         super.onCleared()
     }
 

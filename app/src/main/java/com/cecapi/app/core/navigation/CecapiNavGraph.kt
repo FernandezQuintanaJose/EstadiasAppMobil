@@ -1,6 +1,10 @@
 package com.cecapi.app.core.navigation
 
 import androidx.compose.runtime.Composable
+import androidx.navigation.compose.currentBackStackEntryAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.DisposableEffect
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavController
@@ -19,7 +23,6 @@ import com.cecapi.app.feature.modulo1_aplicacionprincipal.PersonalizationScreen
 import com.cecapi.app.feature.modulo1_aplicacionprincipal.RankingScreen
 import com.cecapi.app.feature.modulo1_aplicacionprincipal.RegisterScreen
 import com.cecapi.app.feature.modulo1_aplicacionprincipal.SoporteScreen
-import com.cecapi.app.feature.modulo1_aplicacionprincipal.ReportarIncidenteScreen
 import com.cecapi.app.feature.modulo1_aplicacionprincipal.SettingsScreen
 import com.cecapi.app.feature.modulo2_asistentevoz.VoiceAssistantScreen
 import com.cecapi.app.feature.modulo3_asistenteinteligente.AiAssistantScreen
@@ -31,6 +34,16 @@ import com.cecapi.app.feature.modulo7_entorno.EnvironmentScreen
 @Composable
 fun CecapiNavGraph(navController: NavHostController = rememberNavController()) {
     val navVoice: NavVoiceViewModel = hiltViewModel()
+    // Una puerta para todo: si algo (un toque o un comando de voz desde cualquier pantalla) lleva a una pantalla
+    // que necesita cuenta y no hay sesión, se regresa y se dice por qué.
+    val usuario by navVoice.sessionRepository.currentUser.collectAsState()
+    val rutaActual = navController.currentBackStackEntryAsState().value?.destination?.route
+    LaunchedEffect(rutaActual, usuario) {
+        if (rutaActual in CecapiDestinations.REQUIEREN_SESION && usuario == null) {
+            navController.popBackStack()
+            navVoice.voiceEngine.speak("Esto necesita una cuenta. Di iniciar sesión, o crear cuenta.")
+        }
+    }
     DisposableEffect(navController) {
         navVoice.voiceEngine.activeRoute = navController.currentDestination?.route
         var profundidad = navController.currentBackStack.value.size
@@ -112,9 +125,6 @@ fun CecapiNavGraph(navController: NavHostController = rememberNavController()) {
         }
         composable(CecapiDestinations.GESTION) {
             WakeScope { GestionScreen(onBack = { navController.popBackStack() }) }
-        }
-        composable(CecapiDestinations.REPORTAR_INCIDENTE) {
-            WakeScope { ReportarIncidenteScreen(onBack = { navController.popBackStack() }) }
         }
         composable(CecapiDestinations.SOPORTE) {
             WakeScope { SoporteScreen(onBack = { navController.popBackStack() }) }

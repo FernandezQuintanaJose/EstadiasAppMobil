@@ -29,6 +29,13 @@ class IntentFallback @Inject constructor() {
     @Volatile
     var enabled: Boolean = false
 
+    /** Verdadero mientras la persona está dentro de Consultas: ahí sí se usa la IA aunque el interruptor general esté apagado. */
+    @Volatile
+    var soloConsultas: Boolean = false
+
+    /** La IA se puede usar si la persona la encendió, o mientras está dentro de Consultas. */
+    val disponible: Boolean get() = enabled || soloConsultas
+
     @Volatile
     private var registered: (suspend (text: String, deep: Boolean) -> AiReply?)? = null
 

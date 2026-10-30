@@ -20,6 +20,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Description
 import androidx.compose.material.icons.filled.AutoAwesome
+import androidx.compose.material.icons.filled.EditNote
 import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.HourglassTop
 import androidx.compose.material.icons.filled.QuestionAnswer
@@ -119,6 +120,13 @@ fun ConsultasScreen(
                         enabled = texto.isNotBlank(),
                         onClick = { viewModel.generar(texto) },
                     )
+                    BigBtn(
+                        icon = Icons.Filled.EditNote,
+                        label = "Ya tengo el texto",
+                        sub = "Escribirlo o pegarlo aquí para editarlo y escucharlo",
+                        section = Sections.Documents,
+                        onClick = viewModel::escribirPropio,
+                    )
                 }
                 ConsultaPaso.GENERANDO -> TarjetaLectura(
                     titulo = "Generando tu documento…",
@@ -133,15 +141,18 @@ fun ConsultasScreen(
                         icono = Icons.Filled.QuestionAnswer,
                         section = Sections.Documents,
                     )
-                    Panel(titulo = "DOCUMENTO") {
-                        SelectionContainer {
-                            Text(
-                                estado.documento.orEmpty(),
-                                style = MaterialTheme.typography.bodyLarge.copy(lineHeight = 30.sp),
-                                color = CecapiTextPrimary,
-                            )
-                        }
-                    }
+                    // El documento es un cuadro editable: se puede corregir lo que generó la IA, o pegar aquí el texto
+                    // que dio otro asistente, y lo que se lee en voz alta es lo que está escrito.
+                    CampoTexto(
+                        titulo = "Documento",
+                        value = estado.documento.orEmpty(),
+                        onValueChange = viewModel::editarDocumento,
+                        placeholder = "Escribe o pega aquí el texto",
+                        ayuda = "Documento. Es un cuadro de texto: puedes corregirlo o escribir encima. Lo que leo es lo que está aquí.",
+                        icono = Icons.Filled.Description,
+                        singleLine = false,
+                        minLines = 8,
+                    )
                     BigBtn(
                         icon = Icons.Filled.VolumeUp,
                         label = "Leer el documento",

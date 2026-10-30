@@ -407,12 +407,6 @@ class DashboardViewModel @Inject constructor(
         return rol == RolUsuario.ADMINISTRADOR || rol == RolUsuario.DIRECTIVO || rol == RolUsuario.EDUCADOR
     }
 
-    fun onReportarIncidenteSelected() {
-        cues.play(FeedbackCues.Cue.NAVIGATE)
-        voiceEngine.speak("Abriendo reportes.")
-        _navEvents.tryEmit(CecapiDestinations.REPORTAR_INCIDENTE)
-    }
-
     fun onSoporteSelected() {
         cues.play(FeedbackCues.Cue.NAVIGATE)
         voiceEngine.speak("Abriendo ayuda.")

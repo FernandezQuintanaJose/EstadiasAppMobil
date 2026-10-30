@@ -147,7 +147,6 @@ fun EnvironmentScreen(
                 onBack = onBack,
                 onCommands = viewModel::onCommandsRequested,
             )
-            SelectorModoCamara(leyendoTexto = false, onLeerTexto = viewModel::cambiarALectura, onEnfrente = {})
 
             // La foto tiene su propio espacio, separado de los botones: así no se encima con ellos.
             if (photoPath != null) {
@@ -183,6 +182,7 @@ fun EnvironmentScreen(
 
             val listening = voiceState is VoiceState.Listening
             if (photoPath != null) {
+                SelectorModoCamara(leyendoTexto = false, onLeerTexto = viewModel::cambiarALectura, onEnfrente = {})
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceEvenly,

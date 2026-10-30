@@ -125,7 +125,7 @@ fun DashboardScreen(
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .desplazableConBarra()
+            .verticalScroll(rememberScrollState())
             .padding(vertical = 16.dp),
     ) {
         Column(
@@ -179,7 +179,7 @@ fun DashboardScreen(
 
         // Clasificación + Cuenta en media fila, Cámara, Consultas (con los chats dentro), Actividades,
         // Personalización, Gestión (si aplica), Configuración, Cerrar sesión, Ayuda y soporte y
-        // Reportar un incidente (si aplica).
+        
         val rol = currentUser?.rol?.let(RolUsuario::fromCodigo)
         Column(
             modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp).padding(top = 20.dp),
@@ -258,14 +258,6 @@ fun DashboardScreen(
                 section = Sections.Ayuda,
                 onClick = viewModel::onSoporteSelected,
             )
-            if (rol != RolUsuario.USUARIO) {
-                BigBtn(
-                    icon = Icons.Filled.Warning,
-                    label = "Reportar un incidente",
-                    section = Sections.Reportar,
-                    onClick = viewModel::onReportarIncidenteSelected,
-                )
-            }
         }
     }
 

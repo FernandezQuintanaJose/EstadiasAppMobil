@@ -334,10 +334,15 @@ class HomeViewModel @Inject constructor(
             ModuleVoice.isListRequest(text) -> voiceEngine.speak(ModuleVoice.spokenList(menu))
             cameraRoute != null -> openCameraMode(cameraRoute)
             menuKey != null -> onMenuKey(menuKey)
-            "iniciar sesión" in text || "iniciar sesion" in text -> {
+            VoiceText.hasAny(
+                VoiceText.normalize(text),
+                "iniciar sesion", "inicia sesion", "entrar a mi cuenta", "entrar", "ingresar", "acceder", "login", "loguearme",
+            ) -> {
                 voiceEngine.speak("Abriendo el inicio de sesión.")
                 _navEvents.tryEmit(HomeNavEvent.GoToLogin)
             }
+            VoiceText.hasAny(VoiceText.normalize(text), "crear cuenta", "crea una cuenta", "registrarme", "registrame", "nueva cuenta", "darme de alta") ->
+                onCrearCuentaSelected()
             "ayuda" in text -> voiceEngine.speak(
                 "Soy un asistente para personas invidentes. Puedo abrir la cámara para leer texto o describir lo que hay enfrente, " +
                     "y decirte cómo está tu teléfono. Di menú, estado del teléfono, " +

@@ -107,7 +107,7 @@ class ProxyAiAssistantApi @Inject constructor(
         withContext(Dispatchers.IO) {
             // La persona activa esto en Configuración; desactivado por defecto (los proveedores de IA no permiten menores).
             // Se revisa aquí, en el único lugar que en realidad llega a la red, para que ningún llamador pueda evitarlo.
-            if (!intentFallback.enabled) {
+            if (!intentFallback.disponible) {
                 return@withContext Result.failure(
                     AiException(AiFailure.DISABLED, "La inteligencia artificial está desactivada."),
                 )
