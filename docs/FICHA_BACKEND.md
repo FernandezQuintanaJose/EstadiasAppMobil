@@ -17,8 +17,8 @@ Servicio web en Render; base PostgreSQL en Neon (no Render Postgres). Alembic y 
 ## Tareas, en orden
 1. Fijar versiones en `requirements.txt` y probar arranque limpio.
 2. Ruta de salud que no toque la base de datos.
-3. Modelos y migraciones Alembic en Neon: usuarios, aceptaciones de políticas (con versión y fecha), uso por usuario.
-4. Verificación del token de Google con `id_token.verify_oauth2_token(token, request, audience)`; emitir o validar token por usuario.
+3. Modelos y migraciones Alembic en Neon: usuarios (usuario, correo, contraseña con Argon2id), códigos de verificación con vencimiento, chats, aceptaciones de políticas (con versión y fecha), uso por usuario. Datos conservados mientras exista la cuenta.
+4. Cuenta propia (decisión del 30 oct, sin Google): rutas de registro, verificación por código, acceso con correo o usuario, recuperar y restablecer contraseña, aceptación de políticas, borrar chats y eliminar cuenta. Contraseñas con Argon2id. Contrato propuesto en el README de PaginaAsistenteCECAPI. Token por usuario. [REEMPLAZADO: antes era verificar el token de Google con `id_token.verify_oauth2_token`.]
 5. Cupos por usuario y por día, sustituyendo el límite por IP. Con proxy: `--proxy-headers` y `--forwarded-allow-ips` para ver la IP real.
 6. CORS limitado a los dominios propios.
 7. Respaldo entre Gemini y Groq con tiempos de espera; manejo de errores en español para lectores de pantalla.
