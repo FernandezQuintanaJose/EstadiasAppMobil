@@ -176,12 +176,9 @@ fun DashboardScreen(
             OfflineBanner(modifier = Modifier.padding(horizontal = 24.dp).padding(top = 16.dp))
         }
 
-        // Orden actualizado según el mockup de Figma: Clasificación + Mi cuenta en media fila,
-        // Cámara, Documentos, Actividades, Chats, Personalización, Configuración, Gestión (si
-        // aplica), Ayuda y soporte (si aplica), Cerrar sesión. "Mi cuenta" reutiliza la pantalla
-        // de editar cuenta ya existente; no hay pantallas reales de Emergencias ni de Reportar un
-        // incidente (distinta de Ayuda y soporte), así que esas dos tarjetas del Figma no se
-        // agregan todavía.
+        // Clasificación + Cuenta en media fila, Cámara, Consultas (con los chats dentro), Actividades,
+        // Personalización, Gestión (si aplica), Configuración, Cerrar sesión, Ayuda y soporte y
+        // Reportar un incidente (si aplica).
         val rol = currentUser?.rol?.let(RolUsuario::fromCodigo)
         Column(
             modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp).padding(top = 20.dp),
@@ -198,7 +195,7 @@ fun DashboardScreen(
                 )
                 BigBtn(
                     icon = Icons.Filled.Person,
-                    label = "Mi cuenta",
+                    label = "Cuenta",
                     section = ModuleSection(color = Color(0xFF60A5FA), bg = Color(0xFF1A2740)),
                     half = true,
                     onClick = viewModel::onEditarCuentaSelected,
@@ -227,12 +224,6 @@ fun DashboardScreen(
                     onClick = { viewModel.onMenuItemSelected(actividades) },
                 )
             }
-            BigBtn(
-                icon = Icons.Filled.Chat,
-                label = "Chats",
-                section = Sections.Chats,
-                onClick = { viewModel.onMenuItemSelected(MenuItem.Chats) },
-            )
             BigBtn(
                 icon = Icons.Filled.Tune,
                 label = "Personalización",
@@ -274,12 +265,6 @@ fun DashboardScreen(
                     onClick = viewModel::onReportarIncidenteSelected,
                 )
             }
-            BigBtn(
-                icon = Icons.Filled.Phone,
-                label = "Emergencias",
-                section = Sections.Emergency,
-                onClick = viewModel::onEmergenciasSelected,
-            )
         }
     }
 

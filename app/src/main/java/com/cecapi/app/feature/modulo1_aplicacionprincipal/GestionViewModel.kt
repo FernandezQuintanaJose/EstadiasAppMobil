@@ -207,32 +207,6 @@ class GestionViewModel @Inject constructor(
         _expandidoId.value = null
     }
 
-    /** Una baja pedida por una cuenta de institución la confirma un administrador, un directivo de su institución o su educador. */
-    fun puedeAutorizarBajaDe(persona: UsuarioEntity): Boolean {
-        val autor = sessionRepository.currentUser.value ?: return false
-        if (!persona.solicitaBaja || persona.rol == RolUsuario.ADMINISTRADOR.codigo) return false
-        return when (RolUsuario.fromCodigo(autor.rol)) {
-            RolUsuario.ADMINISTRADOR -> true
-            RolUsuario.DIRECTIVO -> autor.origen.equals(persona.origen, ignoreCase = true)
-            RolUsuario.EDUCADOR -> persona.educadorId == autor.id
-            else -> false
-        }
-    }
-
-    fun onAutorizarBajaDe(persona: UsuarioEntity) {
-        val autor = sessionRepository.currentUser.value ?: return
-        if (!puedeAutorizarBajaDe(persona)) return
-        viewModelScope.launch {
-            cambioCuentaDao.insert(
-                CambioCuentaEntity(objetivoId = persona.id, autorId = autor.id, tipo = "baja", detalle = "Autorizada por ${autor.nombreCompleto}"),
-            )
-            sessionRepository.borrarCuentaDe(persona.id)
-            cues.play(FeedbackCues.Cue.SUCCESS)
-            voiceEngine.speak("Listo. Di de baja la cuenta de ${persona.nombreCompleto}.")
-        }
-        _expandidoId.value = null
-    }
-
     /** Quién puede tocar los datos de una cuenta: el administrador cualquiera; directivo su institución; educador sus alumnos. */
     private fun puedeTocarCuenta(persona: UsuarioEntity): Boolean {
         val autor = sessionRepository.currentUser.value ?: return false

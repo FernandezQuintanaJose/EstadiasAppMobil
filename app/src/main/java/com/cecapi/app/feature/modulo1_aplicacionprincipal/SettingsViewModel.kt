@@ -71,14 +71,9 @@ class SettingsViewModel @Inject constructor(
     /** True mientras se le preguntó a la persona si borrar las fotos viejas y todavía no ha respondido. */
     private val _pendingClean = MutableStateFlow(false)
 
-    /** True mientras se le pidió a la persona decir su contraseña para confirmar que borra su cuenta. */
-    private val _awaitingDeletePassword = MutableStateFlow(false)
-    val awaitingDeletePassword: StateFlow<Boolean> = _awaitingDeletePassword.asStateFlow()
-
-    /** True mientras, ya confirmada la contraseña, se le preguntó a la persona el "¿borro...?" final, solo por un tiempo corto. */
-    private val _pendingDeleteAccount = MutableStateFlow(false)
-    val pendingDeleteAccount: StateFlow<Boolean> = _pendingDeleteAccount.asStateFlow()
-    private var deleteAskedAt = 0L
+    /** Pide a la pantalla abrir Cuenta (ahí se edita, se cierra sesión y se borra la cuenta). */
+    private val _openAccount = MutableSharedFlow<Unit>(extraBufferCapacity = 1)
+    val openAccount: SharedFlow<Unit> = _openAccount
     val pendingClean: StateFlow<Boolean> = _pendingClean.asStateFlow()
 
 
@@ -111,15 +106,6 @@ class SettingsViewModel @Inject constructor(
         val spokenWords = text.split(" ")
         fun hasWord(vararg words: String) = words.any { it in spokenWords }
         val cleaning = _pendingClean.value
-        val expired = System.currentTimeMillis() - deleteAskedAt >= CONFIRM_WINDOW_MS
-        val awaitingPassword = _awaitingDeletePassword.value && !expired
-        val deletingAccount = _pendingDeleteAccount.value && !expired
-        // El paso de la contraseña abre rawInput para que una contraseña hablada nunca sea absorbida por otro comando; si la
-        // persona se quedó callada en vez de responder, regresa la pantalla a lo normal en vez de dejarla atascada.
-        if (_awaitingDeletePassword.value && expired) {
-            _awaitingDeletePassword.value = false
-            voiceEngine.rawInput = false
-        }
         when {
             // El aviso del micrófono espera "acepto" o "no acepto" antes que cualquier otro comando.
             _pendingListenConsent.value -> when {
@@ -127,17 +113,8 @@ class SettingsViewModel @Inject constructor(
                 hasWord("acepto", "si", "claro", "dale", "adelante", "ok", "okey") || has("de acuerdo") -> acceptListenConsent()
                 else -> voiceEngine.speak("Di acepto para activarlo, o no acepto.", listenAfter = true)
             }
-            // Antes de tratar lo dicho como el intento de contraseña: si la persona quiere salir de ahí
-            // ("regresar", "salir"...), eso debe cancelar el borrado, no fallar como si fuera una contraseña mala.
-            awaitingPassword && has("atras", "volver", "vuelve", "regresa", "regresar", "salir", "cancelar", "cancela", "menu", "inicio") ->
-                cancelDeleteAccount()
-            // Borrar la cuenta pide, además del "sí", la contraseña: mientras se espera, cualquier otra frase es el
-            // intento, no un comando (igual que el usuario y la contraseña al iniciar sesión).
-            awaitingPassword -> checkDeletePassword(spoken)
             CommandCatalog.isRequest(spoken) -> voiceEngine.speak(CommandCatalog.SETTINGS, listenAfter = true)
-            deletingAccount && !VoiceText.isNo(spoken) && spokenWords.any { it in DELETE_CONFIRM_WORDS } -> confirmDeleteAccount()
-            deletingAccount && VoiceText.isNo(spoken) -> cancelDeleteAccount()
-            has("borra mi cuenta", "borrar mi cuenta", "elimina mi cuenta", "eliminar mi cuenta", "borra mis datos", "borrar mis datos", "elimina mis datos", "eliminar mis datos", "darme de baja") -> askDeleteAccount()
+            has("borra mi cuenta", "borrar mi cuenta", "elimina mi cuenta", "eliminar mi cuenta", "borra mis datos", "borrar mis datos", "elimina mis datos", "eliminar mis datos", "darme de baja", "mi cuenta", "cuenta") -> abrirCuenta()
             has("inteligencia artificial", "la ia") && enable != null -> onAiEnabledChanged(enable)
             cleaning && hasWord("si", "claro", "dale", "ok", "okey", "supuesto", "afirmativo", "correcto", "seguro", "hazlo", "confirmo", "borralas", "adelante") -> confirmClean()
             cleaning && hasWord("no", "nunca", "negativo", "olvidalo", "dejalo", "cancela", "cancelar") -> cancelClean()
@@ -237,69 +214,14 @@ class SettingsViewModel @Inject constructor(
 
     // ---- Privacidad: borrar mi cuenta, y el interruptor de la IA ------------------------------------------------------
 
-    /** Pregunta primero, con palabras claras sobre lo que se pierde: esto no se puede deshacer. Necesita una persona con sesión iniciada. */
-    /**
-     * Borrar una cuenta no se puede deshacer, por eso pide algo más que un simple "sí": la contraseña de la
-     * propia persona. Esto también evita que un "sí, borrar" suelto de otra persona en la habitación borre una cuenta.
-     */
-    fun askDeleteAccount() {
+    /** Cuenta vive en su propia pantalla, la misma del menú: ahí se edita, se cierra sesión y se borra. */
+    fun abrirCuenta() {
         if (currentUser.value == null) {
-            voiceEngine.speak("No hay una sesión iniciada, así que no hay una cuenta que borrar. Ve a iniciar sesión primero.", listenAfter = true)
+            voiceEngine.speak("No hay una sesión iniciada. Ve a iniciar sesión primero.", listenAfter = true)
             return
         }
-        _awaitingDeletePassword.value = true
-        deleteAskedAt = System.currentTimeMillis()
-        voiceEngine.rawInput = true // una contraseña hablada debe llegar aquí sin tocar, igual que al iniciar sesión
-        voiceEngine.speak("Para borrar tu cuenta, primero dime tu contraseña.", listenAfter = true)
-    }
-
-    /** Para el campo de contraseña en pantalla, cuando la persona la escribe en vez de decirla. */
-    fun onDeletePasswordEntered(password: String) {
-        if (password.isBlank()) return
-        checkDeletePassword(password)
-    }
-
-    private fun checkDeletePassword(spoken: String) {
-        val user = currentUser.value
-        _awaitingDeletePassword.value = false
-        if (user == null || !sessionRepository.passwordMatches(user.contrasenaHash, spoken)) {
-            voiceEngine.rawInput = false
-            cues.play(FeedbackCues.Cue.ERROR)
-            voiceEngine.speak("Esa no es tu contraseña. No borré nada.", listenAfter = true)
-            return
-        }
-        _pendingDeleteAccount.value = true
-        deleteAskedAt = System.currentTimeMillis()
-        voiceEngine.speak(
-            "Contraseña correcta. ¿Borro tu cuenta y todo lo que guardaste: chats, resultados, documentos y fotos? " +
-                "No se puede deshacer. Di sí, borrar, para confirmar, o no.",
-            listenAfter = true,
-        )
-    }
-
-    fun confirmDeleteAccount() {
-        _pendingDeleteAccount.value = false
-        voiceEngine.rawInput = false
-        viewModelScope.launch {
-            if (sessionRepository.deleteCurrentAccount()) {
-                cues.play(FeedbackCues.Cue.SUCCESS)
-                voiceEngine.speak(
-                    "Listo. Borré los datos de tu cuenta: tus chats, resultados, documentos y fotos. " +
-                        "Algunas preferencias de este teléfono, como el nombre con el que te saludo y cómo hablo, se quedan, " +
-                        "porque son de este teléfono y no de tu cuenta.",
-                )
-                _loggedOut.tryEmit(Unit)
-            } else {
-                voiceEngine.speak("No pude borrar la cuenta porque no hay una sesión iniciada.")
-            }
-        }
-    }
-
-    fun cancelDeleteAccount() {
-        _pendingDeleteAccount.value = false
-        _awaitingDeletePassword.value = false
-        voiceEngine.rawInput = false
-        voiceEngine.speak("De acuerdo, no borré nada.", listenAfter = true)
+        voiceEngine.speak("Abriendo tu cuenta. Hasta abajo está borrar mis datos y mi cuenta.")
+        _openAccount.tryEmit(Unit)
     }
 
     /** La IA es opcional y está apagada por defecto: lo que el asistente no entiende nunca se envía a ningún lado a menos que esto esté activado. */
@@ -328,17 +250,11 @@ class SettingsViewModel @Inject constructor(
     }
 
     private companion object {
-        /** Una confirmación para borrar una cuenta solo es válida por un rato corto. */
-        const val CONFIRM_WINDOW_MS = 30_000L
-
         /** Se dice antes de activar la escucha fuera de la app; la aceptación se guarda con su fecha en el teléfono. */
         const val LISTEN_CONSENT_NOTICE =
             "Antes de activar esto: voy a mantener el micrófono encendido mientras tengas la sesión iniciada, " +
                 "aunque la aplicación no esté en pantalla. Solo escucho mi nombre y tus comandos; no grabo ni guardo lo que oigo. " +
                 "Verás un aviso fijo y puedes detenerme diciendo para. Gasta más batería. ¿Aceptas? Di acepto, o no acepto."
-
-        /** Palabras completas que confirman el borrado; un simple "ok" o "dale" no basta para algo tan definitivo. */
-        val DELETE_CONFIRM_WORDS = setOf("si", "confirmo", "borrar", "borrala", "borralo", "elimina", "eliminala")
     }
 
     fun currentVolumePercent(): Int = volumeControl.percent()

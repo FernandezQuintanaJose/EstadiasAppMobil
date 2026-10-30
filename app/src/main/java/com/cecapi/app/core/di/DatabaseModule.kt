@@ -21,6 +21,7 @@ import com.cecapi.app.core.data.MIGRATION_12_13
 import com.cecapi.app.core.data.MIGRATION_13_14
 import com.cecapi.app.core.data.MIGRATION_14_15
 import com.cecapi.app.core.data.MIGRATION_15_16
+import com.cecapi.app.core.data.MIGRATION_16_17
 import com.cecapi.app.core.util.PasswordHasher
 import com.cecapi.app.feature.modulo3_asistenteinteligente.ConsultaIaDao
 import com.cecapi.app.feature.modulo3_asistenteinteligente.ContextoConversacionDao
@@ -38,16 +39,11 @@ import com.cecapi.app.feature.modulo6_aprendizaje.NivelAprendizajeDao
 import com.cecapi.app.feature.modulo6_aprendizaje.ResultadoEjercicioDao
 import com.cecapi.app.feature.modulo1_aplicacionprincipal.ConfiguracionUsuarioDao
 import com.cecapi.app.feature.modulo1_aplicacionprincipal.CambioCuentaDao
-import com.cecapi.app.feature.modulo1_aplicacionprincipal.ContactoEmergenciaDao
 import com.cecapi.app.feature.modulo1_aplicacionprincipal.IncidenciaDao
 import com.cecapi.app.feature.modulo1_aplicacionprincipal.RankingDao
 import com.cecapi.app.feature.modulo1_aplicacionprincipal.PermisosModuloDao
 import com.cecapi.app.feature.modulo1_aplicacionprincipal.RolUsuario
 import com.cecapi.app.feature.modulo1_aplicacionprincipal.UsuarioDao
-import com.cecapi.app.feature.modulo5_solicitudes.DatoSolicitudDao
-import com.cecapi.app.feature.modulo5_solicitudes.PlantillaSolicitudDao
-import com.cecapi.app.feature.modulo5_solicitudes.PlantillaSolicitudEntity
-import com.cecapi.app.feature.modulo5_solicitudes.SolicitudGeneradaDao
 import com.cecapi.app.feature.modulo2_asistentevoz.ComandoVozDao
 import com.cecapi.app.feature.modulo2_asistentevoz.HistorialComandoDao
 import com.cecapi.app.feature.modulo2_asistentevoz.RespuestaAuditivaDao
@@ -75,16 +71,9 @@ object DatabaseModule {
     ): AppDatabase = Room.databaseBuilder(context, AppDatabase::class.java, "cecapi.db")
         .addMigrations(
             MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6,
-            MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10, MIGRATION_10_11, MIGRATION_11_12, MIGRATION_12_13, MIGRATION_13_14, MIGRATION_14_15, MIGRATION_15_16,
+            MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10, MIGRATION_10_11, MIGRATION_11_12, MIGRATION_12_13, MIGRATION_13_14, MIGRATION_14_15, MIGRATION_15_16, MIGRATION_16_17,
         )
         .addCallback(object : androidx.room.RoomDatabase.Callback() {
-            override fun onCreate(db: SupportSQLiteDatabase) {
-                super.onCreate(db)
-                CoroutineScope(SupervisorJob() + Dispatchers.IO).launch {
-                    seedDemoData(databaseProvider.get())
-                }
-            }
-
             // Runs on every open (fresh install and upgrade alike); it only adds the missing accounts.
             // It is synchronous on purpose: the accounts must exist before the first login attempt,
             // otherwise the very first "Ingresar" on a fresh install can fail for no visible reason.
@@ -214,30 +203,6 @@ object DatabaseModule {
         }
     }
 
-    private suspend fun seedDemoData(database: AppDatabase) {
-        database.plantillaSolicitudDao().insertAll(
-            listOf(
-                PlantillaSolicitudEntity(
-                    titulo = "Constancia de estudios",
-                    descripcion = "Para trámites que requieren comprobar que estudias en CECAPI.",
-                    cuerpoPlantilla = "Solicito una constancia de estudios a nombre de {nombre_completo}, " +
-                        "con fecha {fecha}, para el siguiente motivo: {motivo}.",
-                ),
-                PlantillaSolicitudEntity(
-                    titulo = "Justificación de inasistencia",
-                    descripcion = "Para justificar una falta ante CECAPI.",
-                    cuerpoPlantilla = "Yo, {nombre_completo}, justifico mi inasistencia del día {fecha} " +
-                        "por el siguiente motivo: {motivo}.",
-                ),
-                PlantillaSolicitudEntity(
-                    titulo = "Solicitud de apoyo",
-                    descripcion = "Para pedir apoyo o material a CECAPI.",
-                    cuerpoPlantilla = "Yo, {nombre_completo}, solicito apoyo con: {motivo}. Fecha: {fecha}.",
-                ),
-            ),
-        )
-    }
-
     @Provides
     fun provideUsuarioDao(db: AppDatabase): UsuarioDao = db.usuarioDao()
 
@@ -252,9 +217,6 @@ object DatabaseModule {
 
     @Provides
     fun provideCambioCuentaDao(db: AppDatabase): CambioCuentaDao = db.cambioCuentaDao()
-
-    @Provides
-    fun provideContactoEmergenciaDao(db: AppDatabase): ContactoEmergenciaDao = db.contactoEmergenciaDao()
 
     @Provides
     fun provideRankingDao(db: AppDatabase): RankingDao = db.rankingDao()
@@ -285,15 +247,6 @@ object DatabaseModule {
 
     @Provides
     fun provideHistorialLecturaDao(db: AppDatabase): HistorialLecturaDao = db.historialLecturaDao()
-
-    @Provides
-    fun providePlantillaSolicitudDao(db: AppDatabase): PlantillaSolicitudDao = db.plantillaSolicitudDao()
-
-    @Provides
-    fun provideSolicitudGeneradaDao(db: AppDatabase): SolicitudGeneradaDao = db.solicitudGeneradaDao()
-
-    @Provides
-    fun provideDatoSolicitudDao(db: AppDatabase): DatoSolicitudDao = db.datoSolicitudDao()
 
     @Provides
     fun provideEjercicioDao(db: AppDatabase): EjercicioDao = db.ejercicioDao()

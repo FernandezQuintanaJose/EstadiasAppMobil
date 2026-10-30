@@ -2,23 +2,29 @@ package com.cecapi.app.feature.modulo1_aplicacionprincipal
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.cecapi.app.core.util.PasswordHasher
+import com.cecapi.app.core.navigation.CecapiDestinations
 import com.cecapi.app.core.voice.FeedbackCues
 import com.cecapi.app.core.voice.VoiceEngine
 import com.cecapi.app.core.voice.VoiceState
+import com.cecapi.app.core.voice.VoiceText
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
+/** En qué paso va el borrado de la cuenta: se pide la contraseña y luego una confirmación explícita. */
+enum class PasoBorrado { NINGUNO, CONTRASENA, CONFIRMAR }
+
 /**
- * Editar mi cuenta: su propia pantalla (antes vivía plegada dentro de Configuración). Cada quien
- * edita solo la suya — Gestión nunca cambia esto, solo el rol — y pide la contraseña actual para
- * confirmar, igual que al borrar la cuenta.
+ * Cuenta: la misma pantalla desde el menú y desde Configuración. Ahí la persona escucha cómo la ven los
+ * demás, edita sus datos, cierra sesión y, hasta abajo, borra sus datos y su cuenta. Cada quien edita solo
+ * la suya — Gestión nunca cambia esto, solo el rol — y todo cambio pide la contraseña actual.
  */
 @HiltViewModel
 class EditAccountViewModel @Inject constructor(
@@ -36,17 +42,54 @@ class EditAccountViewModel @Inject constructor(
     private val _back = MutableSharedFlow<Unit>(extraBufferCapacity = 1)
     val back: SharedFlow<Unit> = _back
 
+    private val _loggedOut = MutableSharedFlow<Unit>(extraBufferCapacity = 1)
+    val loggedOut: SharedFlow<Unit> = _loggedOut
+
     private val _guardado = MutableSharedFlow<Unit>(extraBufferCapacity = 1)
     val guardado: SharedFlow<Unit> = _guardado
 
     private val _errorMensaje = MutableSharedFlow<String>(extraBufferCapacity = 1)
     val errorMensaje: SharedFlow<String> = _errorMensaje
 
+    private val _pasoBorrado = MutableStateFlow(PasoBorrado.NINGUNO)
+    val pasoBorrado: StateFlow<PasoBorrado> = _pasoBorrado.asStateFlow()
+
     init {
         voiceEngine.speak(
-            "Editar mi cuenta. Aquí estás tú. Escribe o dicta lo que quieras cambiar y confirma con tu " +
-                "contraseña actual.",
+            "Cuenta. Toca cómo me ven para escuchar tus datos. Aquí también editas tus datos, cierras sesión y, " +
+                "hasta abajo, borras tu cuenta.",
+            listenAfter = true,
         )
+        viewModelScope.launch {
+            _pasoBorrado.collect { paso -> voiceEngine.rawInput = paso == PasoBorrado.CONTRASENA }
+        }
+        viewModelScope.launch {
+            voiceEngine.speechFor(CecapiDestinations.EDIT_ACCOUNT).collect { speech -> onSpeech(speech.text) }
+        }
+    }
+
+    private fun onSpeech(spoken: String) {
+        val texto = VoiceText.normalize(spoken)
+        fun has(vararg palabras: String) = VoiceText.hasAny(texto, *palabras)
+        when (_pasoBorrado.value) {
+            // Lo que se dice aquí es la contraseña, salvo "cancelar" como frase completa.
+            PasoBorrado.CONTRASENA -> if (texto in CANCELAR) onCancelarBorrado() else onContrasenaBorrado(spoken)
+            PasoBorrado.CONFIRMAR -> when {
+                VoiceText.isNo(spoken) -> onCancelarBorrado()
+                texto.split(" ").any { it in CONFIRMAR_BORRADO } -> onConfirmarBorrado()
+                else -> voiceEngine.speak("Di sí, borrar, para borrar tu cuenta, o no para dejarla.", listenAfter = true)
+            }
+            PasoBorrado.NINGUNO -> when {
+                has("como me ven", "mis datos", "quien soy", "lee mi cuenta") -> leerComoMeVen()
+                has("cerrar sesion", "cierra sesion", "salir de mi cuenta") -> onCerrarSesion()
+                has("borra mi cuenta", "borrar mi cuenta", "elimina mi cuenta", "borra mis datos", "borrar mis datos") -> onPedirBorrar()
+                has("atras", "volver", "vuelve", "regresa", "regresar", "salir", "menu", "inicio") -> _back.tryEmit(Unit)
+                else -> voiceEngine.speak(
+                    "Puedes decir: cómo me ven, cerrar sesión, borrar mi cuenta, o atrás.",
+                    listenAfter = true,
+                )
+            }
+        }
     }
 
     fun onBack() {
@@ -55,34 +98,37 @@ class EditAccountViewModel @Inject constructor(
 
     fun onCommandsRequested() {
         voiceEngine.speak(
-            "Editar mi cuenta. Cambia tu nombre, tu apodo, si en Clasificación te muestro tu nombre o tu apodo, " +
-                "y tu contraseña. Pide siempre tu contraseña actual para confirmar.",
+            "Cuenta. Di cómo me ven, para escuchar tus datos. Editar datos se hace en pantalla: cambia tu nombre, " +
+                "tu apodo, tu correo y tu contraseña, y confirma con tu contraseña actual. Di cerrar sesión, " +
+                "o borrar mi cuenta. Atrás, para volver.",
             listenAfter = true,
         )
     }
 
     fun onMicTapped() = voiceEngine.startListening()
 
-    /** Two quick taps on the mic silence the assistant, for someone using touch instead of voice. */
+    /** Dos toques rápidos en el micrófono silencian al asistente, para quien usa el tacto en vez de la voz. */
     fun onMicDoubleTap() = voiceEngine.mute()
+
+    /** Lo mismo que muestra la tarjeta "¿Cómo me ven?", dicho en voz alta. */
+    fun leerComoMeVen() {
+        val user = currentUser.value ?: return voiceEngine.speak("No hay una sesión iniciada.")
+        voiceEngine.speak(comoMeVen(user))
+    }
+
+    fun onCerrarSesion() {
+        sessionRepository.logout()
+        _loggedOut.tryEmit(Unit)
+    }
 
     fun onPedirInstitucion(institucion: String) {
         viewModelScope.launch {
             sessionRepository.pedirInstitucion(institucion)
             cues.play(FeedbackCues.Cue.SUCCESS)
-            voiceEngine.speak("Listo. Pedí unirme a $institucion. Mientras tanto sigo siendo usuario.")
+            voiceEngine.speak("Listo. Pedí unirme a $institucion. Mientras tanto sigues siendo usuario.")
         }
     }
 
-    /** Un menor no se da de baja solo: queda pedida para que la autorice un adulto responsable. */
-    fun onPedirBajaDeMenor() {
-        viewModelScope.launch {
-            sessionRepository.pedirBajaDeMenor()
-            voiceEngine.speak("Listo. Pedí tu baja. Un adulto responsable la tiene que autorizar.")
-        }
-    }
-
-    /** Un adulto se da de baja solo, confirmando con su contraseña. */
     fun onPedirCambioEducador() {
         viewModelScope.launch {
             sessionRepository.pedirCambioEducador()
@@ -91,22 +137,51 @@ class EditAccountViewModel @Inject constructor(
         }
     }
 
-    fun onDarseDeBaja(contrasenaActual: String) {
+    /** Paso 1 del borrado: se pide la contraseña. Un administrador no puede borrarse a sí mismo. */
+    fun onPedirBorrar() {
         val user = currentUser.value ?: return
         if (user.rol == RolUsuario.ADMINISTRADOR.codigo) {
-            voiceEngine.speak("Un administrador no puede darse de baja.")
+            voiceEngine.speak("Un administrador no puede borrar su propia cuenta.")
             return
         }
-        if (!sessionRepository.passwordMatches(user.contrasenaHash, contrasenaActual)) {
+        _pasoBorrado.value = PasoBorrado.CONTRASENA
+        voiceEngine.speak(
+            "Para borrar tu cuenta y todos tus datos, primero escribe o di tu contraseña. Di cancelar para dejarla.",
+            listenAfter = true,
+        )
+    }
+
+    /** Paso 2: con la contraseña correcta se pide una confirmación explícita; no se borra nada todavía. */
+    fun onContrasenaBorrado(contrasena: String) {
+        val user = currentUser.value ?: return
+        if (!sessionRepository.passwordMatches(user.contrasenaHash, contrasena)) {
             cues.play(FeedbackCues.Cue.ERROR)
-            voiceEngine.speak("Esa no es tu contraseña. No di de baja tu cuenta.")
-            _errorMensaje.tryEmit("Esa no es tu contraseña actual.")
+            _errorMensaje.tryEmit("Esa no es tu contraseña.")
+            voiceEngine.speak("Esa no es tu contraseña. No borré nada. Inténtalo otra vez o di cancelar.", listenAfter = true)
             return
         }
+        _pasoBorrado.value = PasoBorrado.CONFIRMAR
+        cues.play(FeedbackCues.Cue.WARNING)
+        voiceEngine.speak(
+            "¿Seguro que borro tu cuenta y todo lo que guardaste? No se puede deshacer. Di sí, borrar, o no.",
+            listenAfter = true,
+        )
+    }
+
+    fun onConfirmarBorrado() {
+        if (_pasoBorrado.value != PasoBorrado.CONFIRMAR) return
+        _pasoBorrado.value = PasoBorrado.NINGUNO
         viewModelScope.launch {
-            sessionRepository.deleteCurrentAccount()
-            _back.tryEmit(Unit)
+            if (sessionRepository.deleteCurrentAccount()) {
+                voiceEngine.speak("Listo. Borré tu cuenta y tus datos.")
+                _loggedOut.tryEmit(Unit)
+            }
         }
+    }
+
+    fun onCancelarBorrado() {
+        _pasoBorrado.value = PasoBorrado.NINGUNO
+        voiceEngine.speak("De acuerdo, no borré tu cuenta.")
     }
 
     /** [nuevaContrasena] vacía significa "no la cambies". */
@@ -117,7 +192,6 @@ class EditAccountViewModel @Inject constructor(
         contrasenaActual: String,
         nuevaContrasena: String,
         correo: String,
-        fechaNacimiento: Long?,
     ) {
         viewModelScope.launch {
             when (
@@ -128,7 +202,6 @@ class EditAccountViewModel @Inject constructor(
                     apodo = apodo,
                     usarApodoRanking = usarApodoRanking,
                     email = correo,
-                    fechaNacimiento = fechaNacimiento,
                 )
             ) {
                 SessionRepository.EditarPerfilResult.Exito -> {
@@ -147,5 +220,36 @@ class EditAccountViewModel @Inject constructor(
                 }
             }
         }
+    }
+
+    override fun onCleared() {
+        voiceEngine.rawInput = false
+        super.onCleared()
+    }
+
+    companion object {
+        private val CANCELAR = setOf("cancelar", "cancela", "no", "dejala", "mejor no")
+
+        /** Palabras completas que confirman el borrado; un simple "ok" no basta para algo que no se deshace. */
+        private val CONFIRMAR_BORRADO = setOf("si", "confirmo", "borrar", "borrala", "borralo", "elimina", "eliminala")
+
+        /** Cómo ven a la persona los demás, en una frase para decir en voz alta y mostrar en la tarjeta. */
+        fun comoMeVen(user: UsuarioEntity): String = buildString {
+            append("Te llamas ${user.nombreCompleto}. ")
+            if (!user.apodo.isNullOrBlank()) {
+                append("Tu apodo es ${user.apodo}. ")
+                append(if (user.usarApodoRanking) "En clasificación te ven con tu apodo. " else "En clasificación te ven con tu nombre. ")
+            }
+            append("Tu usuario es ${user.nombreUsuario}. ")
+            append("Tu rol es ${user.rol}. ")
+            append(
+                when {
+                    user.origen.isNotBlank() -> "Perteneces a ${user.origen}. "
+                    user.institucionSolicitada != null -> "Pediste unirte a ${user.institucionSolicitada}; mientras tanto eres usuario. "
+                    else -> "No perteneces a ninguna institución. "
+                },
+            )
+            if (!user.email.isNullOrBlank()) append("Tu correo es ${user.email}; nadie más lo ve.")
+        }.trim()
     }
 }

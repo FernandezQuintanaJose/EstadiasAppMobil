@@ -68,6 +68,9 @@ class ConsultasViewModel @Inject constructor(
     private val _back = MutableSharedFlow<Unit>(extraBufferCapacity = 1)
     val back: SharedFlow<Unit> = _back
 
+    private val _chats = MutableSharedFlow<Unit>(extraBufferCapacity = 1)
+    val chats: SharedFlow<Unit> = _chats
+
     init {
         // Lo que se dice aquí es el pedido de un documento, no un comando del teléfono: "la hora de entrada" o
         // "el volumen de ventas" no deben tomarse como "qué hora es" o "sube el volumen".
@@ -91,6 +94,7 @@ class ConsultasViewModel @Inject constructor(
             CommandCatalog.isRequest(spoken) && texto.split(" ").size <= 4 ->
                 voiceEngine.speak(CommandCatalog.CONSULTAS, listenAfter = true)
             texto in ATRAS -> _back.tryEmit(Unit)
+            texto in ANTERIORES -> abrirChats()
             estado.paso == ConsultaPaso.LISTO && texto in LEER -> leerDocumento()
             estado.paso == ConsultaPaso.LISTO && texto in NUEVA -> nuevaConsulta()
             else -> generar(spoken)
@@ -155,6 +159,12 @@ class ConsultasViewModel @Inject constructor(
         voiceEngine.speak(documento)
     }
 
+    /** Las consultas anteriores (lo que antes era Chats), para volver a escucharlas. */
+    fun abrirChats() {
+        voiceEngine.stopSpeaking()
+        _chats.tryEmit(Unit)
+    }
+
     fun nuevaConsulta() {
         voiceEngine.stopSpeaking()
         _uiState.value = ConsultasUiState()
@@ -174,6 +184,7 @@ class ConsultasViewModel @Inject constructor(
 
         private val ATRAS = setOf("atras", "volver", "vuelve", "regresa", "regresar", "salir", "menu", "inicio")
         private val LEER = setOf("lee", "leer", "lee el documento", "leelo", "repite", "repetir")
+        private val ANTERIORES = setOf("consultas anteriores", "anteriores", "chats", "historial", "mis consultas")
         private val NUEVA = setOf("nueva consulta", "otra consulta", "otro documento", "nuevo documento")
 
         private val MARCAS_LINEA = Regex("""^\s{0,3}#{1,6}\s*""", RegexOption.MULTILINE)

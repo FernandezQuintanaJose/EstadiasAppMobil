@@ -93,7 +93,7 @@ import com.cecapi.app.core.ui.voiceHint
 import com.cecapi.app.core.voice.VoiceState
 import kotlin.math.roundToInt
 
-private enum class SettingsSub { VOLUMEN, NOTIFICACIONES, ALMACENAMIENTO, PRIVACIDAD, CUENTA }
+private enum class SettingsSub { VOLUMEN, NOTIFICACIONES, ALMACENAMIENTO, PRIVACIDAD }
 
 /**
  * Configuración, como un vestíbulo con una tarjeta por tema en vez de una sola columna larga:
@@ -105,6 +105,7 @@ private enum class SettingsSub { VOLUMEN, NOTIFICACIONES, ALMACENAMIENTO, PRIVAC
 fun SettingsScreen(
     onBack: () -> Unit,
     onLoggedOut: () -> Unit,
+    onOpenAccount: () -> Unit,
     viewModel: SettingsViewModel = hiltViewModel(),
 ) {
     val simpleMode by viewModel.simpleMode.collectAsState()
@@ -115,10 +116,6 @@ fun SettingsScreen(
     val storage by viewModel.storage.collectAsState()
     val pendingClean by viewModel.pendingClean.collectAsState()
     val aiEnabled by viewModel.aiEnabled.collectAsState()
-    val pendingDeleteAccount by viewModel.pendingDeleteAccount.collectAsState()
-    val awaitingDeletePassword by viewModel.awaitingDeletePassword.collectAsState()
-    var deletePassword by remember { mutableStateOf("") }
-    var deletePasswordVisible by remember { mutableStateOf(false) }
     var sub by remember { mutableStateOf<SettingsSub?>(null) }
     val contexto = LocalContext.current
 
@@ -127,6 +124,7 @@ fun SettingsScreen(
     val listening = voiceState is VoiceState.Listening
 
     LaunchedEffect(Unit) { viewModel.loggedOut.collect { onLoggedOut() } }
+    LaunchedEffect(Unit) { viewModel.openAccount.collect { onOpenAccount() } }
 
     // El permiso se concede en los ajustes propios de Android, así que se verifica otra vez cada vez que volvemos.
     var notificationAccess by remember { mutableStateOf(viewModel.isNotificationAccessEnabled()) }
@@ -216,7 +214,7 @@ fun SettingsScreen(
                         icon = Icons.Filled.Person,
                         label = "Cuenta",
                         section = Sections.Settings,
-                        onClick = { sub = SettingsSub.CUENTA },
+                        onClick = onOpenAccount,
                     )
                 }
             }
@@ -356,75 +354,6 @@ fun SettingsScreen(
                 )
             }
 
-            SettingsSub.CUENTA -> user?.let { current ->
-                ScreenTopBar(eyebrow = "MENÚ", title = "Cuenta", onBack = { sub = null }, onCommands = viewModel::onCommandsRequested)
-                Text(current.nombreCompleto, style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onBackground)
-                BigBtn(
-                    icon = Icons.AutoMirrored.Filled.Logout,
-                    label = "Cerrar sesión",
-                    variant = BigBtnVariant.Danger,
-                    onClick = viewModel::onLogout,
-                )
-                if (awaitingDeletePassword) {
-                    NoticeBanner("Para borrar tu cuenta, dime o escribe tu contraseña.")
-                    OutlinedTextField(
-                        value = deletePassword,
-                        onValueChange = { deletePassword = it },
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .heightIn(min = 64.dp)
-                            .voiceHint("Campo de contraseña, para confirmar que quieres borrar tu cuenta. Se ve oculta por seguridad."),
-                        placeholder = { Text("Tu contraseña") },
-                        leadingIcon = { Icon(Icons.Filled.Lock, contentDescription = null) },
-                        trailingIcon = {
-                            IconButton(onClick = { deletePasswordVisible = !deletePasswordVisible }) {
-                                Icon(
-                                    imageVector = if (deletePasswordVisible) Icons.Filled.VisibilityOff else Icons.Filled.Visibility,
-                                    contentDescription = if (deletePasswordVisible) "Ocultar contraseña" else "Mostrar contraseña",
-                                )
-                            }
-                        },
-                        singleLine = true,
-                        visualTransformation = if (deletePasswordVisible) VisualTransformation.None else PasswordVisualTransformation(),
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password, imeAction = ImeAction.Done),
-                        keyboardActions = KeyboardActions(onDone = {
-                            viewModel.onDeletePasswordEntered(deletePassword)
-                            deletePassword = ""
-                        }),
-                        colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = CecapiAccent, unfocusedBorderColor = CecapiTextMuted),
-                    )
-                    Row(horizontalArrangement = Arrangement.spacedBy(12.dp), modifier = Modifier.padding(top = 8.dp)) {
-                        BigBtn(
-                            icon = Icons.Filled.Check,
-                            label = "Confirmar",
-                            variant = BigBtnVariant.Danger,
-                            half = true,
-                            onClick = { viewModel.onDeletePasswordEntered(deletePassword); deletePassword = "" },
-                            modifier = Modifier.weight(1f),
-                        )
-                        BigBtn(
-                            icon = Icons.Filled.Close,
-                            label = "Cancelar",
-                            half = true,
-                            onClick = { deletePassword = ""; viewModel.cancelDeleteAccount() },
-                            modifier = Modifier.weight(1f),
-                        )
-                    }
-                } else if (pendingDeleteAccount) {
-                    NoticeBanner("¿Borrar tu cuenta y todo lo que guardaste? No se puede deshacer. Di sí, borrar, o no.")
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        BigBtn(icon = Icons.Filled.Check, label = "Sí, borrar", variant = BigBtnVariant.Danger, half = true, onClick = viewModel::confirmDeleteAccount, modifier = Modifier.weight(1f))
-                        BigBtn(icon = Icons.Filled.Close, label = "No", half = true, onClick = viewModel::cancelDeleteAccount, modifier = Modifier.weight(1f))
-                    }
-                } else {
-                    ActionButton(
-                        "Borrar mi cuenta y mis datos",
-                        "Borrar mi cuenta y mis datos. Elimina tu cuenta y todo lo que guardaste: chats, resultados, documentos y fotos. " +
-                            "Te pido tu contraseña y luego confirmar; no se puede deshacer. También puedes decir: borra mi cuenta.",
-                        viewModel::askDeleteAccount,
-                    )
-                }
-            }
         }
     }
 

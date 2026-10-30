@@ -281,7 +281,6 @@ private val PreguntasFrecuentes = listOf(
     "¿Mis fotos se guardan en la app?" to "No. La app no guarda tus fotos. Solo se guardan en tu galería si tú decides guardarlas.",
     "¿Quién ve mis datos?" to "Tu correo y tu fecha de nacimiento no se muestran a otras personas.",
     "¿Cómo me doy de baja?" to "En Mi cuenta, toca Darme de baja. Si perteneces a una institución, la baja la confirma tu educador o directivo.",
-    "¿Qué hago en una emergencia?" to "En Emergencias puedes llamar a tu contacto o al 911, y enviar tu ubicación.",
     "¿Cómo reporto un problema?" to "En Ayuda y soporte, toca Reportar un problema técnico. Necesitas iniciar sesión.",
 )
 

@@ -19,6 +19,14 @@ import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Description
+import androidx.compose.material.icons.filled.AutoAwesome
+import androidx.compose.material.icons.filled.History
+import androidx.compose.material.icons.filled.HourglassTop
+import androidx.compose.material.icons.filled.QuestionAnswer
+import androidx.compose.ui.unit.sp
+import com.cecapi.app.core.ui.CampoTexto
+import com.cecapi.app.core.ui.ColumnaDesplazable
+import com.cecapi.app.core.ui.TarjetaLectura
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.VolumeUp
 import androidx.compose.material3.MaterialTheme
@@ -61,6 +69,7 @@ import com.cecapi.app.core.voice.VoiceState
 @Composable
 fun ConsultasScreen(
     onBack: () -> Unit,
+    onOpenChats: () -> Unit,
     viewModel: ConsultasViewModel = hiltViewModel(),
 ) {
     val context = LocalContext.current
@@ -68,6 +77,7 @@ fun ConsultasScreen(
     val estado by viewModel.uiState.collectAsState()
 
     LaunchedEffect(Unit) { viewModel.back.collect { onBack() } }
+    LaunchedEffect(Unit) { viewModel.chats.collect { onOpenChats() } }
 
     val permissionLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestPermission(),
@@ -76,13 +86,7 @@ fun ConsultasScreen(
     val listening = voiceState is VoiceState.Listening
 
     PantallaConMicrofono {
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .verticalScroll(rememberScrollState())
-                .padding(start = 24.dp, end = 24.dp, top = 12.dp, bottom = 16.dp),
-            verticalArrangement = Arrangement.spacedBy(14.dp),
-        ) {
+        ColumnaDesplazable(descripcionBarra = "Barra de desplazamiento de consultas") {
             ScreenTopBar(
                 eyebrow = "MENÚ",
                 title = "Consultas",
@@ -90,44 +94,50 @@ fun ConsultasScreen(
                 onCommands = viewModel::onCommandsRequested,
             )
 
-            Panel(titulo = "TU CONSULTA") {
-                if (estado.paso == ConsultaPaso.ESPERANDO) {
+            when (estado.paso) {
+                ConsultaPaso.ESPERANDO -> {
                     var texto by remember(estado.consulta) { mutableStateOf(estado.consulta) }
-                    OutlinedTextField(
+                    CampoTexto(
+                        titulo = "Tu consulta",
                         value = texto,
                         onValueChange = { texto = it },
-                        modifier = Modifier.fillMaxWidth(),
-                        placeholder = { Text("Di o escribe qué documento necesitas") },
-                        minLines = 2,
+                        placeholder = "Por ejemplo: una carta para pedir un justificante",
+                        ayuda = "Campo de consulta. Escribe o di qué documento necesitas.",
+                        icono = Icons.Filled.Description,
+                        singleLine = false,
+                        minLines = 3,
                         keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
                         keyboardActions = KeyboardActions(onDone = { viewModel.generar(texto) }),
-                        colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = CecapiAccent),
                     )
                     estado.error?.let { mensaje ->
-                        Text(mensaje, style = MaterialTheme.typography.bodyMedium, color = CecapiError)
+                        TarjetaLectura(titulo = "No se pudo generar", cuerpo = mensaje, colorCuerpo = CecapiError)
                     }
                     BigBtn(
-                        icon = Icons.Filled.Description,
+                        icon = Icons.Filled.AutoAwesome,
                         label = "Generar documento",
                         section = Sections.Documents,
                         enabled = texto.isNotBlank(),
                         onClick = { viewModel.generar(texto) },
                     )
-                } else {
-                    Text(estado.consulta, style = MaterialTheme.typography.bodyLarge, color = CecapiTextPrimary)
                 }
-            }
-
-            when (estado.paso) {
-                ConsultaPaso.GENERANDO -> Panel(titulo = "DOCUMENTO") {
-                    Text("Generando el documento…", style = MaterialTheme.typography.bodyLarge, color = CecapiTextMuted)
-                }
+                ConsultaPaso.GENERANDO -> TarjetaLectura(
+                    titulo = "Generando tu documento…",
+                    cuerpo = estado.consulta,
+                    icono = Icons.Filled.HourglassTop,
+                    section = Sections.Documents,
+                )
                 ConsultaPaso.LISTO -> {
+                    TarjetaLectura(
+                        titulo = "Tu consulta",
+                        cuerpo = estado.consulta,
+                        icono = Icons.Filled.QuestionAnswer,
+                        section = Sections.Documents,
+                    )
                     Panel(titulo = "DOCUMENTO") {
                         SelectionContainer {
                             Text(
                                 estado.documento.orEmpty(),
-                                style = MaterialTheme.typography.bodyLarge,
+                                style = MaterialTheme.typography.bodyLarge.copy(lineHeight = 30.sp),
                                 color = CecapiTextPrimary,
                             )
                         }
@@ -145,8 +155,16 @@ fun ConsultasScreen(
                         onClick = viewModel::nuevaConsulta,
                     )
                 }
-                ConsultaPaso.ESPERANDO -> Unit
             }
+
+            // Lo que antes era Chats: todas las consultas anteriores, para volver a escucharlas.
+            BigBtn(
+                icon = Icons.Filled.History,
+                label = "Consultas anteriores",
+                sub = "Escucha otra vez lo que te respondí",
+                section = Sections.Chats,
+                onClick = viewModel::abrirChats,
+            )
         }
 
         MicPad(

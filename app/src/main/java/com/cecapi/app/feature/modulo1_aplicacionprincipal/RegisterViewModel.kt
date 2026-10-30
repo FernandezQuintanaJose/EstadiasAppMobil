@@ -38,8 +38,6 @@ data class RegisterUiState(
     /** Opcional: sirve para recuperar la cuenta y, cuando el servidor lo permita, para verificarla con un código. */
     val email: String = "",
     val institucion: InstitucionRegistro = InstitucionRegistro.NINGUNA,
-    /** Epoch millis; null hasta que la persona elige una fecha. */
-    val fechaNacimiento: Long? = null,
     val errorMessage: String? = null,
     val isSubmitting: Boolean = false,
 )
@@ -177,10 +175,6 @@ class RegisterViewModel @Inject constructor(
         _uiState.value = _uiState.value.copy(institucion = value)
     }
 
-    fun onFechaNacimientoChange(epochMillis: Long) {
-        _uiState.value = _uiState.value.copy(fechaNacimiento = epochMillis, errorMessage = null)
-    }
-
     fun submit() {
         val state = _uiState.value
         if (state.nombreCompleto.isBlank() || state.nombreUsuario.isBlank() || state.contrasena.isBlank()) {
@@ -210,12 +204,6 @@ class RegisterViewModel @Inject constructor(
             voiceEngine.speak(message)
             return
         }
-        if (state.fechaNacimiento == null) {
-            val message = "Falta tu fecha de nacimiento."
-            _uiState.value = state.copy(errorMessage = message)
-            voiceEngine.speak(message)
-            return
-        }
 
         _uiState.value = state.copy(isSubmitting = true, errorMessage = null)
         viewModelScope.launch {
@@ -225,7 +213,6 @@ class RegisterViewModel @Inject constructor(
                     contrasena = state.contrasena,
                     nombreCompleto = state.nombreCompleto,
                     origen = state.institucion.origen,
-                    fechaNacimiento = state.fechaNacimiento,
                     email = state.email.ifBlank { null },
                 )
             } catch (e: CancellationException) {

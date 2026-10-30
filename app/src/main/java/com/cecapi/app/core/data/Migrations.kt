@@ -176,3 +176,37 @@ val MIGRATION_15_16 = object : Migration(15, 16) {
         db.execSQL("ALTER TABLE incidencias ADD COLUMN respuesta TEXT")
     }
 }
+
+/**
+ * v17: ya no hay menores de edad (todas las personas usuarias son adultas) y el Centro de Solicitudes por
+ * plantillas y Emergencias se quitaron.
+ *  - usuarios pierde fecha_nacimiento y solicita_baja (la baja pedida por un menor).
+ *  - Se borran las tablas de plantillas, solicitudes y contactos de emergencia.
+ *
+ * SQLite no puede quitar columnas en las versiones de Android que soportamos, así que usuarios se reconstruye
+ * (crear la nueva, copiar, borrar la vieja y renombrar). Room activa las llaves foráneas hasta onOpen, después
+ * de migrar, por eso borrar la tabla vieja no arrastra en cascada los datos que dependen de cada cuenta.
+ */
+val MIGRATION_16_17 = object : Migration(16, 17) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL("DROP TABLE IF EXISTS datos_solicitud")
+        db.execSQL("DROP TABLE IF EXISTS solicitudes_generadas")
+        db.execSQL("DROP TABLE IF EXISTS plantillas_solicitud")
+        db.execSQL("DROP TABLE IF EXISTS contactos_emergencia")
+
+        val columnas = "id, nombre_usuario, contrasena_hash, nombre_completo, fecha_registro, rol, origen, educador_id, " +
+            "apodo, validado, usar_apodo_ranking, email, solicita_validacion, aviso_pendiente, revision_cuenta, " +
+            "institucion_solicitada, solicita_cambio_educador"
+        db.execSQL(
+            "CREATE TABLE IF NOT EXISTS `usuarios_nueva` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, " +
+                "`nombre_usuario` TEXT NOT NULL, `contrasena_hash` TEXT NOT NULL, `nombre_completo` TEXT NOT NULL, " +
+                "`fecha_registro` INTEGER NOT NULL, `rol` TEXT NOT NULL, `origen` TEXT NOT NULL, `educador_id` INTEGER, " +
+                "`apodo` TEXT, `validado` INTEGER NOT NULL, `usar_apodo_ranking` INTEGER NOT NULL, `email` TEXT, " +
+                "`solicita_validacion` INTEGER NOT NULL, `aviso_pendiente` TEXT, `revision_cuenta` TEXT NOT NULL, " +
+                "`institucion_solicitada` TEXT, `solicita_cambio_educador` INTEGER NOT NULL)",
+        )
+        db.execSQL("INSERT INTO usuarios_nueva ($columnas) SELECT $columnas FROM usuarios")
+        db.execSQL("DROP TABLE usuarios")
+        db.execSQL("ALTER TABLE usuarios_nueva RENAME TO usuarios")
+    }
+}

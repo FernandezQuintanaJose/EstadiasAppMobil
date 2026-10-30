@@ -117,7 +117,6 @@ fun GestionScreen(
                     puedeDarDeBaja = viewModel.puedeDarDeBaja(personaEnEdicion),
                     puedeEliminar = viewModel.puedeEliminarCuenta(personaEnEdicion),
                     puedeCambiarContrasena = viewModel.puedeCambiarContrasenaDe(personaEnEdicion),
-                    puedeAutorizarBaja = viewModel.puedeAutorizarBajaDe(personaEnEdicion),
                 ),
                 rolesAsignables = viewModel.rolesAsignables(),
                 educadoresDisponibles = { viewModel.educadoresPara(personaEnEdicion) },
@@ -127,7 +126,6 @@ fun GestionScreen(
                 onRolElegido = { rol -> viewModel.onRolElegido(personaEnEdicion, rol) },
                 onEducadorElegido = { educador -> viewModel.onEducadorElegido(personaEnEdicion, educador) },
                 onCambiarContrasena = { nueva -> viewModel.onCambiarContrasena(personaEnEdicion, nueva) },
-                onAutorizarBaja = { viewModel.onAutorizarBajaDe(personaEnEdicion) },
                 onDarDeBaja = { viewModel.onDarDeBaja(personaEnEdicion) },
                 onEliminar = { viewModel.onEliminarCuenta(personaEnEdicion) },
                 onEditarDatos = { nombre, apodo, correo -> viewModel.onEditarCuenta(personaEnEdicion, nombre, apodo, correo) },
@@ -181,7 +179,7 @@ fun GestionScreen(
             }
             BigBtn(
                 icon = Icons.Filled.Close,
-                label = "Bajas o cambio de educador",
+                label = "Cambio de educador",
                 size = BigBtnSize.Standard,
                 onClick = { vista = GestionVista.Bajas },
             )
@@ -282,10 +280,10 @@ fun GestionScreen(
                 )
             }
         } else if (vista == GestionVista.Bajas) {
-            ScreenTopBar(eyebrow = "GESTIÓN", title = "Bajas o cambio de educador", onBack = { vista = GestionVista.Menu }, onCommands = {})
-            val bajas = state.personas.filter { it.solicitaBaja || it.solicitaCambioEducador }
+            ScreenTopBar(eyebrow = "GESTIÓN", title = "Cambio de educador", onBack = { vista = GestionVista.Menu }, onCommands = {})
+            val bajas = state.personas.filter { it.solicitaCambioEducador }
             if (bajas.isEmpty()) {
-                Text("No hay bajas pedidas.", style = MaterialTheme.typography.bodyLarge, color = CecapiTextMuted)
+                Text("Nadie ha pedido cambiar de educador.", style = MaterialTheme.typography.bodyLarge, color = CecapiTextMuted)
             }
             bajas.forEach { persona ->
                 PersonaCard(

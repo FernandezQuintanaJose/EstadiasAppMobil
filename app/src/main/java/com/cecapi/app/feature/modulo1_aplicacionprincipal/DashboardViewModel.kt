@@ -407,13 +407,6 @@ class DashboardViewModel @Inject constructor(
         return rol == RolUsuario.ADMINISTRADOR || rol == RolUsuario.DIRECTIVO || rol == RolUsuario.EDUCADOR
     }
 
-    /** Solo alumno y usuario llegan a ver el botón que llama esto — lo opuesto a Gestión. */
-    fun onEmergenciasSelected() {
-        cues.play(FeedbackCues.Cue.NAVIGATE)
-        voiceEngine.speak("Abriendo emergencias.")
-        _navEvents.tryEmit(CecapiDestinations.EMERGENCIAS)
-    }
-
     fun onReportarIncidenteSelected() {
         cues.play(FeedbackCues.Cue.NAVIGATE)
         voiceEngine.speak("Abriendo reportes.")

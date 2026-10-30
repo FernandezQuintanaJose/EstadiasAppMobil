@@ -90,7 +90,6 @@ class SessionRepository @Inject constructor(
         contrasena: String,
         nombreCompleto: String,
         origen: String = "",
-        fechaNacimiento: Long? = null,
         email: String? = null,
     ): RegisterResult {
         val nombreNormalizado = nombreUsuario.trim().uppercase()
@@ -104,7 +103,6 @@ class SessionRepository @Inject constructor(
             contrasenaHash = PasswordHasher.hash(PasswordRules.normalize(contrasena)),
             nombreCompleto = nombreCompleto.trim(),
             email = email?.trim()?.ifBlank { null },
-            fechaNacimiento = fechaNacimiento,
             institucionSolicitada = institucion.ifBlank { null },
             solicitaValidacion = institucion.isNotBlank(),
             revisionCuenta = "nueva",
@@ -151,7 +149,6 @@ class SessionRepository @Inject constructor(
         apodo: String? = null,
         usarApodoRanking: Boolean = false,
         email: String? = null,
-        fechaNacimiento: Long? = null,
     ): EditarPerfilResult {
         val user = _currentUser.value ?: return EditarPerfilResult.SinSesion
         if (!passwordMatches(user.contrasenaHash, contrasenaActual)) {
@@ -169,14 +166,12 @@ class SessionRepository @Inject constructor(
         usuarioDao.actualizarUsarApodoRanking(user.id, usarApodoRanking)
         val correoLimpio = email?.trim()?.ifBlank { null }
         usuarioDao.actualizarEmail(user.id, correoLimpio)
-        usuarioDao.actualizarFechaNacimiento(user.id, fechaNacimiento)
         _currentUser.value = user.copy(
             nombreCompleto = nombreLimpio,
             contrasenaHash = nuevoHash,
             apodo = apodoLimpio,
             usarApodoRanking = usarApodoRanking,
             email = correoLimpio,
-            fechaNacimiento = fechaNacimiento,
         )
         return EditarPerfilResult.Exito
     }
@@ -189,13 +184,6 @@ class SessionRepository @Inject constructor(
         if (limpia.isEmpty()) return
         usuarioDao.solicitarInstitucion(user.id, limpia)
         _currentUser.value = user.copy(institucionSolicitada = limpia, solicitaValidacion = true)
-    }
-
-    /** Un menor no se da de baja solo: queda pedida para que la autorice un adulto responsable. */
-    suspend fun pedirBajaDeMenor() {
-        val user = _currentUser.value ?: return
-        usuarioDao.actualizarSolicitaBaja(user.id, true)
-        _currentUser.value = user.copy(solicitaBaja = true)
     }
 
     /** Borra la cuenta de otra persona con la autorización de quien puede hacerlo (Gestión). */
