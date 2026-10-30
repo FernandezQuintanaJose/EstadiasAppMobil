@@ -160,6 +160,8 @@ fun TarjetaLectura(
     section: ModuleSection? = null,
     mostrarCuerpo: Boolean = true,
     colorCuerpo: Color = CecapiTextMuted,
+    /** Siempre iluminada con el color de [section] (un resultado, por ejemplo), sin depender de la selección. */
+    resaltada: Boolean = false,
     /** Lo que se dice al tocarla; por omisión el título y el cuerpo completos. */
     lectura: String = "$titulo. $cuerpo",
 ) {
@@ -168,7 +170,7 @@ fun TarjetaLectura(
     val contexto = LocalContext.current
     val yo = remember { Any() }
     var enFocoLocal by remember { mutableStateOf(false) }
-    val iluminada = if (seleccion != null) seleccion.actual === yo else enFocoLocal
+    val iluminada = resaltada || (if (seleccion != null) seleccion.actual === yo else enFocoLocal)
     val color = section?.color ?: CecapiAccent
     val forma = RoundedCornerShape(20.dp)
 

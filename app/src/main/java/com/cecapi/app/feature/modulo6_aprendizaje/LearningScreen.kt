@@ -29,6 +29,25 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import com.cecapi.app.core.theme.ModuleSection
+import com.cecapi.app.core.theme.CecapiBorder
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.foundation.layout.height
+import androidx.compose.material3.LinearProgressIndicator
+import androidx.compose.material.icons.filled.ZoomOut
+import androidx.compose.material.icons.filled.ZoomIn
+import androidx.compose.material.icons.filled.Waves
+import androidx.compose.material.icons.filled.SwapHoriz
+import androidx.compose.material.icons.filled.School
+import androidx.compose.material.icons.filled.MoreHoriz
+import androidx.compose.material.icons.filled.HorizontalRule
+import androidx.compose.material.icons.filled.EmojiEvents
+import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.Cancel
+import androidx.compose.material.icons.filled.ArrowUpward
+import androidx.compose.material.icons.filled.ArrowDownward
+import androidx.compose.material.icons.automirrored.filled.ArrowForward
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Hearing
 import androidx.compose.material.icons.filled.Replay
@@ -158,6 +177,7 @@ fun LearningScreen(
                         onPrevious = viewModel::previous,
                         onAnswer = viewModel::responder,
                         onSetLevel = viewModel::setLevel,
+                        onPractice = viewModel::setPractice,
                         onLeave = viewModel::leave,
                         modifier = Modifier.weight(1f),
                     )
@@ -273,10 +293,14 @@ private fun ActivityScrollArea(
 }
 
 /**
- * One full card: the exercise (title, instructions, feedback) and its controls. [pageMode] is which card
- * this is; while it is not the active mode in [state] (mid-swipe, or state has not caught up yet) it shows
- * a light placeholder instead of the other card's stale exercise, since the ViewModel only ever loads one
- * mode's exercises at a time.
+ * La página de un ejercicio, de arriba a abajo:
+ *  1. (solo sonidos) el nivel;
+ *  2. el ejercicio: cuál es, qué se pide y cuánto va la ronda (se lee al tocarlo);
+ *  3. el resultado de lo que se respondió, con color, apenas se responde;
+ *  4. las respuestas, con íconos de dirección, para contestar tocando o diciéndolas;
+ *  5. "Escuchar de nuevo", justo debajo;
+ *  6. Anterior y Siguiente (Siguiente se resalta cuando ya se respondió).
+ * Mientras [state] no corresponde a [pageMode] (el modelo carga un solo modo a la vez) se muestra un aviso breve.
  */
 @Composable
 private fun ActivityPage(
@@ -287,28 +311,142 @@ private fun ActivityPage(
     onPrevious: () -> Unit,
     onAnswer: (String) -> Unit,
     onSetLevel: (Int) -> Unit,
+    onPractice: (Boolean) -> Unit,
     onLeave: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     ActivityScrollArea(modifier = modifier) {
         if (state.mode != pageMode) {
-            Text(
-                "Preparando…",
-                style = MaterialTheme.typography.bodyLarge,
-                color = CecapiTextMuted,
-                modifier = Modifier.padding(8.dp),
-            )
+            Text("Preparando…", style = MaterialTheme.typography.bodyLarge, color = CecapiTextMuted, modifier = Modifier.padding(8.dp))
             return@ActivityScrollArea
         }
 
+        if (state.finished) {
+            ResultadoDeRonda(state = state, onRepeat = onRepeat, onLeave = onLeave)
+            return@ActivityScrollArea
+        }
+
+        val item = state.current
+        if (item == null) {
+            Text("Preparando los ejercicios…", style = MaterialTheme.typography.bodyLarge, color = CecapiTextMuted, modifier = Modifier.padding(8.dp))
+            return@ActivityScrollArea
+        }
+
+        val respondido = state.index in state.respondidos
+        // Qué botón tocó la persona en este ejercicio, para pintarlo del color del resultado.
+        var elegida by remember(state.index, state.mode, state.level) { mutableStateOf<String?>(null) }
+
+        // 2. El ejercicio
+        val enPractica = if (state.practice) " Modo práctica: no se guarda nada." else ""
+        TarjetaLectura(
+            titulo = "Ejercicio ${state.index + 1} de ${state.items.size}",
+            cuerpo = item.instruction,
+            icono = if (pageMode == ActivityMode.AUDIO) Icons.Filled.Hearing else Icons.Filled.Vibration,
+            section = Sections.Activities,
+            mostrarCuerpo = false,
+            lectura = "Ejercicio ${state.index + 1} de ${state.items.size}. ${item.instruction}$enPractica",
+        )
+        Progreso(hechos = state.respondidos.size, total = state.items.size, aciertos = state.correctCount)
+
+        // 3. El resultado
+        state.feedback?.takeIf { respondido }?.let { mensaje ->
+            val bien = state.correct == true
+            TarjetaLectura(
+                titulo = if (bien) "¡Correcto!" else "Incorrecto",
+                cuerpo = mensaje,
+                icono = if (bien) Icons.Filled.CheckCircle else Icons.Filled.Cancel,
+                section = ModuleSection(
+                    color = if (bien) CecapiSuccess else CecapiError,
+                    bg = if (bien) CecapiSuccess.copy(alpha = 0.15f) else CecapiError.copy(alpha = 0.15f),
+                ),
+                colorCuerpo = MaterialTheme.colorScheme.onBackground,
+                resaltada = true,
+            )
+        }
+
+        // 4. Las respuestas
+        val opciones = opcionesDe(item.answer)
+        if (opciones.isNotEmpty()) {
+            Text(
+                if (pageMode == ActivityMode.AUDIO) "¿DE DÓNDE VINO?" else "¿CÓMO FUE?",
+                style = MaterialTheme.typography.labelLarge,
+                color = CecapiTextMuted,
+            )
+            opciones.chunked(2).forEach { fila ->
+                Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth()) {
+                    fila.forEach { opcion ->
+                        val esLaElegida = elegida == opcion.respuesta
+                        BigBtn(
+                            icon = opcion.icono,
+                            label = opcion.etiqueta,
+                            section = if (esLaElegida) null else Sections.Activities,
+                            variant = when {
+                                esLaElegida && state.correct == true -> BigBtnVariant.Success
+                                esLaElegida && state.correct == false -> BigBtnVariant.Danger
+                                else -> BigBtnVariant.Neutral
+                            },
+                            half = true,
+                            size = BigBtnSize.Standard,
+                            enabled = !respondido && !state.busy,
+                            motivoDeshabilitado = if (state.busy) "Espera a que termine el sonido." else "Ya respondiste. Toca siguiente.",
+                            onClick = {
+                                elegida = opcion.respuesta
+                                onAnswer(opcion.respuesta)
+                            },
+                            modifier = Modifier.weight(1f),
+                        )
+                    }
+                }
+            }
+        }
+
+        // 5. Escuchar de nuevo, justo debajo de las respuestas
+        BigBtn(
+            icon = if (pageMode == ActivityMode.AUDIO) Icons.Filled.Replay else Icons.Filled.Vibration,
+            label = if (pageMode == ActivityMode.AUDIO) "Escuchar de nuevo" else "Sentir de nuevo",
+            variant = BigBtnVariant.Accent,
+            size = BigBtnSize.Standard,
+            enabled = !state.busy,
+            motivoDeshabilitado = "Espera a que termine.",
+            onClick = onRepeat,
+        )
+
+        // 6. Moverse entre ejercicios
+        Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth()) {
+            BigBtn(
+                icon = Icons.Filled.SkipPrevious,
+                label = "Anterior",
+                section = Sections.Activities,
+                size = BigBtnSize.Secondary,
+                half = true,
+                enabled = state.index > 0,
+                motivoDeshabilitado = "Estás en el primer ejercicio.",
+                onClick = onPrevious,
+                modifier = Modifier.weight(1f),
+            )
+            BigBtn(
+                icon = Icons.Filled.SkipNext,
+                label = if (state.index + 1 >= state.items.size) "Ver resultado" else "Siguiente",
+                variant = if (respondido) BigBtnVariant.Accent else BigBtnVariant.Neutral,
+                section = if (respondido) null else Sections.Activities,
+                size = BigBtnSize.Secondary,
+                half = true,
+                onClick = onNext,
+                modifier = Modifier.weight(1f),
+            )
+        }
+
+        // El nivel va al final: lo primero que se ve es el ejercicio, no los ajustes.
         if (pageMode == ActivityMode.AUDIO) {
+            Text("NIVEL", style = MaterialTheme.typography.labelLarge, color = CecapiTextMuted)
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
                 (1..3).forEach { level ->
+                    val actual = state.level == level
                     BigBtn(
                         icon = Icons.Filled.Hearing,
                         label = "Nivel $level",
-                        section = Sections.Activities,
-                        variant = if (state.level == level) BigBtnVariant.Accent else BigBtnVariant.Neutral,
+                        section = if (actual) null else Sections.Activities,
+                        variant = if (actual) BigBtnVariant.Accent else BigBtnVariant.Neutral,
                         size = BigBtnSize.Secondary,
                         half = true,
                         onClick = { onSetLevel(level) },
@@ -318,146 +456,81 @@ private fun ActivityPage(
             }
         }
 
-        if (state.finished) {
-            val resultado = state.finalMessage ?: "Acertaste ${state.correctCount} de ${state.items.size}"
-            val shape = RoundedCornerShape(24.dp)
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clip(shape)
-                    .background(CecapiSurface)
-                    .border(2.dp, CecapiAccent.copy(alpha = 0.5f), shape)
-                    .padding(20.dp)
-                    .semantics { contentDescription = "Resultado. $resultado" },
-            ) {
-                Text("Resultado", style = MaterialTheme.typography.bodyMedium, color = CecapiTextMuted)
-                Text(resultado, style = MaterialTheme.typography.headlineSmall, color = MaterialTheme.colorScheme.onBackground)
-            }
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceEvenly,
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                TopAction(
-                    icon = Icons.Filled.Replay,
-                    label = "Repetir",
-                    help = "Repetir. Vuelve a empezar la actividad desde el primer ejercicio. También puedes decir: repetir.",
-                    onClick = onRepeat,
-                )
-                TopAction(
-                    icon = Icons.Filled.Close,
-                    label = "Salir",
-                    help = "Salir. Vuelve al menú. También puedes decir: salir.",
-                    onClick = onLeave,
-                )
-            }
-            return@ActivityScrollArea
-        }
-
-        val item = state.current
-        if (item == null) {
-            Text(
-                "Preparando los ejercicios…",
-                style = MaterialTheme.typography.bodyLarge,
-                color = CecapiTextMuted,
-                modifier = Modifier.padding(8.dp),
-            )
-            return@ActivityScrollArea
-        }
-
-        val shape = RoundedCornerShape(24.dp)
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .clip(shape)
-                .background(CecapiSurface)
-                .border(2.dp, CecapiAccent.copy(alpha = 0.5f), shape)
-                .padding(20.dp),
-        ) {
-            Text(
-                "Ejercicio ${state.index + 1} de ${state.items.size}",
-                style = MaterialTheme.typography.bodyMedium,
-                color = CecapiTextMuted,
-            )
-            Text(item.title, style = MaterialTheme.typography.headlineSmall, color = MaterialTheme.colorScheme.onBackground)
-        }
-
-        state.correct?.let { correct ->
-            Text(
-                if (correct) "Correcto" else "Incorrecto",
-                style = MaterialTheme.typography.titleLarge,
-                color = if (correct) CecapiSuccess else CecapiError,
-                modifier = Modifier.padding(horizontal = 8.dp),
-            )
-        }
-
-        // Responder con botones grandes (también se puede decir): las opciones dependen del tipo de ejercicio.
-        val yaRespondido = state.index in state.respondidos
-        opcionesDe(item.answer).takeIf { it.isNotEmpty() }?.let { opciones ->
-            Text("TU RESPUESTA", style = MaterialTheme.typography.labelLarge, color = CecapiTextMuted)
-            opciones.chunked(3).forEach { fila ->
-                Row(horizontalArrangement = Arrangement.spacedBy(12.dp), modifier = Modifier.fillMaxWidth()) {
-                    fila.forEach { (etiqueta, respuesta) ->
-                        BigBtn(
-                            icon = Icons.Filled.TouchApp,
-                            label = etiqueta,
-                            section = Sections.Activities,
-                            half = true,
-                            size = BigBtnSize.Secondary,
-                            enabled = !yaRespondido && !state.busy,
-                            motivoDeshabilitado = if (state.busy) "Espera a que termine el sonido." else "Ya respondiste este ejercicio. Toca siguiente.",
-                            onClick = { onAnswer(respuesta) },
-                            modifier = Modifier.weight(1f),
-                        )
-                    }
-                    if (fila.size == 1) Spacer(modifier = Modifier.weight(1f))
-                }
-            }
-        }
-
-        Text("MOVERME", style = MaterialTheme.typography.labelLarge, color = CecapiTextMuted)
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
-            BigBtn(
-                section = Sections.Activities,
-                size = BigBtnSize.Secondary,
-                half = true,
-                modifier = Modifier.weight(1f),
-                icon = Icons.Filled.SkipPrevious,
-                label = "Anterior",
-                enabled = state.index > 0,
-                motivoDeshabilitado = "Estás en el primer ejercicio.",
-                onClick = onPrevious,
-            )
-            BigBtn(
-                section = Sections.Activities,
-                size = BigBtnSize.Secondary,
-                half = true,
-                modifier = Modifier.weight(1f),
-                icon = Icons.Filled.Replay,
-                label = "Repetir",
-                onClick = onRepeat,
-            )
-            BigBtn(
-                section = Sections.Activities,
-                size = BigBtnSize.Secondary,
-                half = true,
-                modifier = Modifier.weight(1f),
-                icon = Icons.Filled.SkipNext,
-                label = "Siguiente",
-                onClick = onNext,
-            )
-        }
+        // El modo práctica no guarda nada ni cambia el nivel.
+        BigBtn(
+            icon = Icons.Filled.School,
+            label = if (state.practice) "Salir del modo práctica" else "Modo práctica",
+            sub = if (state.practice) "Ahora no se guarda nada" else "Practica sin guardar puntos",
+            section = Sections.Activities,
+            size = BigBtnSize.Secondary,
+            onClick = { onPractice(!state.practice) },
+        )
     }
 }
 
-/** Las respuestas posibles de un ejercicio, como (lo que dice el botón, lo que se manda como respuesta). */
-private fun opcionesDe(respuesta: String): List<Pair<String, String>> = when (respuesta.lowercase()) {
-    "izquierda", "derecha", "centro" -> listOf("Izquierda" to "izquierda", "Los dos lados" to "los dos lados", "Derecha" to "derecha")
-    "enfrente", "atras", "atrás" -> listOf("Enfrente" to "enfrente", "Atrás" to "atrás")
-    "cerca", "lejos" -> listOf("Cerca" to "cerca", "Lejos" to "lejos")
-    "corto", "largo", "mixto" -> listOf("Corto" to "corto", "Largo" to "largo", "Mixto" to "mixto")
-    "de izquierda a derecha", "de derecha a izquierda" ->
-        listOf("De izquierda a derecha" to "de izquierda a derecha", "De derecha a izquierda" to "de derecha a izquierda")
+/** La barra de avance de la ronda y cuántos aciertos lleva; se lee al tocarla. */
+@Composable
+private fun Progreso(hechos: Int, total: Int, aciertos: Int) {
+    val texto = "Llevas $hechos de $total ejercicios y $aciertos aciertos."
+    val helper = LocalVoiceHelp.current
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable { helper?.speak(texto) }
+            .semantics { contentDescription = texto },
+        verticalArrangement = Arrangement.spacedBy(6.dp),
+    ) {
+        LinearProgressIndicator(
+            progress = { if (total == 0) 0f else (hechos.toFloat() / total).coerceIn(0f, 1f) },
+            modifier = Modifier.fillMaxWidth().height(10.dp).clip(RoundedCornerShape(5.dp)),
+            color = CecapiAccent,
+            trackColor = CecapiBorder,
+        )
+        Text("$hechos de $total · $aciertos aciertos", style = MaterialTheme.typography.bodyMedium, color = CecapiTextMuted)
+    }
+}
+
+/** El final de la ronda: el puntaje y qué hacer ahora. */
+@Composable
+private fun ResultadoDeRonda(state: ActivitiesUiState, onRepeat: () -> Unit, onLeave: () -> Unit) {
+    val resultado = state.finalMessage ?: "Acertaste ${state.correctCount} de ${state.items.size}"
+    TarjetaLectura(
+        titulo = "Terminaste la ronda",
+        cuerpo = resultado,
+        icono = Icons.Filled.EmojiEvents,
+        section = Sections.Activities,
+        lectura = "Terminaste la ronda. $resultado",
+    )
+    BigBtn(icon = Icons.Filled.Replay, label = "Repetir la ronda", variant = BigBtnVariant.Accent, size = BigBtnSize.Hero, onClick = onRepeat)
+    BigBtn(icon = Icons.Filled.Close, label = "Salir", section = Sections.Activities, onClick = onLeave)
+}
+
+/** Una respuesta posible: lo que dice el botón, lo que se manda como respuesta y su ícono. */
+private data class OpcionDeRespuesta(val etiqueta: String, val respuesta: String, val icono: ImageVector)
+
+private fun opcionesDe(respuesta: String): List<OpcionDeRespuesta> = when (respuesta.lowercase()) {
+    "izquierda", "derecha", "centro" -> listOf(
+        OpcionDeRespuesta("Izquierda", "izquierda", Icons.AutoMirrored.Filled.ArrowBack),
+        OpcionDeRespuesta("Derecha", "derecha", Icons.AutoMirrored.Filled.ArrowForward),
+        OpcionDeRespuesta("Los dos lados", "los dos lados", Icons.Filled.SwapHoriz),
+    )
+    "enfrente", "atras", "atrás" -> listOf(
+        OpcionDeRespuesta("Enfrente", "enfrente", Icons.Filled.ArrowUpward),
+        OpcionDeRespuesta("Atrás", "atrás", Icons.Filled.ArrowDownward),
+    )
+    "cerca", "lejos" -> listOf(
+        OpcionDeRespuesta("Cerca", "cerca", Icons.Filled.ZoomIn),
+        OpcionDeRespuesta("Lejos", "lejos", Icons.Filled.ZoomOut),
+    )
+    "corto", "largo", "mixto" -> listOf(
+        OpcionDeRespuesta("Corto", "corto", Icons.Filled.MoreHoriz),
+        OpcionDeRespuesta("Largo", "largo", Icons.Filled.HorizontalRule),
+        OpcionDeRespuesta("Mixto", "mixto", Icons.Filled.Waves),
+    )
+    "de izquierda a derecha", "de derecha a izquierda" -> listOf(
+        OpcionDeRespuesta("De izquierda a derecha", "de izquierda a derecha", Icons.AutoMirrored.Filled.ArrowForward),
+        OpcionDeRespuesta("De derecha a izquierda", "de derecha a izquierda", Icons.AutoMirrored.Filled.ArrowBack),
+    )
     else -> emptyList()
 }
 
