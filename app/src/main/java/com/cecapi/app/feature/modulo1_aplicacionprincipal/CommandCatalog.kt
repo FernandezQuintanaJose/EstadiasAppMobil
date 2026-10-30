@@ -51,7 +51,9 @@ object CommandCatalog {
             "Qué hay enfrente, para que te describa lo que ve la cámara. Atrás, para volver al menú. " + MORE
 
     const val READER =
-        "En el lector de texto puedes decir: toma la foto, para leer lo que tienes enfrente. " +
+        "En la cámara puedes decir: toma la foto. Con la foto tomada, di leer texto, qué hay enfrente, " +
+            "leer código, o traducir, y todo se hace sobre la misma foto. Otras acciones, para volver a elegir. " +
+            "Mientras lees: " +
             "Repite, o lee otra vez, para volver a leer desde el principio. " +
             "Siguiente párrafo, o párrafo anterior, para moverte por el texto. " +
             "Pausa, para detener la lectura, y continúa, para seguir. " +

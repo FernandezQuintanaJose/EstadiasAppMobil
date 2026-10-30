@@ -15,6 +15,7 @@ import com.cecapi.app.core.voice.VoiceState
 import com.cecapi.app.core.voice.VoiceText
 import com.cecapi.app.feature.modulo1_aplicacionprincipal.CommandCatalog
 import com.cecapi.app.feature.modulo1_aplicacionprincipal.SessionRepository
+import com.cecapi.app.feature.modulo7_entorno.EnvironmentRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -45,7 +46,16 @@ data class DocumentReaderUiState(
     val botonArmado: BotonLector? = null,
     /** La foto que se está leyendo, mostrada en su propia área en lugar de la vista de cámara en vivo mientras existe. */
     val photoPath: String? = null,
+    /** Ya hay foto y se está eligiendo qué hacer con ella: leer, describir, leer un QR o traducir. */
+    val panelFoto: Boolean = false,
+    /** Lo que se está haciendo con la foto ahora mismo ("Leyendo el código…"), o null. */
+    val trabajando: String? = null,
+    /** Lo último que salió de una acción sobre la foto (descripción, código, traducción). */
+    val resultado: ResultadoFoto? = null,
 )
+
+/** Lo que dejó una acción sobre la foto: se muestra en una tarjeta y se dice en voz alta. */
+data class ResultadoFoto(val titulo: String, val texto: String)
 
 /** Botones del lector que piden dos toques: el primero dice qué hacen y el segundo ejecutan la acción. */
 enum class BotonLector(val ayuda: String) {
@@ -67,6 +77,8 @@ class DocumentReaderViewModel @Inject constructor(
     private val repository: DocumentReaderRepository,
     private val cues: FeedbackCues,
     private val storageReport: StorageReport,
+    private val entorno: EnvironmentRepository,
+    private val acciones: AccionesFoto,
     @ApplicationContext private val appContext: Context,
 ) : ViewModel() {
 
@@ -106,6 +118,10 @@ class DocumentReaderViewModel @Inject constructor(
     private var pistaDicha: FramingHint? = null
     private var momentoPistaDicha = 0L
 
+    // La foto que se tomó, para que cada acción del panel trabaje sobre la misma.
+    private var fotoUri: Uri? = null
+    private var textoDeLaFoto: String? = null
+
     // Captura automática: se toma la foto sola cuando el encuadre queda bien unos segundos seguidos.
     private var capturaPendiente = false
     private var fallosAutomaticos = 0
@@ -133,6 +149,11 @@ class DocumentReaderViewModel @Inject constructor(
         _uiState.value = _uiState.value.copy(botonArmado = null)
         when {
             CommandCatalog.isRequest(spoken) -> voiceEngine.speak(CommandCatalog.READER, listenAfter = true)
+            fotoUri != null && has("codigo", "qr", "codigo qr", "codigo de barras") -> leerCodigos()
+            fotoUri != null && has("traduce", "traducir", "traduccion", "traducelo") -> traducir()
+            fotoUri != null && has("enfrente", "entorno", "describe", "alrededor", "que hay", "que ves") -> describirEntorno()
+            fotoUri != null && !hayDocumento && has("lee", "leer", "leelo", "texto") -> leerTexto()
+            fotoUri != null && has("acciones", "opciones", "que mas") -> otrasAcciones()
             has("parrafo anterior", "anterior") -> anteriorParrafo()
             has("atras", "volver", "vuelve", "regresa", "regresar", "salir", "menu", "inicio", "pantalla anterior") -> {
                 detenerLectura()
@@ -339,7 +360,30 @@ class DocumentReaderViewModel @Inject constructor(
         voiceEngine.speak("Necesito permiso para guardar fotos en tu teléfono. Toca Guardar foto otra vez y acéptalo.")
     }
 
+    /**
+     * Ya hay foto: se muestra el panel de acciones sobre ella (leer, qué hay enfrente, QR, traducir) y no se hace
+     * nada hasta que la persona elige, así la misma foto sirve para varias cosas.
+     */
     fun onPhotoCaptured(imageUri: Uri, rutaImagen: String, desdeCamara: Boolean = false) {
+        capturaPendiente = false
+        fotoUri = imageUri
+        textoDeLaFoto = null
+        _uiState.value = DocumentReaderUiState(photoPath = rutaImagen, panelFoto = true)
+        voiceEngine.speak(
+            (if (desdeCamara) "Foto tomada. " else "") +
+                "¿Qué hacemos con la foto? Puedo leer el texto, decirte qué hay enfrente, leer un código QR o traducir.",
+            listenAfter = true,
+        )
+    }
+
+    /** Acción "Leer texto": reconoce el texto de la foto y lo lee en voz alta, párrafo por párrafo. */
+    fun leerTexto() {
+        val uri = fotoUri ?: return voiceEngine.speak("Primero toma una foto.")
+        val ruta = _uiState.value.photoPath ?: return
+        procesarTexto(uri, ruta)
+    }
+
+    private fun procesarTexto(imageUri: Uri, rutaImagen: String, desdeCamara: Boolean = false) {
         // La cámara es libre para cualquiera: sin nadie con sesión iniciada, el texto igual se lee en voz
         // alta, solo que no se guarda en un historial (processCapturedPhoto omite guardar cuando usuarioId es null).
         val usuarioId = sessionRepository.currentUser.value?.id
@@ -358,6 +402,7 @@ class DocumentReaderViewModel @Inject constructor(
             when (val outcome = repository.processCapturedPhoto(usuarioId, imageUri, rutaImagen)) {
                 is OcrOutcome.Exito -> {
                     fallosAutomaticos = 0
+                    textoDeLaFoto = outcome.textoCompleto
                     _uiState.value = DocumentReaderUiState(
                         isProcessing = false,
                         documentoId = outcome.documentoId,
@@ -386,8 +431,15 @@ class DocumentReaderViewModel @Inject constructor(
 
     private fun falloDeLectura(message: String) {
         reiniciarGuia()
-        _uiState.value = DocumentReaderUiState(errorMessage = message)
         cues.play(FeedbackCues.Cue.ERROR)
+        if (fotoUri != null) {
+            // La foto sigue ahí: se queda el panel para probar otra acción sobre ella o tomar otra foto.
+            val foto = _uiState.value.photoPath
+            _uiState.value = DocumentReaderUiState(errorMessage = message, photoPath = foto, panelFoto = true, resultado = ResultadoFoto("No se pudo leer el texto", message))
+            voiceEngine.speak("$message Puedes probar otra acción con la misma foto, o tomar otra.", listenAfter = true)
+            return
+        }
+        _uiState.value = DocumentReaderUiState(errorMessage = message)
         // Si la foto automática falla seguido (poca luz, papel sin texto), se apaga para no repetir fotos en bucle.
         if (ultimaCapturaFueAutomatica) fallosAutomaticos++
         val siguientePaso = when {
@@ -396,6 +448,88 @@ class DocumentReaderViewModel @Inject constructor(
             else -> "Ya no tomaré fotos solas. Toca el botón o di toma la foto cuando estés listo."
         }
         voiceEngine.speak("$message $siguientePaso", listenAfter = true)
+    }
+
+    /** Acción "Qué hay enfrente": describe lo que aparece en la misma foto. */
+    fun describirEntorno() {
+        val uri = fotoUri ?: return voiceEngine.speak("Primero toma una foto.")
+        val ruta = _uiState.value.photoPath ?: return
+        trabajarConLaFoto("Describiendo lo que hay en la foto…", "Analizando lo que hay en la foto.") {
+            entorno.processCapturedPhoto(sessionRepository.currentUser.value?.id, uri, ruta).fold(
+                onSuccess = { ResultadoFoto("Qué hay enfrente", it.descripcion) },
+                onFailure = { ResultadoFoto("No se pudo describir", "No pude analizar la imagen. Intenta de nuevo.") },
+            )
+        }
+    }
+
+    /** Acción "Leer código QR". */
+    fun leerCodigos() {
+        val uri = fotoUri ?: return voiceEngine.speak("Primero toma una foto.")
+        trabajarConLaFoto("Buscando códigos…", "Buscando un código QR en la foto.") {
+            val codigos = acciones.leerCodigos(uri)
+            if (codigos.isEmpty()) {
+                ResultadoFoto("Código QR", "No encontré ningún código. Acerca la cámara al código, que se vea completo, y toma otra foto.")
+            } else {
+                ResultadoFoto("Código QR", codigos.joinToString(". "))
+            }
+        }
+    }
+
+    /** Acción "Traducir texto": lee el texto de la foto y lo pasa al español. */
+    fun traducir() {
+        val uri = fotoUri ?: return voiceEngine.speak("Primero toma una foto.")
+        val ruta = _uiState.value.photoPath ?: return
+        trabajarConLaFoto("Traduciendo…", "Voy a leer el texto y traducirlo al español.") {
+            val texto = textoDeLaFoto ?: when (val salida = repository.processCapturedPhoto(sessionRepository.currentUser.value?.id, uri, ruta)) {
+                is OcrOutcome.Exito -> salida.textoCompleto.also { textoDeLaFoto = it }
+                else -> null
+            }
+            if (texto.isNullOrBlank()) {
+                ResultadoFoto("Traducir", "No encontré texto en la foto para traducir.")
+            } else {
+                when (val traduccion = acciones.traducirAlEspanol(texto)) {
+                    is Traduccion.Lista -> ResultadoFoto("Traducido del ${traduccion.idioma}", traduccion.texto)
+                    Traduccion.YaEnEspanol -> ResultadoFoto("Traducir", "El texto ya está en español. Di leer texto para escucharlo.")
+                    Traduccion.IdiomaDesconocido -> ResultadoFoto("Traducir", "No pude saber en qué idioma está el texto.")
+                    is Traduccion.Fallo -> ResultadoFoto("Traducir", traduccion.motivo)
+                }
+            }
+        }
+    }
+
+    /** Corre una acción sobre la foto con un aviso de que está trabajando, y deja el resultado en una tarjeta y en voz. */
+    private fun trabajarConLaFoto(enCurso: String, aviso: String, accion: suspend () -> ResultadoFoto) {
+        if (_uiState.value.trabajando != null) return
+        detenerLectura()
+        _uiState.value = _uiState.value.copy(trabajando = enCurso, resultado = null)
+        voiceEngine.speak(aviso)
+        viewModelScope.launch {
+            val resultado = try {
+                accion()
+            } catch (e: kotlinx.coroutines.CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                // Una falla de una acción no debe cerrar la cámara: se avisa y se puede probar otra.
+                android.util.Log.e("CecapiFoto", "falló una acción sobre la foto", e)
+                ResultadoFoto("No se pudo", "Algo falló con esa acción. Prueba otra o toma otra foto.")
+            }
+            _uiState.value = _uiState.value.copy(trabajando = null, resultado = resultado, panelFoto = true)
+            voiceEngine.speak(resultado.texto, listenAfter = true)
+        }
+    }
+
+    /** Botones del panel de la foto: ahí no piden dos toques, hacen la acción al primero. */
+    fun guardarFoto() = pedirGuardado()
+
+    fun otraFoto() = nuevaFoto(tomarYa = false)
+
+    /** Desde la lectura, regresa al panel de acciones con la misma foto. */
+    fun otrasAcciones() {
+        if (fotoUri == null) return
+        detenerLectura()
+        voiceEngine.stopSpeaking()
+        _uiState.value = DocumentReaderUiState(photoPath = _uiState.value.photoPath, panelFoto = true)
+        voiceEngine.speak("¿Qué más hacemos con la foto?", listenAfter = true)
     }
 
     fun onRepeatFromStartRequested() = repetirLectura()
@@ -499,6 +633,8 @@ class DocumentReaderViewModel @Inject constructor(
         detenerLectura()
         reiniciarGuia()
         fallosAutomaticos = 0
+        fotoUri = null
+        textoDeLaFoto = null
         _uiState.value = DocumentReaderUiState()
         if (tomarYa) {
             pedirCaptura()

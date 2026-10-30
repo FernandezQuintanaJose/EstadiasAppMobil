@@ -72,7 +72,24 @@ import com.cecapi.app.core.theme.CecapiTextPrimary
 import com.cecapi.app.core.theme.ModuleCameraAccent
 import com.cecapi.app.core.theme.ModuleLearningAccent
 import com.cecapi.app.core.ui.CameraViewfinder
-import com.cecapi.app.core.ui.SelectorModoCamara
+import com.cecapi.app.core.theme.Sections
+import com.cecapi.app.core.ui.TarjetaLectura
+import com.cecapi.app.core.ui.ScreenTopBar
+import com.cecapi.app.core.ui.PantallaConMicrofono
+import com.cecapi.app.core.ui.MicPad
+import com.cecapi.app.core.ui.ColumnaDesplazable
+import com.cecapi.app.core.ui.CapturedPhotoPreview
+import com.cecapi.app.core.ui.BigBtnVariant
+import com.cecapi.app.core.ui.BigBtnSize
+import com.cecapi.app.core.ui.BigBtn
+import androidx.compose.material.icons.filled.AddAPhoto
+import androidx.compose.material.icons.filled.Visibility
+import androidx.compose.material.icons.filled.Translate
+import androidx.compose.material.icons.filled.TextSnippet
+import androidx.compose.material.icons.filled.QrCodeScanner
+import androidx.compose.material.icons.filled.HourglassTop
+import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.Apps
 import com.cecapi.app.core.ui.CaptureButton
 import com.cecapi.app.core.ui.FramingGuide
 import com.cecapi.app.core.ui.TopAction
@@ -162,7 +179,23 @@ fun DocumentReaderScreen(
     // Todos los botones piden dos toques: el primero dice qué hacen, el segundo ejecutan la acción.
     val onVolverClick: () -> Unit = { viewModel.onBotonPresionado(BotonLector.VOLVER) }
 
-    if (hayDocumento && !uiState.isProcessing) {
+    if (uiState.panelFoto && !hayDocumento && !uiState.isProcessing) {
+        // Pantalla 2: la foto ya está tomada; se elige qué hacer con ella.
+        PanelAccionesFoto(
+            uiState = uiState,
+            listening = voiceState is VoiceState.Listening,
+            onBack = onVolverClick,
+            onLeerTexto = viewModel::leerTexto,
+            onEnfrente = viewModel::describirEntorno,
+            onCodigo = viewModel::leerCodigos,
+            onTraducir = viewModel::traducir,
+            onGuardar = viewModel::guardarFoto,
+            onOtraFoto = viewModel::otraFoto,
+            onMic = viewModel::onMicTapped,
+            onMicDoubleTap = viewModel::onMicDoubleTap,
+            onCommands = viewModel::onCommandsRequested,
+        )
+    } else if (hayDocumento && !uiState.isProcessing) {
         // Pantalla 2: Interfaz futurista CECAPI de control de lectura con botón VOLVER AL MENÚ hasta abajo
         DocumentReadoutControlScreen(
             uiState = uiState,
@@ -174,7 +207,7 @@ fun DocumentReaderScreen(
             onNext = { viewModel.onBotonPresionado(BotonLector.SIGUIENTE) },
             onSavePhoto = { viewModel.onBotonPresionado(BotonLector.GUARDAR) },
             onRetakePhoto = { viewModel.onBotonPresionado(BotonLector.OTRA_FOTO) },
-            onEnfrente = viewModel::cambiarAEntorno,
+            onOtrasAcciones = viewModel::otrasAcciones,
         )
     } else {
         // Pantalla 1: Vista previa de cámara limpia a pantalla completa
@@ -192,7 +225,6 @@ fun DocumentReaderScreen(
             listening = voiceState is VoiceState.Listening,
             onGallery = viewModel::pedirGaleria,
             onMic = viewModel::onMicTapped,
-            onEnfrente = viewModel::cambiarAEntorno,
         )
     }
 }
@@ -211,7 +243,6 @@ private fun DocumentCameraScreen(
     listening: Boolean = false,
     onGallery: () -> Unit = {},
     onMic: () -> Unit = {},
-    onEnfrente: () -> Unit = {},
 ) {
     // Analiza la vista previa para guiar por voz hacia dónde mover el teléfono; se apaga al salir de la cámara.
     val framingAnalyzer = remember { TextFramingAnalyzer(onFramingHint) }
@@ -290,7 +321,7 @@ private fun DocumentReadoutControlScreen(
     onNext: () -> Unit,
     onSavePhoto: () -> Unit,
     onRetakePhoto: () -> Unit,
-    onEnfrente: () -> Unit = {},
+    onOtrasAcciones: () -> Unit = {},
 ) {
     Column(
         modifier = Modifier
@@ -564,8 +595,14 @@ private fun DocumentReadoutControlScreen(
             }
         }
 
-        // Después de la foto se elige qué hacer con la cámara: seguir leyendo texto o pasar a qué hay enfrente.
-        SelectorModoCamara(leyendoTexto = true, onLeerTexto = {}, onEnfrente = onEnfrente)
+        // Con la misma foto se puede hacer otra cosa: describirla, leer un código QR o traducirla.
+        BigBtn(
+            icon = Icons.Filled.Apps,
+            label = "Otras acciones con esta foto",
+            variant = BigBtnVariant.Accent,
+            size = BigBtnSize.Secondary,
+            onClick = onOtrasAcciones,
+        )
         VolverAlMenuButton(onClick = onBack)
     }
 }
@@ -640,6 +677,57 @@ private fun DocumentReadoutControlScreenPreview() {
             onNext = {},
             onSavePhoto = {},
             onRetakePhoto = {},
+        )
+    }
+}
+
+/**
+ * Pantalla 2 de la cámara: la foto ya está tomada y se elige qué hacer con ella. Arriba, el contenido que se
+ * desplaza (la foto, lo que se está haciendo o el último resultado y las acciones); abajo, el micrófono.
+ */
+@Composable
+private fun PanelAccionesFoto(
+    uiState: DocumentReaderUiState,
+    listening: Boolean,
+    onBack: () -> Unit,
+    onLeerTexto: () -> Unit,
+    onEnfrente: () -> Unit,
+    onCodigo: () -> Unit,
+    onTraducir: () -> Unit,
+    onGuardar: () -> Unit,
+    onOtraFoto: () -> Unit,
+    onMic: () -> Unit,
+    onMicDoubleTap: () -> Unit,
+    onCommands: () -> Unit,
+) {
+    val ocupado = uiState.trabajando != null
+    PantallaConMicrofono {
+        ColumnaDesplazable(descripcionBarra = "Barra de desplazamiento de las acciones de la foto") {
+            ScreenTopBar(eyebrow = "CÁMARA", title = "¿Qué hacemos con la foto?", onBack = onBack, onCommands = onCommands)
+            uiState.photoPath?.let { ruta ->
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(180.dp)
+                        .clip(RoundedCornerShape(20.dp)),
+                ) {
+                    CapturedPhotoPreview(path = ruta, modifier = Modifier.fillMaxSize())
+                }
+            }
+            uiState.trabajando?.let { TarjetaLectura(titulo = it, cuerpo = "", icono = Icons.Filled.HourglassTop, section = Sections.Camera) }
+            uiState.resultado?.let { TarjetaLectura(titulo = it.titulo, cuerpo = it.texto, icono = Icons.Filled.CheckCircle, section = Sections.Camera) }
+            BigBtn(icon = Icons.Filled.TextSnippet, label = "Leer texto", section = Sections.Camera, enabled = !ocupado, onClick = onLeerTexto)
+            BigBtn(icon = Icons.Filled.Visibility, label = "Qué hay enfrente", section = Sections.Camera, enabled = !ocupado, onClick = onEnfrente)
+            BigBtn(icon = Icons.Filled.QrCodeScanner, label = "Leer código QR", section = Sections.Camera, enabled = !ocupado, onClick = onCodigo)
+            BigBtn(icon = Icons.Filled.Translate, label = "Traducir al español", section = Sections.Camera, enabled = !ocupado, onClick = onTraducir)
+            BigBtn(icon = Icons.Filled.Save, label = "Guardar foto", section = Sections.Camera, onClick = onGuardar)
+            BigBtn(icon = Icons.Filled.AddAPhoto, label = "Tomar otra foto", variant = BigBtnVariant.Accent, onClick = onOtraFoto)
+        }
+        MicPad(
+            listening = listening,
+            onDoubleTap = onMicDoubleTap,
+            hint = if (listening) "Escuchando…" else "Di leer, qué hay enfrente, QR o traducir",
+            onClick = onMic,
         )
     }
 }

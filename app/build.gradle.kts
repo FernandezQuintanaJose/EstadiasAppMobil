@@ -91,6 +91,9 @@ dependencies {
     implementation(libs.camera.view)
     implementation(libs.mlkit.text.recognition)
     implementation(libs.mlkit.image.labeling)
+    implementation(libs.mlkit.barcode.scanning)
+    implementation(libs.mlkit.translate)
+    implementation(libs.mlkit.language.id)
     implementation(libs.tensorflow.lite.task.vision)
 
     implementation(libs.kotlinx.coroutines.android)
