@@ -22,6 +22,7 @@ import com.cecapi.app.core.data.MIGRATION_13_14
 import com.cecapi.app.core.data.MIGRATION_14_15
 import com.cecapi.app.core.data.MIGRATION_15_16
 import com.cecapi.app.core.data.MIGRATION_16_17
+import com.cecapi.app.core.data.MIGRATION_17_18
 import com.cecapi.app.core.util.PasswordHasher
 import com.cecapi.app.feature.modulo3_asistenteinteligente.ConsultaIaDao
 import com.cecapi.app.feature.modulo3_asistenteinteligente.ContextoConversacionDao
@@ -71,7 +72,7 @@ object DatabaseModule {
     ): AppDatabase = Room.databaseBuilder(context, AppDatabase::class.java, "cecapi.db")
         .addMigrations(
             MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6,
-            MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10, MIGRATION_10_11, MIGRATION_11_12, MIGRATION_12_13, MIGRATION_13_14, MIGRATION_14_15, MIGRATION_15_16, MIGRATION_16_17,
+            MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10, MIGRATION_10_11, MIGRATION_11_12, MIGRATION_12_13, MIGRATION_13_14, MIGRATION_14_15, MIGRATION_15_16, MIGRATION_16_17, MIGRATION_17_18,
         )
         .addCallback(object : androidx.room.RoomDatabase.Callback() {
             // Runs on every open (fresh install and upgrade alike); it only adds the missing accounts.
@@ -81,7 +82,6 @@ object DatabaseModule {
                 super.onOpen(db)
                 ensureDemoUsers(db)
                 ensureDemoPendingUser(db)
-                ensureDemoRankingPoints(db)
                 resetAllPasswordsOnce(context, db)
             }
         })
@@ -183,24 +183,6 @@ object DatabaseModule {
                 put("validado", 0)
             },
         )
-    }
-
-    /**
-     * Ranking points for two demo accounts, so Clasificación shows real rows (individual and por
-     * institución) instead of the empty state on a fresh install.
-     */
-    private fun ensureDemoRankingPoints(db: SupportSQLiteDatabase) {
-        if (db.isReadOnly) return
-        val puntosPorUsuario = mapOf("JUAN" to (3 to 450), "MIRIAM" to (5 to 820))
-        puntosPorUsuario.forEach { (username, nivelYPuntos) ->
-            val (nivel, puntos) = nivelYPuntos
-            db.execSQL(
-                "INSERT INTO niveles_aprendizaje (usuario_id, nivel_actual, puntos_totales, fecha_actualizacion) " +
-                    "SELECT id, ?, ?, ? FROM usuarios WHERE nombre_usuario = ? COLLATE NOCASE " +
-                    "AND NOT EXISTS (SELECT 1 FROM niveles_aprendizaje WHERE usuario_id = usuarios.id)",
-                arrayOf<Any?>(nivel, puntos, System.currentTimeMillis(), username),
-            )
-        }
     }
 
     @Provides

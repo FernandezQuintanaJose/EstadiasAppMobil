@@ -210,3 +210,18 @@ val MIGRATION_16_17 = object : Migration(16, 17) {
         db.execSQL("ALTER TABLE usuarios_nueva RENAME TO usuarios")
     }
 }
+
+/**
+ * v18: se quitan los puntos de prueba que la app sembraba para JUAN (nivel 3, 450) y MIRIAM (nivel 5, 820) y
+ * que ya no se crean. Solo se borra la fila si todavía tiene exactamente esos valores: si alguien jugó con esas
+ * cuentas y cambió su avance, no se toca.
+ */
+val MIGRATION_17_18 = object : Migration(17, 18) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL(
+            "DELETE FROM niveles_aprendizaje WHERE " +
+                "(nivel_actual = 3 AND puntos_totales = 450 AND usuario_id IN (SELECT id FROM usuarios WHERE nombre_usuario = 'JUAN' COLLATE NOCASE)) OR " +
+                "(nivel_actual = 5 AND puntos_totales = 820 AND usuario_id IN (SELECT id FROM usuarios WHERE nombre_usuario = 'MIRIAM' COLLATE NOCASE))",
+        )
+    }
+}

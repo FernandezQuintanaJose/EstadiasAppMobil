@@ -33,8 +33,10 @@ data class ConsultasUiState(
     val paso: ConsultaPaso = ConsultaPaso.ESPERANDO,
     /** Lo que la persona pidió, tal cual lo dijo o lo escribió. */
     val consulta: String = "",
-    /** El documento que devolvió la IA, ya sin marcas de formato. Null mientras no hay. */
+    /** La respuesta o el documento que devolvió la IA, ya sin marcas de formato. Null mientras no hay. */
     val documento: String? = null,
+    /** True si lo que se pidió fue un documento (carta, constancia...); false si fue una pregunta. */
+    val esDocumento: Boolean = false,
     val error: String? = null,
 )
 
@@ -78,10 +80,12 @@ class ConsultasViewModel @Inject constructor(
         voiceEngine.rawInput = true
         intentFallback.soloConsultas = true
         voiceEngine.speak(
-            "Consultas. Dime qué documento necesitas, por ejemplo: una carta para pedir un justificante. " +
+            "Consultas. Pregúntame lo que quieras, o pídeme un documento, por ejemplo: una carta para pedir un justificante. " +
                 CommandCatalog.hint("consultas"),
             listenAfter = true,
         )
+        // Entrar a Consultas empieza un chat nuevo: no arrastra lo que se habló antes.
+        viewModelScope.launch { sessionRepository.currentUser.value?.let { repository.nuevaConversacion(it.id) } }
         viewModelScope.launch {
             voiceEngine.speechFor(CecapiDestinations.REQUESTS).collect { speech -> onSpeech(speech.text) }
         }
@@ -126,18 +130,23 @@ class ConsultasViewModel @Inject constructor(
             fallo(pedido, "No hay conexión a internet. Las consultas necesitan internet para generar el documento.")
             return
         }
-        _uiState.value = ConsultasUiState(paso = ConsultaPaso.GENERANDO, consulta = pedido)
+        val esDocumento = pideDocumento(pedido)
+        _uiState.value = ConsultasUiState(paso = ConsultaPaso.GENERANDO, consulta = pedido, esDocumento = esDocumento)
         viewModelScope.launch {
             try {
-                val resultado = voiceEngine.speakWhile { repository.documento(usuario.id, pedido) }
+                // Un documento va a /documento (instrucciones propias para texto largo); una pregunta, a /preguntar.
+                // En el historial solo queda lo que la persona dijo.
+                val resultado = voiceEngine.speakWhile {
+                    if (esDocumento) repository.documento(usuario.id, pedido) else repository.ask(usuario.id, pedido)
+                }
                 resultado.onSuccess { texto ->
                     val documento = limpiarFormato(texto)
                     if (documento.isBlank()) {
-                        fallo(pedido, "No recibí ningún documento. Intenta pedirlo de otra forma.")
+                        fallo(pedido, "No recibí ninguna respuesta. Intenta preguntarlo de otra forma.")
                     } else {
-                        _uiState.value = ConsultasUiState(paso = ConsultaPaso.LISTO, consulta = pedido, documento = documento)
+                        _uiState.value = ConsultasUiState(paso = ConsultaPaso.LISTO, consulta = pedido, documento = documento, esDocumento = esDocumento)
                         cues.play(FeedbackCues.Cue.SUCCESS)
-                        voiceEngine.speak("Listo, el documento está en pantalla. Di lee el documento para escucharlo, o nueva consulta.", listenAfter = true)
+                        voiceEngine.speak(documento, listenAfter = true)
                     }
                 }.onFailure { error -> fallo(pedido, AiMessages.forFailure(error)) }
             } catch (e: CancellationException) {
@@ -165,7 +174,7 @@ class ConsultasViewModel @Inject constructor(
     /** Para quien ya tiene el texto (por ejemplo, de otro asistente de IA): lo escribe o pega y lo edita aquí. */
     fun escribirPropio() {
         voiceEngine.stopSpeaking()
-        _uiState.value = ConsultasUiState(paso = ConsultaPaso.LISTO, consulta = "Texto escrito por mí", documento = "")
+        _uiState.value = ConsultasUiState(paso = ConsultaPaso.LISTO, consulta = "Texto escrito por mí", documento = "", esDocumento = true)
         voiceEngine.speak("Escribe o pega tu texto en el cuadro. Después puedes pedirme que lo lea.")
     }
 
@@ -183,7 +192,7 @@ class ConsultasViewModel @Inject constructor(
     fun nuevaConsulta() {
         voiceEngine.stopSpeaking()
         _uiState.value = ConsultasUiState()
-        voiceEngine.speak("Dime qué documento necesitas.", listenAfter = true)
+        voiceEngine.speak("Dime tu pregunta, o qué documento necesitas.", listenAfter = true)
     }
 
     override fun onCleared() {
@@ -201,6 +210,29 @@ class ConsultasViewModel @Inject constructor(
         private val MARCAS_LINEA = Regex("""^\s{0,3}#{1,6}\s*""", RegexOption.MULTILINE)
         private val NEGRITA = Regex("""\*\*|__""")
         private val VINETA = Regex("""^\s*[*•]\s+""", RegexOption.MULTILINE)
+
+        private val VERBOS_DE_PEDIDO = setOf(
+            "redacta", "redactame", "escribe", "escribeme", "elabora", "genera", "generame", "crea", "creame",
+            "hazme", "haz", "prepara", "preparame", "dame", "necesito", "quiero",
+        )
+        private val TIPOS_DE_DOCUMENTO = setOf(
+            "carta", "documento", "oficio", "constancia", "justificante", "solicitud", "escrito", "aviso", "contrato",
+            "curriculum", "informe", "reporte", "resumen", "formato", "permiso", "invitacion", "recibo", "acta",
+            "memorandum", "comunicado",
+        )
+        private val PREGUNTAS = setOf(
+            "que", "quien", "cual", "cuando", "donde", "como", "por", "cuanto", "cuanta", "cuantos", "es", "son",
+        )
+
+        /** True si lo que se dijo pide escribir un documento ("redacta una carta...") y no es una pregunta ("qué es una carta"). */
+        fun pideDocumento(texto: String): Boolean {
+            val limpio = java.text.Normalizer.normalize(texto.lowercase(), java.text.Normalizer.Form.NFD)
+                .replace(Regex("\\p{Mn}+"), "")
+            val palabras = limpio.split(Regex("[^a-z]+")).filter { it.isNotEmpty() }
+            if (palabras.isEmpty() || palabras.first() in PREGUNTAS) return false
+            if (palabras.first() in setOf("redacta", "redactame", "elabora")) return true
+            return palabras.take(4).any { it in VERBOS_DE_PEDIDO } && palabras.any { it in TIPOS_DE_DOCUMENTO }
+        }
 
         /** Quita las marcas de Markdown (#, **, viñetas con asterisco) para que el documento se vea y se lea limpio. */
         fun limpiarFormato(texto: String): String = texto

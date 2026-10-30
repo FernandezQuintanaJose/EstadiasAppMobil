@@ -13,16 +13,20 @@ class AiAssistantRepository @Inject constructor(
 ) {
     fun observeRecent(usuarioId: Long): Flow<List<ConsultaIaEntity>> = consultaIaDao.observeRecent(usuarioId)
 
-    suspend fun ask(usuarioId: Long, pregunta: String): Result<String> {
+    /** Empieza un chat nuevo: lo siguiente que se pregunte no arrastra lo de la conversación anterior. */
+    suspend fun nuevaConversacion(usuarioId: Long) = contextoDao.borrarDeUsuario(usuarioId)
+
+    /** [guardarComo] es lo que queda en el historial; por omisión, la propia pregunta (puede llevar instrucciones extra que no se guardan). */
+    suspend fun ask(usuarioId: Long, pregunta: String, guardarComo: String = pregunta): Result<String> {
         val contexto = contextoDao.findByUser(usuarioId)
         val historial = contexto?.resumenContexto?.let { listOf(it) } ?: emptyList()
 
         val resultado = api.ask(pregunta, historial)
 
-        val consultaId = consultaIaDao.insert(ConsultaIaEntity(usuarioId = usuarioId, textoPregunta = pregunta))
+        val consultaId = consultaIaDao.insert(ConsultaIaEntity(usuarioId = usuarioId, textoPregunta = guardarComo))
         resultado.onSuccess { respuesta ->
             respuestaIaDao.insert(RespuestaIaEntity(consultaId = consultaId, textoRespuesta = respuesta))
-            val nuevoResumen = "P: $pregunta / R: $respuesta"
+            val nuevoResumen = "P: $guardarComo / R: $respuesta"
             if (contexto == null) {
                 contextoDao.insert(ContextoConversacionEntity(usuarioId = usuarioId, resumenContexto = nuevoResumen))
             } else {

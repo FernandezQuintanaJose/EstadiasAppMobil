@@ -52,6 +52,8 @@ data class ActivitiesUiState(
     val busy: Boolean = false,
     /** El índice ya calificado en esta ronda, para que repetir la misma respuesta no sume puntos otra vez. */
     val answeredIndex: Int = -1,
+    /** Los ejercicios de esta ronda que ya se calificaron: regresar con Anterior no deja sumar puntos dos veces. */
+    val respondidos: Set<Int> = emptySet(),
     /** Respuestas correctas hasta ahora en esta ronda (sonidos o vibraciones, según lo que esté seleccionado). */
     val correctCount: Int = 0,
     /** Se terminaron todos los ejercicios: se muestra el puntaje y la persona puede repetir o salir. */
@@ -142,6 +144,7 @@ class LearningViewModel @Inject constructor(
             feedback = null,
             correct = null,
             answeredIndex = -1,
+            respondidos = emptySet(),
             correctCount = 0,
             finished = false,
             finalMessage = null,
@@ -242,6 +245,21 @@ class LearningViewModel @Inject constructor(
         startExercise(intro = "")
     }
 
+    /** Vuelve al ejercicio anterior para escucharlo otra vez; si ya se calificó, no vuelve a sumar. */
+    fun previous() {
+        val s = _state.value
+        if (s.items.isEmpty() || s.finished) return
+        if (s.index == 0) {
+            voiceEngine.speak("Estás en el primer ejercicio.", listenAfter = true)
+            return
+        }
+        _state.value = s.copy(index = s.index - 1, feedback = null, correct = null)
+        startExercise(intro = "${where()} ")
+    }
+
+    /** Responder tocando un botón (para quien prefiere no hablar): es lo mismo que decir la respuesta. */
+    fun responder(respuesta: String) = answer(respuesta)
+
     fun next() {
         val s = _state.value
         if (s.items.isEmpty() || s.finished) return
@@ -274,6 +292,7 @@ class LearningViewModel @Inject constructor(
             feedback = null,
             correct = null,
             answeredIndex = -1,
+            respondidos = emptySet(),
             correctCount = 0,
             finished = false,
             finalMessage = null,
@@ -337,7 +356,7 @@ class LearningViewModel @Inject constructor(
     private fun answer(spoken: String) {
         val item = _state.value.current ?: return
         // Ya calificado: repetir la misma respuesta no debe sumar puntos otra vez. "Repite" solo reproduce el sonido.
-        if (_state.value.answeredIndex == _state.value.index) {
+        if (_state.value.index in _state.value.respondidos) {
             voiceEngine.speak("Ya respondiste este ejercicio. Di siguiente para continuar, o repite para escucharlo otra vez.", listenAfter = true)
             return
         }
@@ -366,6 +385,7 @@ class LearningViewModel @Inject constructor(
             feedback = message,
             correct = correct,
             answeredIndex = _state.value.index,
+            respondidos = _state.value.respondidos + _state.value.index,
             correctCount = _state.value.correctCount + if (correct) 1 else 0,
         )
         val isLast = _state.value.index == _state.value.items.size - 1

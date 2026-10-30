@@ -116,6 +116,10 @@ interface ContextoConversacionDao {
     @Insert
     suspend fun insert(contexto: ContextoConversacionEntity): Long
 
+    /** Una conversación nueva empieza sin memoria de la anterior. */
+    @Query("DELETE FROM contextos_conversacion WHERE usuario_id = :usuarioId")
+    suspend fun borrarDeUsuario(usuarioId: Long)
+
     @Query("UPDATE contextos_conversacion SET resumen_contexto = :resumen, fecha_actualizacion = :fecha WHERE id = :id")
     suspend fun updateResumen(id: Long, resumen: String, fecha: Long)
 }
