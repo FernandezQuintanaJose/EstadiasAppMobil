@@ -118,6 +118,11 @@ class SoporteViewModel @Inject constructor(
 
     fun hayCuenta(): Boolean = sessionRepository.currentUser.value != null
 
+    /** Reportar necesita una cuenta: se dice en voz alta, porque el aviso en pantalla no se ve. */
+    fun avisarSinCuenta() {
+        voiceEngine.speak("Para reportar un problema o ver tus reportes, primero inicia sesión.")
+    }
+
     /** Mensajes de Ayuda y soporte de todas las personas; solo los ve el administrador. */
     val mensajesDeSoporte: StateFlow<List<IncidenciaEntity>> = incidenciaDao.observeSoporte()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())

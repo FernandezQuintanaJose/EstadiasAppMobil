@@ -35,6 +35,7 @@ import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import java.util.Locale
 import java.util.UUID
+import java.util.concurrent.Executors
 import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicInteger
 import javax.inject.Inject
@@ -64,6 +65,24 @@ class VoiceEngine @Inject constructor(
     val recognizedSpeech: SharedFlow<RecognizedSpeech> = _recognizedSpeech.asSharedFlow()
 
     private var textToSpeech: TextToSpeech? = null
+
+    /**
+     * Hablar y callar son llamadas al servicio de voz del sistema. Si ese servicio se traba (en algunos
+     * teléfonos el servidor de audio se reinicia), hacerlas en el hilo principal congela la app hasta que
+     * Android la cierra. Van en un hilo propio, una tras otra y en orden, para que la pantalla siga respondiendo.
+     */
+    private val ttsExecutor = Executors.newSingleThreadExecutor { tarea -> Thread(tarea, "cecapi-tts").apply { isDaemon = true } }
+
+    private fun onTtsThread(block: (TextToSpeech) -> Unit) {
+        val tts = textToSpeech ?: return
+        ttsExecutor.execute {
+            try {
+                block(tts)
+            } catch (e: Exception) {
+                Log.w("CecapiVoice", "El motor de voz falló", e)
+            }
+        }
+    }
     private var ttsReady = false
     private val pendingSpeech = ArrayDeque<Pair<String, Boolean>>()
 
@@ -254,9 +273,11 @@ class VoiceEngine @Inject constructor(
         // documentos escaneados), así que el texto largo se envía en partes, dividido al final de cada oración.
         val parts = splitForSpeech(text)
         chunksLeft.set(parts.size)
-        parts.forEachIndexed { index, part ->
-            val mode = if (index == 0) TextToSpeech.QUEUE_FLUSH else TextToSpeech.QUEUE_ADD
-            textToSpeech?.speak(part, mode, params, UUID.randomUUID().toString())
+        onTtsThread { tts ->
+            parts.forEachIndexed { index, part ->
+                val mode = if (index == 0) TextToSpeech.QUEUE_FLUSH else TextToSpeech.QUEUE_ADD
+                tts.speak(part, mode, params, UUID.randomUUID().toString())
+            }
         }
         startBargeInDetection()
     }
@@ -400,7 +421,7 @@ class VoiceEngine @Inject constructor(
         stopBargeInDetection()
         listenAfterSpeech = false
         pendingSpeech.clear()
-        textToSpeech?.stop()
+        onTtsThread { it.stop() }
         if (_state.value is VoiceState.Speaking) {
             _state.value = VoiceState.Idle
         }

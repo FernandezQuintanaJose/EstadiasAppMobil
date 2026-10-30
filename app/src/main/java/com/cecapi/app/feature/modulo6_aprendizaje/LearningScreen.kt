@@ -74,6 +74,8 @@ import com.cecapi.app.core.ui.BigBtn
 import com.cecapi.app.core.ui.BigBtnSize
 import com.cecapi.app.core.ui.BigBtnVariant
 import com.cecapi.app.core.ui.MicPad
+import com.cecapi.app.core.ui.TarjetaLectura
+import com.cecapi.app.core.ui.LocalVoiceHelp
 import com.cecapi.app.core.ui.PantallaConMicrofono
 import com.cecapi.app.core.ui.ScreenTopBar
 import com.cecapi.app.core.ui.TopAction
@@ -180,13 +182,6 @@ fun LearningScreen(
                             label = "Juegos",
                             section = Sections.Activities,
                             onClick = { recreativas = true },
-                        )
-                        BigBtn(
-                            icon = Icons.Filled.SportsEsports,
-                            label = "Retos IA · Próximamente",
-                            section = Sections.Activities,
-                            enabled = false,
-                            onClick = {},
                         )
                     }
                 }
@@ -422,12 +417,17 @@ private fun ActivityPage(
  */
 @Composable
 private fun RecreationalPage(modifier: Modifier = Modifier) {
+    val helper = LocalVoiceHelp.current
     ActivityScrollArea(modifier = modifier) {
-        Text(
-            "Ideas para divertirte y estimular tus sentidos, solo o en grupo. Esto es un primer borrador: " +
-                "iremos agregando y afinando más con el tiempo.",
-            style = MaterialTheme.typography.bodyMedium,
-            color = CecapiTextMuted,
+        // Un juego al azar, para quien no quiere recorrer toda la lista.
+        BigBtn(
+            icon = Icons.Filled.SportsEsports,
+            label = "Un juego al azar",
+            section = Sections.Activities,
+            onClick = {
+                val juego = RecreationalActivities.todas.random()
+                helper?.speak("${juego.titulo}. ${juego.categoria.etiqueta}. ${juego.descripcion}")
+            },
         )
         CategoriaRecreativa.entries.forEach { categoria ->
             val actividades = RecreationalActivities.todas.filter { it.categoria == categoria }
@@ -438,38 +438,17 @@ private fun RecreationalPage(modifier: Modifier = Modifier) {
                 color = CecapiAccent,
                 modifier = Modifier.padding(top = 4.dp),
             )
-            actividades.forEach { actividad -> ActividadRecreativaCard(actividad) }
+            // Cada juego es una tarjeta: se ve el título y, al tocarla, se escucha cómo se juega.
+            actividades.forEach { actividad ->
+                TarjetaLectura(
+                    titulo = actividad.titulo,
+                    cuerpo = actividad.descripcion,
+                    icono = Icons.Filled.SportsEsports,
+                    section = Sections.Activities,
+                    mostrarCuerpo = false,
+                )
+            }
         }
-    }
-}
-
-/**
- * Solo el título se ve a simple vista — el párrafo completo nadie lo lee en una tarjeta. La
- * descripción sigue completa por voz: mantén presionado para escucharla.
- */
-@Composable
-private fun ActividadRecreativaCard(actividad: ActividadRecreativa) {
-    val shape = RoundedCornerShape(18.dp)
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clip(shape)
-            .background(CecapiSurface)
-            .voiceHint("${actividad.titulo}. ${actividad.descripcion}")
-            .padding(16.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Text(
-            actividad.titulo,
-            style = MaterialTheme.typography.titleMedium,
-            color = MaterialTheme.colorScheme.onBackground,
-            modifier = Modifier.weight(1f),
-        )
-        Text(
-            "Mantén presionado para escuchar",
-            style = MaterialTheme.typography.labelSmall,
-            color = CecapiTextMuted,
-        )
     }
 }
 

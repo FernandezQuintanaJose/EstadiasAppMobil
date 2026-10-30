@@ -41,6 +41,7 @@ import com.cecapi.app.core.theme.CecapiSurface
 import com.cecapi.app.core.theme.CecapiTextMuted
 import com.cecapi.app.core.theme.Sections
 import com.cecapi.app.core.ui.BigBtn
+import com.cecapi.app.core.ui.TarjetaLectura
 import com.cecapi.app.core.ui.BigBtnVariant
 import com.cecapi.app.core.ui.MicPad
 import com.cecapi.app.core.ui.PantallaConMicrofono
@@ -99,14 +100,14 @@ fun SoporteScreen(
                         label = "Reportar un problema técnico",
                         section = Sections.Ayuda,
                         enabled = !state.esperandoMensaje,
-                        onClick = { if (conCuenta) vista = VistaAyuda.Escribir },
+                        onClick = { if (conCuenta) vista = VistaAyuda.Escribir else viewModel.avisarSinCuenta() },
                     )
                     BigBtn(
                         icon = Icons.Filled.ReportProblem,
                         label = "Reportar con mi voz",
                         section = Sections.Ayuda,
                         enabled = !state.esperandoMensaje,
-                        onClick = { if (conCuenta) viewModel.pedirMensaje() },
+                        onClick = { if (conCuenta) viewModel.pedirMensaje() else viewModel.avisarSinCuenta() },
                     )
                     if (!conCuenta) {
                         NoticeBanner("Para reportar un problema o ver tus reportes, inicia sesión.")
@@ -226,24 +227,14 @@ fun SoporteScreen(
     }
 }
 
+/** Cada bloque de texto se lee en voz alta al tocarlo: sin eso, una tarjeta que solo se ve no le sirve a quien no ve. */
 @Composable
 private fun BloqueTexto(
     titulo: String,
     cuerpo: String,
     colorCuerpo: androidx.compose.ui.graphics.Color = CecapiTextMuted,
 ) {
-    Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clip(RoundedCornerShape(20.dp))
-            .background(CecapiSurface)
-            .border(1.dp, CecapiBorder, RoundedCornerShape(20.dp))
-            .padding(16.dp),
-        verticalArrangement = Arrangement.spacedBy(8.dp),
-    ) {
-        Text(titulo, style = MaterialTheme.typography.titleLarge, color = MaterialTheme.colorScheme.onBackground)
-        Text(cuerpo, style = MaterialTheme.typography.bodyLarge, color = colorCuerpo)
-    }
+    TarjetaLectura(titulo = titulo, cuerpo = cuerpo, colorCuerpo = colorCuerpo, section = Sections.Ayuda)
 }
 
 @Composable
