@@ -62,3 +62,63 @@ def test_instrucciones_tienen_los_nombres_oficiales():
 def test_instrucciones_no_crecen_de_mas():
     # Más texto = respuestas más lentas (25/10: 2,564 caracteres, 1,128 ms en promedio).
     assert len(proveedores.INSTRUCCIONES) < 2200
+
+
+@pytest.mark.parametrize("texto, visual", [
+    ("No tengo forma de saberlo. Revisa la aplicación.", True),        # pregunta 9, 25/10
+    ("Si no la ves, di ayuda.", True),                                  # pregunta 13, 25/10
+    ("Verifica si la app lo ofrece en su pantalla principal.", True),
+    ("Ve a la esquina y escucha el tráfico.", False),                   # "ve" de ir
+    ("Activa tu lector de pantalla con tres dedos.", False),            # TalkBack sí se vale
+    ("Louis Braille fue un francés que inventó la lectura con puntos.", False),
+])
+def test_detecta_lenguaje_visual(texto, visual):
+    assert proveedores.tiene_lenguaje_visual(texto) is visual
+
+
+class ProveedorFalso:
+    nombre = "groq"
+    configurado = True
+
+    def __init__(self, respuestas):
+        self.respuestas = list(respuestas)
+        self.llamadas = []
+
+    def preguntar(self, pregunta, contexto):
+        self.llamadas.append((pregunta, list(contexto)))
+        respuesta = self.respuestas.pop(0)
+        if isinstance(respuesta, Exception):
+            raise respuesta
+        return respuesta
+
+
+@pytest.fixture
+def sin_conteo(monkeypatch):
+    monkeypatch.setattr(proveedores.uso, "registrar", lambda nombre: None)
+    monkeypatch.setattr(proveedores.uso, "agotado", lambda nombre: False)
+
+
+def test_pide_corregir_una_vez_si_usa_palabras_de_vista(monkeypatch, sin_conteo):
+    falso = ProveedorFalso(["Revisa la aplicación.", "Pregúntale a la app: di notificaciones."])
+    monkeypatch.setattr(proveedores, "configurados", lambda: [falso])
+    respuesta, nombre, _ = proveedores.preguntar_con_respaldo("¿Tengo notificaciones?", [])
+    assert respuesta == "Pregúntale a la app: di notificaciones."
+    assert nombre == "groq"
+    assert len(falso.llamadas) == 2
+    pregunta, contexto = falso.llamadas[1]
+    assert proveedores.CORRECCION_VISUAL in pregunta
+    assert contexto[-1] == "Asistente: Revisa la aplicación."
+
+
+def test_si_la_correccion_falla_se_queda_la_primera(monkeypatch, sin_conteo):
+    falso = ProveedorFalso(["Revisa la aplicación.", RuntimeError("caído")])
+    monkeypatch.setattr(proveedores, "configurados", lambda: [falso])
+    respuesta, _, _ = proveedores.preguntar_con_respaldo("¿Tengo notificaciones?", [])
+    assert respuesta == "Revisa la aplicación."
+
+
+def test_sin_palabras_de_vista_no_se_corrige(monkeypatch, sin_conteo):
+    falso = ProveedorFalso(["Louis Braille inventó la lectura con puntos."])
+    monkeypatch.setattr(proveedores, "configurados", lambda: [falso])
+    proveedores.preguntar_con_respaldo("¿Quién fue Louis Braille?", [])
+    assert len(falso.llamadas) == 1
