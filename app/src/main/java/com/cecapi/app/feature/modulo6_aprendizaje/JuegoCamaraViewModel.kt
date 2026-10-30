@@ -37,6 +37,8 @@ data class JuegoCamaraUiState(
     val fase: FaseJuego = FaseJuego.BUSCANDO,
     val veredicto: Veredicto? = null,
     val fotoPath: String? = null,
+    /** La caja misteriosa: lo que la persona cree que es, antes de enseñarlo a la cámara. */
+    val adivinanza: String? = null,
 )
 
 /**
@@ -46,6 +48,7 @@ data class JuegoCamaraUiState(
  */
 @HiltViewModel
 class JuegoCamaraViewModel @Inject constructor(
+    savedStateHandle: androidx.lifecycle.SavedStateHandle,
     private val voiceEngine: VoiceEngine,
     private val cues: FeedbackCues,
     private val entorno: EnvironmentRepository,
@@ -55,7 +58,12 @@ class JuegoCamaraViewModel @Inject constructor(
         viewModelScope, SharingStarted.WhileSubscribed(5_000), VoiceState.Idle,
     )
 
-    private val _estado = MutableStateFlow(JuegoCamaraUiState())
+    /** "adivina" es La caja misteriosa: se toca una cosa sin verla, se dice qué es y la cámara lo confirma. */
+    val adivina: Boolean = savedStateHandle.get<String>("modo") == "adivina"
+
+    private val _estado = MutableStateFlow(
+        if (adivina) JuegoCamaraUiState(reto = Reto(0, RETO_ADIVINA)) else JuegoCamaraUiState(),
+    )
     val estado: StateFlow<JuegoCamaraUiState> = _estado.asStateFlow()
 
     private val _capturas = MutableSharedFlow<Unit>(extraBufferCapacity = 1)
@@ -68,7 +76,9 @@ class JuegoCamaraViewModel @Inject constructor(
         viewModelScope.launch {
             voiceEngine.speechFor(CecapiDestinations.JUEGO_CAMARA).collect { onSpeech(it.text) }
         }
-        voiceEngine.speak(
+        if (adivina) {
+            voiceEngine.speak("La caja misteriosa. $RETO_ADIVINA", listenAfter = true)
+        } else voiceEngine.speak(
             "Busca y encuentra. Te doy un reto, tú buscas la cosa y me la enseñas con la cámara. Cuando la tengas, " +
                 "toca el botón o di ya lo tengo. ${_estado.value.reto.frase}",
             listenAfter = true,
@@ -86,6 +96,8 @@ class JuegoCamaraViewModel @Inject constructor(
             }
             has("siguiente", "otro", "otro reto", "nuevo", "sigue") -> siguienteReto()
             has("repite", "repetir", "otra vez", "cual era", "que busco") -> repetirReto()
+            adivina && _estado.value.fase == FaseJuego.BUSCANDO && texto.isNotBlank() &&
+                !has("siguiente", "repite", "comandos", "ayuda") -> adivinar(hablado)
             has("lista de comandos", "comandos", "ayuda") -> voiceEngine.speak(
                 "Di ya lo tengo para tomar la foto, repite para oír el reto otra vez, siguiente para cambiar de reto, o atrás para salir.",
                 listenAfter = true,
@@ -115,6 +127,7 @@ class JuegoCamaraViewModel @Inject constructor(
 
     /** La foto ya está tomada: se mira el color del centro y, según el reto, lo que reconoce la cámara. */
     fun onFoto(uri: Uri, ruta: String) {
+        if (adivina) return adivinarConFoto(uri, ruta)
         val reto = _estado.value.reto
         _estado.value = _estado.value.copy(fase = FaseJuego.ANALIZANDO, fotoPath = ruta, veredicto = null)
         voiceEngine.speak("Veamos.")
@@ -164,10 +177,44 @@ class JuegoCamaraViewModel @Inject constructor(
         voiceEngine.speak("${veredicto.mensaje}$aviso Di siguiente para otro reto, o repite.", listenAfter = true)
     }
 
+    /** Lo que la persona cree que es (por voz o escrito). */
+    fun adivinar(texto: String) {
+        val limpio = texto.trim()
+        if (limpio.isEmpty()) return
+        _estado.value = _estado.value.copy(adivinanza = limpio)
+        voiceEngine.speak("Dijiste: $limpio. Ahora enséñamelo a la cámara y di ya lo tengo.", listenAfter = true)
+    }
+
+    private fun adivinarConFoto(uri: Uri, ruta: String) {
+        val dicho = _estado.value.adivinanza
+        if (dicho == null) {
+            voiceEngine.speak("Primero dime qué crees que es.", listenAfter = true)
+            return
+        }
+        _estado.value = _estado.value.copy(fase = FaseJuego.ANALIZANDO, fotoPath = ruta, veredicto = null)
+        voiceEngine.speak("Veamos si adivinaste.")
+        viewModelScope.launch {
+            val escena = try {
+                entorno.processCapturedPhoto(null, uri, ruta).getOrNull()?.let { r -> listOf(r.descripcion).plus(r.etiquetas).joinToString(". ") }.orEmpty()
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                Log.e("CecapiJuego", "no se pudo analizar la foto", e)
+                ""
+            }
+            terminarRonda(veredictoDeAdivinanza(dicho, escena))
+        }
+    }
+
     /** Un reto nuevo; si todavía no se logró el anterior, se cambia por otro del mismo nivel. */
     fun siguienteReto() {
         val actual = _estado.value
         if (actual.fase == FaseJuego.ANALIZANDO) return
+        if (adivina) {
+            _estado.value = actual.copy(fase = FaseJuego.BUSCANDO, veredicto = null, fotoPath = null, adivinanza = null)
+            voiceEngine.speak("Otra cosa. $RETO_ADIVINA", listenAfter = true)
+            return
+        }
         val nuevo = RetosCamara.nuevo(actual.nivel)
         _estado.value = actual.copy(reto = nuevo, fase = FaseJuego.BUSCANDO, veredicto = null, fotoPath = null)
         voiceEngine.speak(nuevo.frase, listenAfter = true)
@@ -194,6 +241,25 @@ class JuegoCamaraViewModel @Inject constructor(
             return NombreColor.dominante(muestra.toIntArray(), 0.35f)?.nombre
         } finally {
             mapa.recycle()
+        }
+    }
+
+    companion object {
+        const val RETO_ADIVINA =
+            "Toca una cosa sin verla, dime qué crees que es, y luego enséñala a la cámara y di ya lo tengo."
+
+        /** Adivinó si alguna palabra de lo que dijo (sin artículos) aparece en lo que reconoció la cámara. */
+        fun veredictoDeAdivinanza(dicho: String, escena: String): Veredicto {
+            val vacias = setOf("una", "unas", "unos", "creo", "que", "es", "son", "algo", "como", "parece", "esto", "este", "esta")
+            val palabras = RetosCamara.limpiar(dicho).split(Regex("[^a-zñ]+")).filter { it.length >= 3 && it !in vacias }
+            val texto = RetosCamara.limpiar(escena)
+            val acerto = palabras.any { palabra -> palabra in texto || palabra.removeSuffix("s") in texto }
+            val visto = escena.trim().ifEmpty { "nada claro" }
+            return if (acerto) {
+                Veredicto(true, "¡Adivinaste! Yo veo: $visto")
+            } else {
+                Veredicto(false, "Tú dijiste $dicho. Yo veo: $visto")
+            }
         }
     }
 }

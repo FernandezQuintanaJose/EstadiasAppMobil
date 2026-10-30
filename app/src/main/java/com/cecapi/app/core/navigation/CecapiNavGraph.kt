@@ -29,6 +29,9 @@ import com.cecapi.app.feature.modulo3_asistenteinteligente.AiAssistantScreen
 import com.cecapi.app.feature.modulo4_lectordocumentos.DocumentReaderScreen
 import com.cecapi.app.feature.modulo5_solicitudes.ConsultasScreen
 import com.cecapi.app.feature.modulo6_aprendizaje.JuegoCamaraScreen
+import com.cecapi.app.feature.modulo6_aprendizaje.JuegoScreen
+import androidx.navigation.NavType
+import androidx.navigation.navArgument
 import com.cecapi.app.feature.modulo6_aprendizaje.LearningScreen
 import com.cecapi.app.feature.modulo7_entorno.EnvironmentScreen
 
@@ -191,8 +194,17 @@ fun CecapiNavGraph(navController: NavHostController = rememberNavController()) {
                 )
             }
         }
-        composable(CecapiDestinations.JUEGO_CAMARA) {
+        composable(
+            CecapiDestinations.JUEGO_CAMARA,
+            arguments = listOf(navArgument("modo") { type = NavType.StringType; defaultValue = "busca" }),
+        ) {
             WakeScope { JuegoCamaraScreen(onBack = { navController.popBackStack() }) }
+        }
+        composable(
+            CecapiDestinations.JUEGO,
+            arguments = listOf(navArgument("tipo") { type = NavType.StringType }),
+        ) {
+            WakeScope { JuegoScreen(onBack = { navController.popBackStack() }) }
         }
         composable(CecapiDestinations.ENVIRONMENT) {
             WakeScope {

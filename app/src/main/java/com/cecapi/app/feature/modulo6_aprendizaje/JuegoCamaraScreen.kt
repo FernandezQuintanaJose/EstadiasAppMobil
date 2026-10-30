@@ -42,6 +42,10 @@ import com.cecapi.app.core.ui.BigBtn
 import com.cecapi.app.core.ui.BigBtnSize
 import com.cecapi.app.core.ui.BigBtnVariant
 import com.cecapi.app.core.ui.CameraViewfinder
+import com.cecapi.app.core.ui.CampoTexto
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.ui.text.input.ImeAction
 import com.cecapi.app.core.ui.CapturedPhotoPreview
 import com.cecapi.app.core.ui.ColumnaDesplazable
 import com.cecapi.app.core.ui.MicPad
@@ -89,13 +93,13 @@ fun JuegoCamaraScreen(
         ColumnaDesplazable(descripcionBarra = "Barra de desplazamiento del juego") {
             ScreenTopBar(
                 eyebrow = "JUEGOS",
-                title = "Busca y encuentra",
+                title = if (viewModel.adivina) "La caja misteriosa" else "Busca y encuentra",
                 onBack = onBack,
                 onCommands = viewModel::onCommandsRequested,
             )
 
             TarjetaLectura(
-                titulo = "Nivel ${estado.nivel} · ${estado.aciertosEnNivel} de ${RetosCamara.RETOS_POR_NIVEL}",
+                titulo = if (viewModel.adivina) "Tu adivinanza: ${estado.adivinanza ?: "todavía ninguna"}" else "Nivel ${estado.nivel} · ${estado.aciertosEnNivel} de ${RetosCamara.RETOS_POR_NIVEL}",
                 cuerpo = estado.reto.frase,
                 icono = Icons.Filled.SportsEsports,
                 section = Sections.Activities,
@@ -104,6 +108,18 @@ fun JuegoCamaraScreen(
 
             when (estado.fase) {
                 FaseJuego.BUSCANDO -> {
+                    if (viewModel.adivina) {
+                        var texto by remember { mutableStateOf("") }
+                        CampoTexto(
+                            titulo = "¿Qué crees que es?",
+                            value = texto,
+                            onValueChange = { texto = it },
+                            placeholder = "Dilo o escríbelo",
+                            ayuda = "Campo de adivinanza. Escribe o di qué crees que es.",
+                            keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
+                            keyboardActions = KeyboardActions(onDone = { viewModel.adivinar(texto) }),
+                        )
+                    }
                     if (tienePermisoDeCamara) {
                         Box(modifier = Modifier.fillMaxWidth().height(260.dp).clip(RoundedCornerShape(20.dp))) {
                             CameraViewfinder(hasPermission = true, onReady = { imageCapture = it }, modifier = Modifier.fillMaxSize())

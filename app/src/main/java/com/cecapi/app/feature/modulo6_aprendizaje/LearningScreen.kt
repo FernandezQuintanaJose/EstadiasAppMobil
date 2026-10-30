@@ -68,6 +68,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -139,11 +140,12 @@ fun LearningScreen(
 
     // null = en el menú. Si dicen "vibración" mientras están en el menú (o en otra tarjeta), la
     // pantalla sigue a la voz igual que antes — solo que ahora parte de un menú, no de un swipe.
-    var seleccion by remember { mutableStateOf<ActivityMode?>(null) }
+    // Guardables: al volver de un juego se regresa a la misma lista, no al menú de Actividades.
+    var seleccion by rememberSaveable { mutableStateOf<ActivityMode?>(null) }
     LaunchedEffect(state.mode) {
         if (seleccion != null && seleccion != state.mode) seleccion = state.mode
     }
-    var recreativas by remember { mutableStateOf(false) }
+    var recreativas by rememberSaveable { mutableStateOf(false) }
     val listening = voiceState is VoiceState.Listening
 
     // Pantalla dividida (igual que el resto de la app): arriba el contenido con su desplazamiento y abajo,
@@ -163,7 +165,15 @@ fun LearningScreen(
                         onBack = { recreativas = false },
                         onCommands = viewModel::onCommandsRequested,
                     )
-                    RecreationalPage(onOpen = onOpen, modifier = Modifier.weight(1f))
+                    RecreationalPage(
+                        onOpen = onOpen,
+                        onAbrirSonidos = {
+                            recreativas = false
+                            viewModel.setMode(ActivityMode.AUDIO)
+                            seleccion = ActivityMode.AUDIO
+                        },
+                        modifier = Modifier.weight(1f),
+                    )
                 }
                 seleccion != null -> {
                     ScreenTopBar(
@@ -542,7 +552,7 @@ private fun opcionesDe(respuesta: String): List<OpcionDeRespuesta> = when (respu
  * contenido para ir trabajando con el Equipo 4, no algo terminado todavía.
  */
 @Composable
-private fun RecreationalPage(onOpen: (String) -> Unit, modifier: Modifier = Modifier) {
+private fun RecreationalPage(onOpen: (String) -> Unit, onAbrirSonidos: () -> Unit, modifier: Modifier = Modifier) {
     val helper = LocalVoiceHelp.current
     ActivityScrollArea(modifier = modifier) {
         // El juego que sí usa la cámara: la voz da un reto y la persona enseña lo que encontró.
@@ -551,7 +561,7 @@ private fun RecreationalPage(onOpen: (String) -> Unit, modifier: Modifier = Modi
             label = "Busca y encuentra",
             sub = "Con la cámara: encuentra colores y objetos",
             variant = BigBtnVariant.Accent,
-            onClick = { onOpen(CecapiDestinations.JUEGO_CAMARA) },
+            onClick = { onOpen(CecapiDestinations.juegoCamara()) },
         )
         // Un juego al azar, para quien no quiere recorrer toda la lista.
         BigBtn(
@@ -572,14 +582,21 @@ private fun RecreationalPage(onOpen: (String) -> Unit, modifier: Modifier = Modi
                 color = CecapiAccent,
                 modifier = Modifier.padding(top = 4.dp),
             )
-            // Cada juego es una tarjeta: se ve el título y, al tocarla, se escucha cómo se juega.
+            // Cada juego es una tarjeta que se juega al tocarla; mantenerla presionada dice de qué trata.
             actividades.forEach { actividad ->
-                TarjetaLectura(
-                    titulo = actividad.titulo,
-                    cuerpo = actividad.descripcion,
-                    icono = Icons.Filled.SportsEsports,
+                BigBtn(
+                    icon = Icons.Filled.SportsEsports,
+                    label = actividad.titulo,
+                    sub = actividad.descripcion,
                     section = Sections.Activities,
-                    mostrarCuerpo = false,
+                    size = BigBtnSize.Secondary,
+                    onClick = {
+                        when (val ruta = actividad.jugar) {
+                            null -> helper?.speak("${actividad.titulo}. ${actividad.descripcion}")
+                            ABRIR_SONIDOS -> onAbrirSonidos()
+                            else -> onOpen(ruta)
+                        }
+                    },
                 )
             }
         }

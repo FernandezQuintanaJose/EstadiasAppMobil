@@ -17,7 +17,14 @@ object CecapiDestinations {
     const val DOCUMENT_READER = "document_reader"
     const val REQUESTS = "requests"
     const val LEARNING = "learning"
-    const val JUEGO_CAMARA = "juego_camara"
+    const val JUEGO_CAMARA = "juego_camara?modo={modo}"
+    const val JUEGO = "juego/{tipo}"
+
+    /** La ruta de un juego que acompaña el teléfono. */
+    fun juego(id: String) = "juego/$id"
+
+    /** El juego con cámara; [modo] "adivina" es La caja misteriosa. */
+    fun juegoCamara(modo: String = "busca") = "juego_camara?modo=$modo"
     const val ENVIRONMENT = "environment"
 
     /** Only for administrador, directivo and educador — never shown or reachable for alumno/usuario. */
