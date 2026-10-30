@@ -14,6 +14,8 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.isImeVisible
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
@@ -159,12 +161,16 @@ private val ANCHO_MAXIMO_CONTENIDO = 720.dp
  * fijas no se adaptaban a la pantalla, y el contenido seguía "debajo" del panel, aunque no se viera,
  * con lo que TalkBack podía enfocar elementos tapados.
  */
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun PantallaConMicrofono(
     modifier: Modifier = Modifier,
     content: @Composable () -> Unit,
 ) {
     val alLado = LocalConfiguration.current.orientation == Configuration.ORIENTATION_LANDSCAPE
+    // Con el teclado abierto la persona está escribiendo y ve la pantalla: el micrófono se esconde para que el
+    // campo de texto tenga todo el espacio; vuelve en cuanto se cierra el teclado.
+    val tecladoAbierto = WindowInsets.isImeVisible
     val claveGuardada = rememberSaveable { mutableStateOf<String?>(null) }
     val seleccion = remember { SeleccionTarjeta(claveGuardada) }
     val focusManager = LocalFocusManager.current
@@ -193,8 +199,9 @@ fun PantallaConMicrofono(
         ) { medibles, restricciones ->
             val ancho = restricciones.maxWidth
             val alto = restricciones.maxHeight
-            val anchoMic = if (alLado) (ancho * MIC_FRACCION).roundToInt() else ancho
-            val altoMic = if (alLado) alto else (alto * MIC_FRACCION).roundToInt()
+            val fraccion = if (tecladoAbierto) 0f else MIC_FRACCION
+            val anchoMic = if (alLado) (ancho * fraccion).roundToInt() else ancho
+            val altoMic = if (alLado) alto else (alto * fraccion).roundToInt()
             val anchoContenido = if (alLado) ancho - anchoMic else ancho
             val altoContenido = if (alLado) alto else alto - altoMic
             val anchoUtil = minOf(anchoContenido, ANCHO_MAXIMO_CONTENIDO.roundToPx())
