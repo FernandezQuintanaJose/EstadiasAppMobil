@@ -1,3 +1,5 @@
+import java.util.Properties
+
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
@@ -17,10 +19,17 @@ android {
         versionCode = 1
         versionName = "1.0"
 
-        // Placeholder: point this at YOUR backend proxy, never at api.anthropic.com
-        // directly — an Anthropic API key must never ship inside a mobile client.
-        // See feature/aiassistant/AiAssistantApi.kt for the expected request/response shape.
-        buildConfigField("String", "AI_PROXY_BASE_URL", "\"http://TU-IP-LOCAL:8000/preguntar\"")
+        // Servidor del asistente (Módulo 3, backend/). Nunca la API de un proveedor de IA directo: su clave
+        // quedaría dentro del APK. Se configura en local.properties (no se sube al repo); ver backend/PUBLICAR.md:
+        //   cecapi.servidor=https://<nombre>.onrender.com   (o http://<IP-de-tu-PC>:8000 para probar en casa)
+        //   cecapi.claveApp=<CECAPI_CLAVE_APP del servidor>  (vacía si el servidor no pide clave)
+        val local = Properties().apply {
+            rootProject.file("local.properties").takeIf { it.exists() }?.inputStream()?.use { load(it) }
+        }
+        val servidor = local.getProperty("cecapi.servidor", "http://TU-IP-LOCAL:8000").trim()
+        val claveApp = local.getProperty("cecapi.claveApp", "").trim()
+        buildConfigField("String", "AI_PROXY_BASE_URL", "\"$servidor\"")
+        buildConfigField("String", "AI_APP_KEY", "\"$claveApp\"")
     }
 
     buildTypes {

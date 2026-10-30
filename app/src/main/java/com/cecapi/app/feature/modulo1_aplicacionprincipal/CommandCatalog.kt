@@ -65,6 +65,7 @@ object CommandCatalog {
         "En la descripción del entorno puedes decir: qué hay enfrente, o toma la foto, para que te describa lo que ve. " +
             "Repite, o dilo otra vez, para escuchar la última descripción. " +
             "Elige una foto, para que describa una imagen que ya tienes en tu teléfono; tú eliges cuál y solo veo esa. " +
+            "Más detalle, o describe con la IA, para que la inteligencia artificial describa la última foto; necesita internet. " +
             "Leer texto, para cambiar al lector de texto. " +
             "Atrás, para volver a la cámara. " + MORE
 

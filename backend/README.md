@@ -4,7 +4,7 @@ Servidor FastAPI al que la app le manda las preguntas de IA; las claves viven so
 1. Instala: `pip install -r requirements.txt` (con el entorno virtual activado).
 2. Copia `.env.example` como `.env` y pon `GEMINI_API_KEY` y `GROQ_API_KEY`; `.env` no se sube al repo.
 3. Arranca: `uvicorn main:app --host 0.0.0.0 --port 8000`.
-4. En la app, `AI_PROXY_BASE_URL` (app/build.gradle.kts) debe ser `http://<IP-de-tu-PC>:8000/preguntar`.
+4. En la app, pon en `local.properties` (raíz del repo, no se sube) `cecapi.servidor=http://<IP-de-tu-PC>:8000` y, si el servidor tiene `CECAPI_CLAVE_APP`, `cecapi.claveApp=<esa clave>`. La app la manda en `X-Clave-App`.
 Endpoints: `POST /preguntar` `{"pregunta","contexto"}` → `{"respuesta","proveedor","hayMas"}` · `POST /entender` (mismo cuerpo) → `{"tipo":"comando","comando"}` o `{"tipo":"respuesta",...}` · `POST /ver` `{"imagen" (base64),"modo":"billete"|"escena"}` → `{"respuesta","proveedor"}` · `POST /documento` `{"pedido"}` → `{"documento","aviso","proveedor"}` (pantalla Consultas; texto largo, datos que faltan entre corchetes) · `GET /uso` · `GET /estadisticas?dias=7` · `GET /panel` (página para ver el uso en el navegador; pide la clave) · `GET /`.
 Respaldo: el orden sale de `IA_ORDEN` en `.env` (por defecto `groq,gemini`); si el primero falla, tarda más de `IA_TIEMPO_LIMITE_S` o agota su límite, contesta el siguiente.
 Visión (`/ver`): `imagenes.py` endereza, reduce y quita el EXIF de la foto; `proveedores.ver_con_respaldo()` sigue el mismo `IA_ORDEN`. Gemini usa su mismo `GEMINI_MODEL` y Groq usa `GROQ_VISION_MODEL` (`qwen/qwen3.8-27b`), porque `GROQ_MODEL` es solo texto. La respuesta se limita a `VISION_MAX_TOKENS`.
