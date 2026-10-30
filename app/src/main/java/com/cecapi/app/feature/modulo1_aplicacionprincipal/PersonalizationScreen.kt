@@ -58,9 +58,15 @@ import com.cecapi.app.core.theme.CecapiWarning
 import com.cecapi.app.core.theme.ModuleSection
 import com.cecapi.app.core.theme.Sections
 import com.cecapi.app.core.ui.BigBtn
+import androidx.compose.material.icons.filled.Badge
+import androidx.compose.material.icons.filled.RecordVoiceOver
+import com.cecapi.app.core.ui.TarjetaLectura
+import com.cecapi.app.core.ui.CampoTexto
+import com.cecapi.app.core.ui.desplazableConBarra
 import com.cecapi.app.core.ui.BigBtnSize
 import com.cecapi.app.core.ui.BigBtnVariant
 import com.cecapi.app.core.ui.MicPad
+import com.cecapi.app.core.ui.PantallaConMicrofono
 import com.cecapi.app.core.ui.ScreenTopBar
 import com.cecapi.app.core.ui.voiceHint
 import com.cecapi.app.core.voice.AddressStyle
@@ -106,7 +112,7 @@ fun PersonalizationScreen(
     var assistant by remember(savedAssistant) { mutableStateOf(savedAssistant) }
     var sub by remember { mutableStateOf<PersonalizationSub?>(null) }
 
-    // The speech engine may still be starting when this screen opens: ask again for a few seconds.
+    // El motor de voz puede estar iniciando todavía cuando se abre esta pantalla: pregunta otra vez durante unos segundos.
     var voices by remember { mutableStateOf(emptyList<VoiceOption>()) }
     LaunchedEffect(Unit) {
         repeat(20) {
@@ -116,13 +122,12 @@ fun PersonalizationScreen(
         }
     }
 
-    Box(modifier = Modifier.fillMaxSize()) {
+    PantallaConMicrofono {
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .verticalScroll(rememberScrollState())
-                .padding(horizontal = 16.dp, vertical = 16.dp)
-                .padding(bottom = 230.dp),
+                .desplazableConBarra()
+                .padding(horizontal = 16.dp, vertical = 16.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
             when (sub) {
@@ -225,67 +230,68 @@ fun PersonalizationScreen(
 
                 PersonalizationSub.COMO_ME_HABLAS -> {
                     ScreenTopBar(eyebrow = "CÓMO ME HABLAS", title = "Tu forma de hablarme", onBack = { sub = null }, onCommands = viewModel::onCommandsRequested)
+                    val resumen = buildString {
+                        append(if (style == AddressStyle.USTED) "Le hablo de usted. " else "Te hablo de tú. ")
+                        append(if (preferred.isBlank()) "Te saludo con el nombre de tu cuenta. " else "Te llamo $preferred. ")
+                        append(if (assistant.isBlank()) "Todavía no tengo un nombre propio." else "Mi nombre es $assistant.")
+                    }
+                    TarjetaLectura(
+                        titulo = "Así te hablo ahora",
+                        cuerpo = resumen,
+                        icono = Icons.Filled.RecordVoiceOver,
+                        section = Sections.Personalization,
+                    )
+                    Text("¿CÓMO QUIERES QUE TE HABLE?", style = MaterialTheme.typography.labelLarge, color = CecapiTextMuted)
                     Row(horizontalArrangement = Arrangement.spacedBy(12.dp), modifier = Modifier.fillMaxWidth()) {
-                        ChoiceRow(
-                            label = "Tú",
-                            detail = "Trato cercano",
-                            selected = style == AddressStyle.TU,
-                            help = "Tú. Te hablo de tú, con un trato cercano. Toca dos veces para elegirlo.",
+                        BigBtn(
+                            icon = Icons.Filled.Person,
+                            label = "De tú",
+                            sub = "Trato cercano",
+                            variant = if (style == AddressStyle.TU) BigBtnVariant.Accent else BigBtnVariant.Neutral,
+                            half = true,
                             onClick = { viewModel.onAddressStyleChosen(AddressStyle.TU) },
                             modifier = Modifier.weight(1f),
                         )
-                        ChoiceRow(
-                            label = "Usted",
-                            detail = "Trato formal",
-                            selected = style == AddressStyle.USTED,
-                            help = "Usted. Le hablo de usted, con un trato formal. Toca dos veces para elegirlo.",
+                        BigBtn(
+                            icon = Icons.Filled.Elderly,
+                            label = "De usted",
+                            sub = "Trato formal",
+                            variant = if (style == AddressStyle.USTED) BigBtnVariant.Accent else BigBtnVariant.Neutral,
+                            half = true,
                             onClick = { viewModel.onAddressStyleChosen(AddressStyle.USTED) },
                             modifier = Modifier.weight(1f),
                         )
                     }
-                    OutlinedTextField(
+                    CampoTexto(
+                        titulo = "Cómo quieres que te llame",
                         value = preferred,
                         onValueChange = { preferred = it.take(30) },
-                        label = { Text("Cómo quieres que te llame") },
-                        singleLine = true,
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .heightIn(min = 64.dp)
-                            .voiceHint(
-                                help = "Cómo quieres que te llame. Escribe tu nombre o apodo y con ese te saludo al entrar. " +
-                                    "Si lo dejas vacío uso el de tu cuenta.",
-                                focusLabel = "Campo del nombre con el que te saludo. Escribe cómo quieres que te llame.",
-                            ),
+                        placeholder = "Tu nombre o un apodo",
+                        ayuda = "Cómo quieres que te llame. Escribe tu nombre o apodo y con ese te saludo al entrar. " +
+                            "Si lo dejas vacío uso el de tu cuenta.",
+                        icono = Icons.Filled.Badge,
                     )
-                    OutlinedTextField(
+                    CampoTexto(
+                        titulo = "Nombre del asistente (opcional)",
                         value = assistant,
                         onValueChange = { assistant = it.take(30) },
-                        label = { Text("Nombre del asistente (opcional)") },
-                        singleLine = true,
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .heightIn(min = 64.dp)
-                            .voiceHint(
-                                help = "Nombre del asistente. Escribe el nombre con el que quieres llamarme. " +
-                                    "Siempre puedes decir hola, y además responderé a este nombre.",
-                                focusLabel = "Campo del nombre del asistente. Escribe cómo quieres llamarme.",
-                            ),
+                        placeholder = "Por ejemplo: Capi",
+                        ayuda = "Nombre del asistente. Escribe el nombre con el que quieres llamarme; respondo a ese nombre.",
+                        icono = Icons.Filled.RecordVoiceOver,
                     )
-                    ActionButton("Guardar", "Guardar. Guarda cómo te llamo y cómo me llamas.") {
-                        viewModel.onPreferredNameSaved(preferred)
-                        viewModel.onAssistantNameSaved(assistant)
-                    }
+                    BigBtn(
+                        icon = Icons.Filled.Check,
+                        label = "Guardar",
+                        variant = BigBtnVariant.Accent,
+                        onClick = {
+                            viewModel.onPreferredNameSaved(preferred)
+                            viewModel.onAssistantNameSaved(assistant)
+                        },
+                    )
                 }
 
                 PersonalizationSub.PERFIL -> {
                     ScreenTopBar(eyebrow = "PERFIL RÁPIDO", title = "¿Quién usa la app?", onBack = { sub = null }, onCommands = viewModel::onCommandsRequested)
-                    BigBtn(
-                        icon = Icons.Filled.ChildCare,
-                        label = "Niño",
-                        sub = "Voz clara, frases simples, ritmo lento",
-                        section = Sections.Personalization,
-                        onClick = { viewModel.onProfileChosen(VoiceProfile.CHILD) },
-                    )
                     BigBtn(
                         icon = Icons.Filled.Person,
                         label = "Normal",
@@ -413,12 +419,11 @@ fun PersonalizationScreen(
             onDoubleTap = viewModel::onMicDoubleTap,
             hint = if (listening) "Escuchando…" else "Di usted o tú, o toca aquí",
             onClick = viewModel::onMicTapped,
-            modifier = Modifier.align(Alignment.BottomCenter),
         )
     }
 }
 
-/** A selectable option: highlighted with a thick accent border when chosen, and it explains itself when held. */
+/** Una opción seleccionable: se resalta con un borde grueso de acento cuando se elige, y se explica sola al mantenerla presionada. */
 @Composable
 private fun ChoiceRow(
     label: String,

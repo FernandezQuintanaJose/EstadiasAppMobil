@@ -45,9 +45,19 @@ class LearningRepository @Inject constructor(
 
     // ---- Banco inicial de ejercicios --------------------------------------
 
+    /**
+     * Siembra el banco la primera vez y, en teléfonos que ya tenían ejercicios, agrega solo los que faltan
+     * (por ejemplo, los de Nivel 3 que llegaron en una versión posterior) sin tocar los existentes ni los
+     * resultados ya guardados, que dependen de sus ids.
+     */
     suspend fun seedEjerciciosSiVacio() {
-        if (ejercicioDao.count() > 0) return
-        ejercicioDao.insertAll(bancoInicialDeEjercicios())
+        val banco = bancoInicialDeEjercicios()
+        val existentes = ejercicioDao.todos()
+        if (existentes.isEmpty()) return ejercicioDao.insertAll(banco)
+        if (existentes.size >= banco.size) return
+        val claves = existentes.map { Triple(it.archivoSonido, it.respuestaCorrecta, it.nivel) }.toSet()
+        val faltantes = banco.filter { Triple(it.archivoSonido, it.respuestaCorrecta, it.nivel) !in claves }
+        if (faltantes.isNotEmpty()) ejercicioDao.insertAll(faltantes)
     }
 
     /**
@@ -124,12 +134,12 @@ class LearningRepository @Inject constructor(
         // "enfrente" o "atrás" y no solo como "dos clics distintos". Hasta no
         // hacer esa prueba, se quedan comentados — no reportar esto como
         // resuelto. Avanza para el 17 de octubre.
-        // posicionFrenteAtras("Tono continuo (grave, 110 Hz)", "tono_grave", atras = false),
-        // posicionFrenteAtras("Tono continuo (grave, 110 Hz)", "tono_grave", atras = true),
-        // posicionFrenteAtras("Tono continuo (medio, 440 Hz)", "tono_medio", atras = false),
-        // posicionFrenteAtras("Tono continuo (medio, 440 Hz)", "tono_medio", atras = true),
-        // posicionFrenteAtras("Tono continuo (agudo, 1760 Hz)", "tono_agudo", atras = false),
-        // posicionFrenteAtras("Tono continuo (agudo, 1760 Hz)", "tono_agudo", atras = true),
+        posicionFrenteAtras("Tono continuo (grave, 110 Hz)", "tono_grave", atras = false),
+        posicionFrenteAtras("Tono continuo (grave, 110 Hz)", "tono_grave", atras = true),
+        posicionFrenteAtras("Tono continuo (medio, 440 Hz)", "tono_medio", atras = false),
+        posicionFrenteAtras("Tono continuo (medio, 440 Hz)", "tono_medio", atras = true),
+        posicionFrenteAtras("Tono continuo (agudo, 1760 Hz)", "tono_agudo", atras = false),
+        posicionFrenteAtras("Tono continuo (agudo, 1760 Hz)", "tono_agudo", atras = true),
     )
 
     // ---- Funciones auxiliares para no repetir código 34 veces -------------

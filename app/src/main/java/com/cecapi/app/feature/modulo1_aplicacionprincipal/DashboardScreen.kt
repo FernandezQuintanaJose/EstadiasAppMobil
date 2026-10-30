@@ -55,9 +55,11 @@ import com.cecapi.app.core.theme.CecapiTextMuted
 import com.cecapi.app.core.theme.ModuleSection
 import com.cecapi.app.core.theme.Sections
 import com.cecapi.app.core.ui.BigBtn
+import com.cecapi.app.core.ui.desplazableConBarra
 import com.cecapi.app.core.ui.BigBtnVariant
 import com.cecapi.app.core.ui.MenuItem
 import com.cecapi.app.core.ui.MicPad
+import com.cecapi.app.core.ui.PantallaConMicrofono
 import com.cecapi.app.core.ui.NoticeBanner
 import com.cecapi.app.core.ui.OfflineBanner
 import com.cecapi.app.core.util.openTtsSettings
@@ -65,7 +67,7 @@ import com.cecapi.app.core.voice.VoiceMessages
 import com.cecapi.app.core.voice.VoiceState
 
 
-/** Signed-in home. Same layout and voice behavior as the public home, plus the user's own modules. */
+/** Inicio con sesión abierta. Mismo diseño y comportamiento de voz que el inicio público, más los módulos propios del usuario. */
 @Composable
 fun DashboardScreen(
     onModuleClick: (String) -> Unit,
@@ -82,14 +84,14 @@ fun DashboardScreen(
     LaunchedEffect(Unit) {
         viewModel.navEvents.collect(onModuleClick)
     }
-    // Leaving the app also frees the phone: the screen stops being kept on and the mic is released.
+    // Salir de la app también libera el teléfono: la pantalla deja de mantenerse encendida y se libera el micrófono.
     LaunchedEffect(Unit) {
         viewModel.exitEvents.collect { (context as? Activity)?.finishAffinity() }
     }
     LaunchedEffect(currentUser) {
         if (currentUser == null) onLoggedOut()
     }
-    // Dashboard stays alive under the module screens; only react to speech while it is showing.
+    // Dashboard sigue activo debajo de las pantallas de módulo; solo reacciona al habla mientras se muestra.
     DisposableEffect(Unit) {
         viewModel.setScreenActive(true)
         onDispose { viewModel.setScreenActive(false) }
@@ -107,7 +109,7 @@ fun DashboardScreen(
         hasMicPermission = granted
         if (granted) viewModel.onMicTapped() else viewModel.onMicPermissionDenied()
     }
-    // "Hola" (or the assistant's name) opens the mic while the dashboard is showing.
+    // "Hola" (o el nombre del asistente) abre el micrófono mientras se muestra el dashboard.
     DisposableEffect(hasMicPermission) {
         viewModel.setWakeWordEnabled(hasMicPermission)
         onDispose { viewModel.setWakeWordEnabled(false) }
@@ -116,15 +118,15 @@ fun DashboardScreen(
     val listening = voiceState is VoiceState.Listening
     val menu by viewModel.menu.collectAsState()
 
-    // The mic bar is fixed over the scrolling content (like the Figma prototype), not inline
-    // in the scroll flow, so it is always reachable no matter how far the person has scrolled.
-    Box(modifier = Modifier.fillMaxSize()) {
+    // La barra del micrófono queda fija sobre el contenido que se desplaza (como en el prototipo de
+    // Figma), no en línea dentro del flujo de scroll, para que siempre sea alcanzable sin importar
+    // cuánto haya desplazado la persona.
+    PantallaConMicrofono {
     Column(
         modifier = Modifier
             .fillMaxSize()
             .verticalScroll(rememberScrollState())
-            .padding(vertical = 16.dp)
-            .padding(bottom = 250.dp),
+            .padding(vertical = 16.dp),
     ) {
         Column(
             modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp),
@@ -157,7 +159,7 @@ fun DashboardScreen(
             }
         }
 
-        // What the voice says is not repeated on screen. Only what needs attention stays visible.
+        // Lo que dice la voz no se repite en pantalla. Solo queda visible lo que necesita atención.
         if (!hasMicPermission) {
             NoticeBanner(VoiceMessages.MIC_DENIED, modifier = Modifier.padding(horizontal = 24.dp).padding(top = 16.dp))
         } else if (voiceState is VoiceState.Error) {
@@ -175,12 +177,9 @@ fun DashboardScreen(
             OfflineBanner(modifier = Modifier.padding(horizontal = 24.dp).padding(top = 16.dp))
         }
 
-        // Orden actualizado según el mockup de Figma: Clasificación + Mi cuenta en media fila,
-        // Cámara, Documentos, Actividades, Chats, Personalización, Configuración, Gestión (si
-        // aplica), Ayuda y soporte (si aplica), Cerrar sesión. "Mi cuenta" reutiliza la pantalla
-        // de editar cuenta ya existente; no hay pantallas reales de Emergencias ni de Reportar un
-        // incidente (distinta de Ayuda y soporte), así que esas dos tarjetas del Figma no se
-        // agregan todavía.
+        // Clasificación + Cuenta en media fila, Cámara, Consultas (con los chats dentro), Actividades,
+        // Personalización, Gestión (si aplica), Configuración, Cerrar sesión, Ayuda y soporte y
+        
         val rol = currentUser?.rol?.let(RolUsuario::fromCodigo)
         Column(
             modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp).padding(top = 20.dp),
@@ -197,7 +196,7 @@ fun DashboardScreen(
                 )
                 BigBtn(
                     icon = Icons.Filled.Person,
-                    label = "Mi cuenta",
+                    label = "Cuenta",
                     section = ModuleSection(color = Color(0xFF60A5FA), bg = Color(0xFF1A2740)),
                     half = true,
                     onClick = viewModel::onEditarCuentaSelected,
@@ -226,12 +225,6 @@ fun DashboardScreen(
                     onClick = { viewModel.onMenuItemSelected(actividades) },
                 )
             }
-            BigBtn(
-                icon = Icons.Filled.Chat,
-                label = "Chats",
-                section = Sections.Chats,
-                onClick = { viewModel.onMenuItemSelected(MenuItem.Chats) },
-            )
             BigBtn(
                 icon = Icons.Filled.Tune,
                 label = "Personalización",
@@ -265,25 +258,12 @@ fun DashboardScreen(
                 section = Sections.Ayuda,
                 onClick = viewModel::onSoporteSelected,
             )
-            if (rol != RolUsuario.USUARIO) {
-                BigBtn(
-                    icon = Icons.Filled.Warning,
-                    label = "Reportar un incidente",
-                    section = Sections.Reportar,
-                    onClick = viewModel::onReportarIncidenteSelected,
-                )
-            }
-            BigBtn(
-                icon = Icons.Filled.Phone,
-                label = "Emergencias",
-                section = Sections.Emergency,
-                onClick = viewModel::onEmergenciasSelected,
-            )
         }
     }
 
-        // The microphone is the main control of the whole app: fixed over the scrolling
-        // content above, so it is always reachable no matter how far the person scrolled.
+        // El micrófono es el control principal de toda la app: queda fijo sobre el contenido
+        // que se desplaza arriba, para que siempre sea alcanzable sin importar cuánto haya
+        // desplazado la persona.
         MicPad(
             onDoubleTap = viewModel::onMicDoubleTap,
             listening = listening,
@@ -296,7 +276,6 @@ fun DashboardScreen(
             onClick = {
                 if (hasMicPermission) viewModel.onMicTapped() else permissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
             },
-            modifier = Modifier.align(Alignment.BottomCenter),
         )
     }
 }

@@ -14,8 +14,15 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.isImeVisible
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.offset
+import androidx.compose.foundation.layout.systemBars
+import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -30,6 +37,8 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -48,6 +57,36 @@ import androidx.compose.ui.semantics.onClick
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import android.content.res.Configuration
+import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.width
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.compositionLocalOf
+import androidx.compose.ui.layout.Layout
+import androidx.compose.ui.layout.layoutId
+import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.unit.Constraints
+import kotlin.math.roundToInt
+import android.content.Context
+import android.view.accessibility.AccessibilityManager
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
+import androidx.compose.foundation.gestures.detectHorizontalDragGestures
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.focus.FocusDirection
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.input.pointer.PointerEventPass
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalFocusManager
+import kotlin.math.abs
+import kotlinx.coroutines.withTimeoutOrNull
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.cecapi.app.core.theme.CecapiAccent
@@ -62,11 +101,137 @@ import com.cecapi.app.core.theme.CecapiTextMuted
 import com.cecapi.app.core.theme.CecapiTextPrimary
 import com.cecapi.app.core.theme.CecapiWarning
 
+/** Si la pantalla está en horizontal el micrófono va a la derecha; la fija [PantallaConMicrofono]. */
+private val LocalMicAlLado = compositionLocalOf { false }
+
 /**
- * The microphone is the main control of the whole app: a circular button inside its own
- * docked panel, matching the Figma prototype's MicBar exactly (132dp circle, pulse ring
- * while listening, "Di lista de comandos" caption underneath). Used on the home screen
- * and on the signed-in dashboard so both feel the same.
+ * Qué tarjeta está "seleccionada" (iluminada) en la pantalla. Se comparte con todos los [BigBtn]
+ * de la [PantallaConMicrofono]: solo una se ilumina a la vez, con el color de su módulo, y las demás
+ * quedan neutras. Cambia cuando una tarjeta recibe el foco, cuando se toca y se mantiene oprimida
+ * o al deslizar un dedo a la derecha (siguiente) o a la izquierda (anterior).
+ */
+class SeleccionTarjeta(private val claveGuardada: MutableState<String?> = mutableStateOf(null)) {
+    var actual: Any? by mutableStateOf(null)
+
+    /**
+     * El nombre de la tarjeta elegida. Se guarda con la pantalla, así que al volver de un submódulo se
+     * ilumina la misma tarjeta donde se quedó la persona, no otra vez la primera.
+     */
+    var clave: String?
+        get() = claveGuardada.value
+        set(value) { claveGuardada.value = value }
+
+    fun elegir(tarjeta: Any, nombre: String) {
+        actual = tarjeta
+        clave = nombre
+    }
+
+    /** La próxima vez que una tarjeta reciba el foco no se lee en voz alta (foco inicial automático). */
+    var silenciar: Boolean = false
+}
+
+val LocalSeleccionTarjeta = compositionLocalOf<SeleccionTarjeta?> { null }
+
+/** Si TalkBack (el lector de pantalla de Android) está encendido, él lee y dibuja su propio foco. */
+private fun lectorDePantallaActivo(contexto: Context): Boolean =
+    (contexto.getSystemService(Context.ACCESSIBILITY_SERVICE) as? AccessibilityManager)?.isTouchExplorationEnabled == true
+
+/** Marca el hijo de [PantallaConMicrofono] que es el micrófono. */
+private const val MIC_ID = "zona-microfono"
+
+/**
+ * Parte de la pantalla que se queda para el micrófono: un poco menos de la mitad. Es una
+ * proporción, no una medida en dp, así que se adapta a cualquier teléfono, al texto grande y
+ * a la rotación. En vertical es el alto de abajo; en horizontal, el ancho de la derecha.
+ */
+private const val MIC_FRACCION = 0.42f
+
+/** En tablets y pantallas muy anchas el contenido no pasa de este ancho y queda centrado. */
+private val ANCHO_MAXIMO_CONTENIDO = 720.dp
+
+/**
+ * Pantalla dividida en dos zonas que nunca se encimian:
+ *  - Zona del contenido: todos los hijos menos el [MicPad]. Es la parte que se desplaza.
+ *  - Zona del micrófono: el [MicPad] ocupa todo el [MIC_FRACCION] restante.
+ *
+ * Vertical: contenido arriba, micrófono abajo. Horizontal: contenido a la izquierda, micrófono a
+ * la derecha, a todo el alto. Los márgenes del sistema ya los pone MainActivity (`safeDrawingPadding`).
+ *
+ * Reemplaza al `Box` con `padding(bottom = 230.dp)` y el panel flotante de antes: aquellas medidas
+ * fijas no se adaptaban a la pantalla, y el contenido seguía "debajo" del panel, aunque no se viera,
+ * con lo que TalkBack podía enfocar elementos tapados.
+ */
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+fun PantallaConMicrofono(
+    modifier: Modifier = Modifier,
+    content: @Composable () -> Unit,
+) {
+    val alLado = LocalConfiguration.current.orientation == Configuration.ORIENTATION_LANDSCAPE
+    // Con el teclado abierto la persona está escribiendo y ve la pantalla: el micrófono se esconde para que el
+    // campo de texto tenga todo el espacio; vuelve en cuanto se cierra el teclado.
+    val tecladoAbierto = WindowInsets.isImeVisible
+    val claveGuardada = rememberSaveable { mutableStateOf<String?>(null) }
+    val seleccion = remember { SeleccionTarjeta(claveGuardada) }
+    val focusManager = LocalFocusManager.current
+    val contexto = LocalContext.current
+    CompositionLocalProvider(LocalMicAlLado provides alLado, LocalSeleccionTarjeta provides seleccion) {
+        Layout(
+            content = content,
+            modifier = modifier
+                .fillMaxSize()
+                // Deslizar un dedo a la derecha pasa a la tarjeta siguiente; a la izquierda, a la anterior (como
+                // el lector de pantalla). Solo si TalkBack está apagado: con TalkBack, él maneja los gestos.
+                // Los deslizamientos que ya usa otro elemento (campos de texto, carruseles) no llegan aquí.
+                .pointerInput(Unit) {
+                    var acumulado = 0f
+                    detectHorizontalDragGestures(
+                        onDragStart = { acumulado = 0f },
+                        onDragCancel = { acumulado = 0f },
+                        onDragEnd = {
+                            if (!lectorDePantallaActivo(contexto) && abs(acumulado) > 72.dp.toPx()) {
+                                focusManager.moveFocus(if (acumulado > 0) FocusDirection.Next else FocusDirection.Previous)
+                            }
+                        },
+                        onHorizontalDrag = { _, delta -> acumulado += delta },
+                    )
+                },
+        ) { medibles, restricciones ->
+            val ancho = restricciones.maxWidth
+            val alto = restricciones.maxHeight
+            val fraccion = if (tecladoAbierto) 0f else MIC_FRACCION
+            val anchoMic = if (alLado) (ancho * fraccion).roundToInt() else ancho
+            val altoMic = if (alLado) alto else (alto * fraccion).roundToInt()
+            val anchoContenido = if (alLado) ancho - anchoMic else ancho
+            val altoContenido = if (alLado) alto else alto - altoMic
+            val anchoUtil = minOf(anchoContenido, ANCHO_MAXIMO_CONTENIDO.roundToPx())
+
+            val colocables = medibles.map { medible ->
+                if (medible.layoutId == MIC_ID) {
+                    medible to medible.measure(Constraints.fixed(anchoMic, altoMic))
+                } else {
+                    medible to medible.measure(Constraints.fixed(anchoUtil, altoContenido))
+                }
+            }
+            layout(ancho, alto) {
+                colocables.forEach { (medible, colocable) ->
+                    if (medible.layoutId == MIC_ID) {
+                        colocable.place(x = if (alLado) ancho - anchoMic else 0, y = if (alLado) 0 else alto - altoMic)
+                    } else {
+                        colocable.place(x = (anchoContenido - anchoUtil) / 2, y = 0)
+                    }
+                }
+            }
+        }
+    }
+}
+
+/**
+ * El micrófono es el control principal de toda la app. Va dentro de [PantallaConMicrofono] y
+ * ocupa toda su zona: **toda esa zona es el botón** (tocar una vez para hablar, dos veces para
+ * callar al asistente, mantener para oír la ayuda). Quien no ve la pantalla no tiene que
+ * apuntar a un círculo pequeño. El círculo, la leyenda y el anillo que pulsa al escuchar se
+ * dibujan centrados y se escalan al espacio disponible.
  */
 @Composable
 fun MicPad(
@@ -90,43 +255,79 @@ fun MicPad(
         label = "mic-ring-alpha",
     )
     val helper = LocalVoiceHelp.current
+    val alLado = LocalMicAlLado.current
     val holdHelp = "Este es el micrófono. Tócalo una vez para hablarme y dime lo que necesitas, " +
-        "por ejemplo: módulos disponibles, o estado del teléfono. Tócalo dos veces seguidas para que se calle."
+        "por ejemplo: módulos disponibles, o estado del teléfono. Tócalo dos veces seguidas, o una vez con " +
+        "dos dedos, para que se calle."
+    // true mientras un toque lleva dos dedos: ese toque calla al asistente y no debe activar el micrófono.
+    val dosDedos = remember { BooleanArray(1) }
 
-    Column(modifier = modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
-        HorizontalDivider(color = CecapiBorder, thickness = 1.dp)
+    BoxWithConstraints(
+        modifier = modifier
+            .layoutId(MIC_ID)
+            .fillMaxSize()
+            .background(CecapiSurface)
+            .pointerInput(onDoubleTap) {
+                // Un toque breve con dos dedos calla al asistente. Solo se observa; no consume el toque.
+                awaitEachGesture {
+                    awaitFirstDown(requireUnconsumed = false, pass = PointerEventPass.Initial)
+                    dosDedos[0] = false
+                    var maximo = 1
+                    var terminado = false
+                    withTimeoutOrNull(400) {
+                        while (!terminado) {
+                            val evento = awaitPointerEvent(PointerEventPass.Initial)
+                            val abajo = evento.changes.count { it.pressed }
+                            if (abajo > maximo) {
+                                maximo = abajo
+                                if (maximo >= 2) dosDedos[0] = true
+                            }
+                            if (abajo == 0) terminado = true
+                        }
+                    }
+                    if (terminado && maximo >= 2) onDoubleTap?.invoke()
+                }
+            }
+            .pointerInput(onDoubleTap, holdHelp) {
+                detectTapGestures(
+                    onTap = { if (!dosDedos[0]) onClick() },
+                    onDoubleTap = { onDoubleTap?.invoke() },
+                    onLongPress = { helper?.speak(holdHelp) },
+                )
+            }
+            .semantics {
+                contentDescription = "Micrófono. Toca dos veces para hablar con el asistente."
+                onClick(label = "Hablar") { onClick(); true }
+                onDoubleTap?.let { silence ->
+                    customActions = listOf(
+                        CustomAccessibilityAction("Silenciar al asistente") { silence(); true },
+                    )
+                }
+            },
+    ) {
+        // Línea que separa el micrófono del contenido: arriba en vertical, a la izquierda en horizontal.
+        if (alLado) {
+            Box(Modifier.align(Alignment.CenterStart).fillMaxHeight().width(1.dp).background(CecapiBorder))
+        } else {
+            Box(Modifier.align(Alignment.TopCenter).fillMaxWidth().height(1.dp).background(CecapiBorder))
+        }
+
+        // El círculo se ajusta al espacio: lo que sobra después de la leyenda y el aire, entre 88 y 176 dp
+        // (220 en pantallas grandes), y nunca más ancho que la zona.
+        val textos = 14.dp + 64.dp + 4.dp + 24.dp
+        val tope = if (maxWidth >= 600.dp || maxHeight >= 600.dp) 220.dp else 176.dp
+        val circulo = (maxHeight - textos - 32.dp).coerceIn(88.dp, tope).coerceAtMost(maxWidth - 48.dp)
+
         Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .background(CecapiSurface)
-                .padding(top = 18.dp, start = 24.dp, end = 24.dp, bottom = 22.dp),
+            modifier = Modifier.fillMaxSize().padding(horizontal = 24.dp),
+            verticalArrangement = Arrangement.Center,
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
-            Box(
-                modifier = Modifier
-                    .size(132.dp)
-                    .pointerInput(onDoubleTap, holdHelp) {
-                        detectTapGestures(
-                            onTap = { onClick() },
-                            onDoubleTap = { onDoubleTap?.invoke() },
-                            onLongPress = { helper?.speak(holdHelp) },
-                        )
-                    }
-                    .semantics {
-                        contentDescription = "Micrófono. Toca dos veces para hablar con el asistente."
-                        onClick(label = "Hablar") { onClick(); true }
-                        onDoubleTap?.let { silence ->
-                            customActions = listOf(
-                                CustomAccessibilityAction("Silenciar al asistente") { silence(); true },
-                            )
-                        }
-                    },
-                contentAlignment = Alignment.Center,
-            ) {
+            Box(modifier = Modifier.size(circulo), contentAlignment = Alignment.Center) {
                 if (listening) {
                     Box(
                         modifier = Modifier
-                            .size(158.dp)
+                            .size(circulo * 1.2f)
                             .graphicsLayer {
                                 scaleX = ringScale
                                 scaleY = ringScale
@@ -138,7 +339,7 @@ fun MicPad(
                 }
                 Box(
                     modifier = Modifier
-                        .size(132.dp)
+                        .size(circulo)
                         .clip(CircleShape)
                         .background(CecapiBackground)
                         .border(if (listening) 3.dp else 2.dp, if (listening) CecapiAccent else CecapiBorder, CircleShape),
@@ -148,7 +349,7 @@ fun MicPad(
                         imageVector = if (listening) Icons.Filled.MicOff else Icons.Filled.Mic,
                         contentDescription = null,
                         tint = if (listening) CecapiAccent else CecapiTextPrimary,
-                        modifier = Modifier.size(58.dp),
+                        modifier = Modifier.size(circulo * 0.44f),
                     )
                 }
             }
@@ -160,11 +361,7 @@ fun MicPad(
                 textAlign = TextAlign.Center,
                 maxLines = 2,
                 overflow = TextOverflow.Ellipsis,
-                modifier = Modifier
-                    .padding(top = 14.dp)
-                    .height(64.dp)
-                    .fillMaxWidth()
-                    .clickable(onClick = onClick),
+                modifier = Modifier.padding(top = 14.dp).height(64.dp).fillMaxWidth(),
             )
             Text(
                 text = "Di lista de comandos",
@@ -177,7 +374,7 @@ fun MicPad(
     }
 }
 
-/** Which look a [BigBtn] takes when it has no [section]. */
+/** Qué apariencia toma un [BigBtn] cuando no tiene [section]. */
 enum class BigBtnVariant { Neutral, Accent, Danger, Success, Locked }
 
 /**
@@ -194,10 +391,11 @@ enum class BigBtnVariant { Neutral, Accent, Danger, Success, Locked }
 enum class BigBtnSize { Hero, Standard, Secondary, Compact }
 
 /**
- * The recurring full-width button from the Figma prototype: a big icon badge on top,
- * a bold label below, an optional muted subtitle under that — everything centered. This
- * is the main building block of almost every screen (Home, Login, Register, the signed-in
- * menu...), so screens should prefer this over ad-hoc buttons to stay visually consistent.
+ * El botón recurrente de ancho completo del prototipo de Figma: una insignia de icono grande
+ * arriba, una etiqueta en negrita debajo, y un subtítulo apagado opcional bajo esa — todo centrado.
+ * Es el bloque de construcción principal de casi toda pantalla (Inicio, Iniciar sesión, Registro,
+ * el menú de la sesión iniciada...), así que las pantallas deberían preferir este en vez de botones
+ * improvisados para mantenerse visualmente consistentes.
  */
 @Composable
 fun BigBtn(
@@ -209,40 +407,98 @@ fun BigBtn(
     section: ModuleSection? = null,
     variant: BigBtnVariant = BigBtnVariant.Neutral,
     enabled: Boolean = true,
-    // Two of these share one row's width when the action is not the screen's priority
-    // (e.g. Iniciar sesión / Crear cuenta on Home) — matches the Figma prototype's HalfBtn.
+    // Dos de estos comparten el ancho de una fila cuando la acción no es la prioridad de la pantalla
+    // (p. ej. Iniciar sesión / Crear cuenta en Inicio) — coincide con el HalfBtn del prototipo de Figma.
     half: Boolean = false,
     size: BigBtnSize = BigBtnSize.Standard,
 ) {
-    val tint = section?.color ?: when (variant) {
+    val seleccion = LocalSeleccionTarjeta.current
+    val contexto = LocalContext.current
+    val helper = LocalVoiceHelp.current
+    val yo = remember { Any() }
+    val foco = remember { FocusRequester() }
+    var enFocoLocal by remember { mutableStateOf(false) }
+    // Iluminada = es la tarjeta seleccionada de la pantalla (o, sin pantalla dividida, la que tiene el foco).
+    val iluminado = if (seleccion != null) seleccion.actual === yo else enFocoLocal
+
+    val colorVariante = when (variant) {
         BigBtnVariant.Danger -> CecapiError
         BigBtnVariant.Success -> CecapiSuccess
         BigBtnVariant.Accent -> CecapiAccent
         BigBtnVariant.Locked -> CecapiTextMuted
         BigBtnVariant.Neutral -> CecapiTextPrimary
     }
-    val borderColor = section?.color ?: when (variant) {
-        BigBtnVariant.Danger -> CecapiError
-        BigBtnVariant.Success -> CecapiSuccess
-        BigBtnVariant.Accent -> CecapiAccent
-        else -> CecapiBorder
+    // Con el color de su módulo, o el de su tipo, o el de acento si es un botón neutro.
+    val colorIluminado = section?.color ?: if (variant == BigBtnVariant.Neutral) CecapiAccent else colorVariante
+    // Las tarjetas de módulo son neutras y solo se iluminan con su color cuando están seleccionadas.
+    val tint = if (section != null) (if (iluminado) section.color else CecapiTextPrimary) else colorVariante
+    val borderColor = when {
+        iluminado -> colorIluminado
+        section != null -> CecapiBorder
+        else -> when (variant) {
+            BigBtnVariant.Danger -> CecapiError
+            BigBtnVariant.Success -> CecapiSuccess
+            BigBtnVariant.Accent -> CecapiAccent
+            else -> CecapiBorder
+        }
     }
-    val borderWidth = if (variant == BigBtnVariant.Neutral && section == null) 1.dp else 2.dp
-    val iconBg = section?.bg ?: CecapiSurfaceElevated
+    val borderWidth = when {
+        iluminado -> 4.dp
+        variant == BigBtnVariant.Neutral || section != null -> 1.dp
+        else -> 2.dp
+    }
+    val fondo = if (iluminado) (section?.bg ?: CecapiSurfaceElevated) else CecapiSurface
+    val iconBg = if (iluminado) colorIluminado.copy(alpha = 0.25f) else CecapiSurfaceElevated
     val shape = RoundedCornerShape(20.dp)
     val help = if (sub != null) "$label. $sub" else label
     val locked = variant == BigBtnVariant.Locked
+
+    // La primera tarjeta de módulo de la pantalla nace seleccionada; si la seleccionada deja la
+    // pantalla (cambio de submenú), la siguiente primera toma su lugar.
+    if (seleccion != null) {
+        DisposableEffect(seleccion) {
+            onDispose { if (seleccion.actual === yo) seleccion.actual = null }
+        }
+        LaunchedEffect(seleccion) {
+            val guardada = seleccion.clave
+            // Al volver a la pantalla se recupera la tarjeta donde estaba la persona; si no hay ninguna
+            // guardada, la primera tarjeta de módulo nace seleccionada.
+            val tomarla = if (guardada != null) guardada == help else section != null && seleccion.actual == null
+            if (tomarla && seleccion.actual == null) {
+                seleccion.elegir(yo, help)
+                seleccion.silenciar = true
+                try {
+                    foco.requestFocus()
+                } catch (e: Exception) {
+                    seleccion.silenciar = false
+                }
+            }
+        }
+    }
 
     Column(
         modifier = modifier
             .fillMaxWidth()
             .clip(shape)
-            .background(CecapiSurface)
+            .background(fondo)
             .border(borderWidth, borderColor, shape)
             .alpha(if (enabled) 1f else 0.4f)
-            .clickable(enabled = enabled && !locked, onClick = onClick)
+            .focusRequester(foco)
+            .onFocusChanged { estado ->
+                if (estado.isFocused) {
+                    if (seleccion != null) seleccion.elegir(yo, help) else enFocoLocal = true
+                    if (seleccion?.silenciar == true) {
+                        seleccion.silenciar = false
+                    } else if (!lectorDePantallaActivo(contexto)) {
+                        helper?.speak(help)
+                    }
+                } else if (seleccion == null) {
+                    enFocoLocal = false
+                }
+            }
+            .clickable(enabled = enabled && !locked, onClick = { seleccion?.elegir(yo, help); onClick() })
             .semantics { contentDescription = help }
-            .voiceHint(help)
+            .voiceHint(help, onHold = { seleccion?.elegir(yo, help) })
             .padding(
                 top = if (half) 18.dp else 20.dp,
                 start = if (half) 10.dp else 16.dp,
@@ -302,8 +558,8 @@ fun BigBtn(
 }
 
 /**
- * A large labeled icon button for a screen's header (sign in, sign out...). Pass a different [tint]
- * for actions that must stand out, like the red "Cerrar sesión".
+ * Un botón de icono grande con etiqueta para el encabezado de una pantalla (iniciar sesión, cerrar
+ * sesión...). Pasa un [tint] diferente para acciones que deben resaltar, como el rojo de "Cerrar sesión".
  */
 @Composable
 fun TopAction(
@@ -343,7 +599,7 @@ fun TopAction(
     }
 }
 
-/** A phrase the user can say, also tappable. Shown under "PUEDES DECIR". Tall enough to hit (48 dp). */
+/** Una frase que el usuario puede decir, también se puede tocar. Se muestra bajo "PUEDES DECIR". Suficientemente alta para tocarla (48 dp). */
 @Composable
 fun SuggestionChip(label: String, onClick: () -> Unit) {
     Box(
@@ -360,9 +616,9 @@ fun SuggestionChip(label: String, onClick: () -> Unit) {
 }
 
 /**
- * Something that needs the user's attention and is not repeated by voice on screen.
- * An optional [actionLabel]/[onAction] adds a button below the text, for when there is
- * somewhere concrete to send the person instead of only naming the problem.
+ * Algo que necesita la atención del usuario y que no se repite por voz en pantalla.
+ * Un [actionLabel]/[onAction] opcional agrega un botón debajo del texto, para cuando hay
+ * un lugar concreto a donde enviar a la persona en lugar de solo nombrar el problema.
  */
 @Composable
 fun NoticeBanner(
@@ -391,7 +647,7 @@ fun NoticeBanner(
     }
 }
 
-/** Shown only while there is no internet: answers will be less precise. */
+/** Se muestra solo mientras no hay internet: las respuestas serán menos precisas. */
 @Composable
 fun OfflineBanner(modifier: Modifier = Modifier) {
     NoticeBanner("Sin conexión a internet. Mis respuestas pueden ser menos precisas.", modifier)

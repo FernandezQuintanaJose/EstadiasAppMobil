@@ -11,11 +11,11 @@ import javax.inject.Inject
 import javax.inject.Singleton
 
 /**
- * The black screen and the minimum brightness, for people who do not use the picture.
- * Both are only drawn or applied while the app is showing (the brightness is set on the app's own
- * window, never on the phone's system setting), so leaving the app always brings the phone back to normal.
- * The person must always have a way out, so both switch off by voice on every screen, and the black
- * screen also switches off by holding a finger on it.
+ * La pantalla negra y el brillo mínimo, para personas que no usan la imagen.
+ * Ambos solo se dibujan o se aplican mientras la app está en pantalla (el brillo se establece en la
+ * ventana propia de la app, nunca en la configuración del sistema del teléfono), así que salir de la
+ * app siempre devuelve el teléfono a la normalidad. La persona siempre debe tener una salida, así que
+ * ambos se apagan por voz en toda pantalla, y la pantalla negra también se apaga manteniendo un dedo sobre ella.
  */
 @Singleton
 class DisplayControl @Inject constructor(
@@ -25,9 +25,10 @@ class DisplayControl @Inject constructor(
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
 
     init {
-        // Turning the black screen or the minimum brightness back to normal must always work, even on a screen
-        // that is capturing raw text (a username, a password, an answer in Documentos): otherwise the black
-        // screen's own instructions ("di pantalla normal") would stop working the moment someone needs them most.
+        // Volver a la normalidad desde la pantalla negra o el brillo mínimo siempre debe funcionar, incluso en una
+        // pantalla que está capturando texto en bruto (un usuario, una contraseña, una respuesta en Documentos):
+        // de otro modo las propias instrucciones de la pantalla negra ("di pantalla normal") dejarían de funcionar
+        // justo en el momento en que más se necesitan.
         voiceEngine.addCriticalSpeechInterceptor { spoken ->
             val text = VoiceText.normalize(spoken)
             val reply = when {
@@ -42,7 +43,7 @@ class DisplayControl @Inject constructor(
                 else -> null
             }
             if (reply != null) {
-                voiceEngine.activate() // "silencio" or "para" must not keep this safety exit from working
+                voiceEngine.activate() // "silencio" o "para" no debe impedir que funcione esta salida de seguridad
                 voiceEngine.speak(reply, force = true)
             }
             reply != null
@@ -59,7 +60,7 @@ class DisplayControl @Inject constructor(
         if (announce) voiceEngine.speak(if (enabled) BRIGHTNESS_MIN else BRIGHTNESS_NORMAL)
     }
 
-    /** The spoken answer when [spoken] is a display command, or null when it is something else. */
+    /** La respuesta hablada cuando [spoken] es un comando de pantalla, o null cuando es otra cosa. */
     fun handle(spoken: String): String? {
         val text = VoiceText.normalize(spoken)
         return when {
@@ -84,7 +85,7 @@ class DisplayControl @Inject constructor(
     }
 
     companion object {
-        /** The lowest level that does not switch the screen off on phones that read 0 as "off". */
+        /** El nivel más bajo que no apaga la pantalla en teléfonos que leen 0 como "apagado". */
         const val MIN_BRIGHTNESS = 0.01f
 
         const val BLACK_ON =
@@ -94,7 +95,7 @@ class DisplayControl @Inject constructor(
         const val BRIGHTNESS_MIN = "Brillo al mínimo. Para volver, di brillo normal."
         const val BRIGHTNESS_NORMAL = "Brillo normal."
 
-        // The "off" phrases are checked first: "apaga la pantalla negra" also contains "pantalla negra".
+        // Las frases de "apagar" se revisan primero: "apaga la pantalla negra" también contiene "pantalla negra".
         private val BLACK_OFF_PHRASES = listOf(
             "pantalla normal", "pantalla visible", "muestra la pantalla", "mostrar la pantalla", "muestrame la pantalla",
             "quita la pantalla negra", "quitar la pantalla negra", "desactiva la pantalla negra", "desactivar la pantalla negra",

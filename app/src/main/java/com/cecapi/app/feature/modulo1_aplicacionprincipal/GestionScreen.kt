@@ -55,9 +55,11 @@ import com.cecapi.app.core.theme.CecapiTextMuted
 import com.cecapi.app.core.theme.CecapiBorder
 import com.cecapi.app.core.theme.CecapiWarning
 import com.cecapi.app.core.ui.BigBtn
+import com.cecapi.app.core.ui.desplazableConBarra
 import com.cecapi.app.core.ui.BigBtnSize
 import com.cecapi.app.core.ui.BigBtnVariant
 import com.cecapi.app.core.ui.MicPad
+import com.cecapi.app.core.ui.PantallaConMicrofono
 import com.cecapi.app.core.ui.NoticeBanner
 import com.cecapi.app.core.ui.ScreenTopBar
 import com.cecapi.app.core.ui.voiceHint
@@ -98,13 +100,12 @@ fun GestionScreen(
         }
     }
 
-    Box(modifier = Modifier.fillMaxSize()) {
+    PantallaConMicrofono {
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .verticalScroll(rememberScrollState())
-            .padding(horizontal = 16.dp, vertical = 16.dp)
-            .padding(bottom = 230.dp),
+            .desplazableConBarra()
+            .padding(horizontal = 16.dp, vertical = 16.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
         if (personaEnEdicion != null) {
@@ -117,7 +118,6 @@ fun GestionScreen(
                     puedeDarDeBaja = viewModel.puedeDarDeBaja(personaEnEdicion),
                     puedeEliminar = viewModel.puedeEliminarCuenta(personaEnEdicion),
                     puedeCambiarContrasena = viewModel.puedeCambiarContrasenaDe(personaEnEdicion),
-                    puedeAutorizarBaja = viewModel.puedeAutorizarBajaDe(personaEnEdicion),
                 ),
                 rolesAsignables = viewModel.rolesAsignables(),
                 educadoresDisponibles = { viewModel.educadoresPara(personaEnEdicion) },
@@ -127,7 +127,6 @@ fun GestionScreen(
                 onRolElegido = { rol -> viewModel.onRolElegido(personaEnEdicion, rol) },
                 onEducadorElegido = { educador -> viewModel.onEducadorElegido(personaEnEdicion, educador) },
                 onCambiarContrasena = { nueva -> viewModel.onCambiarContrasena(personaEnEdicion, nueva) },
-                onAutorizarBaja = { viewModel.onAutorizarBajaDe(personaEnEdicion) },
                 onDarDeBaja = { viewModel.onDarDeBaja(personaEnEdicion) },
                 onEliminar = { viewModel.onEliminarCuenta(personaEnEdicion) },
                 onEditarDatos = { nombre, apodo, correo -> viewModel.onEditarCuenta(personaEnEdicion, nombre, apodo, correo) },
@@ -181,7 +180,7 @@ fun GestionScreen(
             }
             BigBtn(
                 icon = Icons.Filled.Close,
-                label = "Bajas o cambio de educador",
+                label = "Cambio de educador",
                 size = BigBtnSize.Standard,
                 onClick = { vista = GestionVista.Bajas },
             )
@@ -282,10 +281,10 @@ fun GestionScreen(
                 )
             }
         } else if (vista == GestionVista.Bajas) {
-            ScreenTopBar(eyebrow = "GESTIÓN", title = "Bajas o cambio de educador", onBack = { vista = GestionVista.Menu }, onCommands = {})
-            val bajas = state.personas.filter { it.solicitaBaja || it.solicitaCambioEducador }
+            ScreenTopBar(eyebrow = "GESTIÓN", title = "Cambio de educador", onBack = { vista = GestionVista.Menu }, onCommands = {})
+            val bajas = state.personas.filter { it.solicitaCambioEducador }
             if (bajas.isEmpty()) {
-                Text("No hay bajas pedidas.", style = MaterialTheme.typography.bodyLarge, color = CecapiTextMuted)
+                Text("Nadie ha pedido cambiar de educador.", style = MaterialTheme.typography.bodyLarge, color = CecapiTextMuted)
             }
             bajas.forEach { persona ->
                 PersonaCard(
@@ -408,7 +407,6 @@ fun GestionScreen(
             onDoubleTap = viewModel::onMicDoubleTap,
             hint = if (listening) "Escuchando…" else "Di cuántas personas, o toca aquí",
             onClick = viewModel::onMicTapped,
-            modifier = Modifier.align(Alignment.BottomCenter),
         )
     }
 }

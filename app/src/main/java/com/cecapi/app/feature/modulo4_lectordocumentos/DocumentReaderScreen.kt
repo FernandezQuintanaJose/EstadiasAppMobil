@@ -8,8 +8,8 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.camera.core.ImageCapture
-import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -19,21 +19,19 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.AddAPhoto
+import androidx.compose.material.icons.filled.CameraAlt
+import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Save
 import androidx.compose.material.icons.filled.Mic
 import androidx.compose.material.icons.filled.MicOff
-import androidx.compose.material.icons.filled.PhotoLibrary
 import androidx.compose.material.icons.filled.Pause
+import androidx.compose.material.icons.filled.PhotoLibrary
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Replay
 import androidx.compose.material.icons.filled.SkipNext
@@ -47,20 +45,23 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalInspectionMode
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.tooling.preview.Preview as ComposePreview
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.cecapi.app.core.theme.CecapiAccent
@@ -70,35 +71,30 @@ import com.cecapi.app.core.theme.CecapiSurfaceElevated
 import com.cecapi.app.core.theme.CecapiTextPrimary
 import com.cecapi.app.core.theme.ModuleCameraAccent
 import com.cecapi.app.core.theme.ModuleLearningAccent
-import com.cecapi.app.core.theme.Sections
-import com.cecapi.app.core.ui.BigBtn
-import com.cecapi.app.core.ui.BigBtnSize
-import com.cecapi.app.core.ui.VolverPill
-import com.cecapi.app.core.ui.ScreenTopBar
 import com.cecapi.app.core.ui.CameraViewfinder
+import com.cecapi.app.core.ui.SelectorModoCamara
 import com.cecapi.app.core.ui.CaptureButton
 import com.cecapi.app.core.ui.FramingGuide
-import com.cecapi.app.core.ui.SuggestionChip
 import com.cecapi.app.core.ui.TopAction
 import com.cecapi.app.core.ui.capturePhoto
 import com.cecapi.app.core.ui.copyPickedImage
-import com.cecapi.app.core.ui.voiceHint
 import com.cecapi.app.core.voice.VoiceState
 import kotlinx.coroutines.launch
 
 @Composable
 fun DocumentReaderScreen(
     onBack: () -> Unit,
-    onOpen: (String) -> Unit,
+    onOpen: (String) -> Unit = {},
     viewModel: DocumentReaderViewModel = hiltViewModel(),
 ) {
     val context = LocalContext.current
     val uiState by viewModel.uiState.collectAsState()
     val voiceState by viewModel.voiceState.collectAsState()
+    val isPreview = LocalInspectionMode.current
 
     var hasCameraPermission by remember {
         mutableStateOf(
-            ContextCompat.checkSelfPermission(context, Manifest.permission.CAMERA) ==
+            isPreview || ContextCompat.checkSelfPermission(context, Manifest.permission.CAMERA) ==
                 PackageManager.PERMISSION_GRANTED,
         )
     }
@@ -110,16 +106,10 @@ fun DocumentReaderScreen(
     }
 
     LaunchedEffect(Unit) {
-        if (!hasCameraPermission) permissionLauncher.launch(Manifest.permission.CAMERA)
+        if (!isPreview && !hasCameraPermission) permissionLauncher.launch(Manifest.permission.CAMERA)
     }
 
     var imageCapture by remember { mutableStateOf<ImageCapture?>(null) }
-
-    // Lives on the screen (not the ViewModel): it holds an ML Kit recognizer that must close with the
-    // camera, not survive configuration changes. Told "así está bien, toca el botón" and where to move the
-    // phone, said out loud, since there is no viewfinder to look at for someone who cannot see it.
-    val framingAnalyzer = remember { TextFramingAnalyzer(onHint = viewModel::onFramingHint) }
-    DisposableEffect(Unit) { onDispose { framingAnalyzer.close() } }
 
     val takePhoto: () -> Unit = {
         val capture = imageCapture
@@ -130,7 +120,7 @@ fun DocumentReaderScreen(
                 context = context,
                 folder = "cecapi_docs",
                 onFailed = viewModel::onCaptureFailed,
-            ) { uri, path -> viewModel.onPhotoCaptured(uri, path) }
+            ) { uri, path -> viewModel.onPhotoCaptured(uri, path, desdeCamara = true) }
         }
     }
 
@@ -138,7 +128,7 @@ fun DocumentReaderScreen(
     LaunchedEffect(Unit) { viewModel.back.collect { onBack() } }
     LaunchedEffect(Unit) { viewModel.routes.collect(onOpen) }
 
-    // The system picture picker: the person chooses one picture and the app sees only that one.
+    // El selector de fotos del sistema: la persona elige una foto y la aplicación solo ve esa.
     val coroutineScope = rememberCoroutineScope()
     val storageLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
         if (granted) viewModel.onSavePhoto() else viewModel.onSavePhotoDenied()
@@ -154,109 +144,83 @@ fun DocumentReaderScreen(
         }
     }
     LaunchedEffect(Unit) {
+        viewModel.saveRequests.collect {
+            // En Android 9 o anterior guardar en la galería necesita permiso de almacenamiento.
+            val needsStorage = Build.VERSION.SDK_INT < Build.VERSION_CODES.Q &&
+                ContextCompat.checkSelfPermission(context, Manifest.permission.WRITE_EXTERNAL_STORAGE) !=
+                PackageManager.PERMISSION_GRANTED
+            if (needsStorage) storageLauncher.launch(Manifest.permission.WRITE_EXTERNAL_STORAGE) else viewModel.onSavePhoto()
+        }
+    }
+    LaunchedEffect(Unit) {
         viewModel.pickRequests.collect {
             pickLauncher.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
         }
     }
 
     val hayDocumento = uiState.parrafos.isNotEmpty()
+    // Todos los botones piden dos toques: el primero dice qué hacen, el segundo ejecutan la acción.
+    val onVolverClick: () -> Unit = { viewModel.onBotonPresionado(BotonLector.VOLVER) }
 
-    if (hayDocumento) {
-        // Panel de lectura: fondo negro plano (ya no se ve la foto capturada detrás), encabezado
-        // compacto (no el ScreenTopBar grande de las demás pantallas) y un botón grande por acción,
-        // tal cual el panel de lectura del rediseño de Figma Make.
-        Column(modifier = Modifier.fillMaxSize().background(Color.Black)) {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .heightIn(min = 56.dp)
-                    .padding(horizontal = 16.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Text("Leer texto", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Black, color = CecapiTextPrimary)
-            }
-            Column(
-                modifier = Modifier
-                    .weight(1f)
-                    .verticalScroll(rememberScrollState())
-                    .padding(16.dp),
-                verticalArrangement = Arrangement.spacedBy(12.dp),
-            ) {
-                Text(
-                    "Párrafo ${uiState.parrafoActual + 1} de ${uiState.parrafos.size}.",
-                    style = MaterialTheme.typography.headlineMedium,
-                    fontWeight = FontWeight.Black,
-                    color = CecapiTextPrimary,
-                    textAlign = TextAlign.Center,
-                    modifier = Modifier.fillMaxWidth(),
-                )
-                VolverPill(
-                    onClick = onBack,
-                    help = "Volver al menú. Sale del lector de texto.",
-                )
-                BigActionCard(
-                    icon = if (uiState.estaLeyendo) Icons.Filled.Pause else Icons.Filled.PlayArrow,
-                    label = if (uiState.estaLeyendo) "PAUSAR" else "CONTINUAR",
-                    tint = CecapiAccent,
-                    help = if (uiState.estaLeyendo) {
-                        "Pausar. Detiene la lectura hasta que digas continúa."
-                    } else {
-                        "Continuar. Sigue leyendo el párrafo donde te quedaste."
-                    },
-                    onClick = if (uiState.estaLeyendo) viewModel::pausarLectura else viewModel::continuarLectura,
-                )
-                BigActionCard(
-                    icon = Icons.Filled.Replay,
-                    label = "REPETIR",
-                    tint = RepetirTint,
-                    help = "Repetir. Lee el documento otra vez desde el principio.",
-                    onClick = viewModel::repetirLectura,
-                )
-                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                    ControlFlecha(
-                        icon = Icons.Filled.SkipPrevious,
-                        label = "ANTERIOR",
-                        tint = FlechaTint,
-                        help = "Párrafo anterior. Vuelve un párrafo atrás.",
-                        onClick = viewModel::anteriorParrafo,
-                        flechaALaDerecha = false,
-                        modifier = Modifier.weight(1f),
-                    )
-                    ControlFlecha(
-                        icon = Icons.Filled.SkipNext,
-                        label = "SIGUIENTE",
-                        tint = FlechaTint,
-                        help = "Párrafo siguiente. Salta al siguiente párrafo.",
-                        onClick = viewModel::siguienteParrafo,
-                        flechaALaDerecha = true,
-                        modifier = Modifier.weight(1f),
-                    )
-                }
-                BigBtn(
-                    icon = Icons.Filled.Save,
-                    label = "GUARDAR FOTO",
-                    section = Sections.Camera,
-                    onClick = {
-                        val needsStorage = Build.VERSION.SDK_INT < Build.VERSION_CODES.Q &&
-                            ContextCompat.checkSelfPermission(context, Manifest.permission.WRITE_EXTERNAL_STORAGE) !=
-                            PackageManager.PERMISSION_GRANTED
-                        if (needsStorage) storageLauncher.launch(Manifest.permission.WRITE_EXTERNAL_STORAGE) else viewModel.onSavePhoto()
-                    },
-                )
-                BigBtn(
-                    icon = Icons.Filled.AddAPhoto,
-                    label = "TOMAR OTRA FOTO",
-                    section = OtraFotoSection,
-                    size = BigBtnSize.Hero,
-                    onClick = viewModel::onRetakePhoto,
-                )
-            }
-        }
+    if (hayDocumento && !uiState.isProcessing) {
+        // Pantalla 2: Interfaz futurista CECAPI de control de lectura con botón VOLVER AL MENÚ hasta abajo
+        DocumentReadoutControlScreen(
+            uiState = uiState,
+            onBack = onVolverClick,
+            onPause = { viewModel.onBotonPresionado(BotonLector.PAUSAR) },
+            onResume = { viewModel.onBotonPresionado(BotonLector.REANUDAR) },
+            onRepeat = { viewModel.onBotonPresionado(BotonLector.REPETIR) },
+            onPrevious = { viewModel.onBotonPresionado(BotonLector.ANTERIOR) },
+            onNext = { viewModel.onBotonPresionado(BotonLector.SIGUIENTE) },
+            onSavePhoto = { viewModel.onBotonPresionado(BotonLector.GUARDAR) },
+            onRetakePhoto = { viewModel.onBotonPresionado(BotonLector.OTRA_FOTO) },
+            onEnfrente = viewModel::cambiarAEntorno,
+        )
     } else {
-    Box(modifier = Modifier.fillMaxSize()) {
+        // Pantalla 1: Vista previa de cámara limpia a pantalla completa
+        DocumentCameraScreen(
+            uiState = uiState,
+            hasCameraPermission = hasCameraPermission,
+            onReadyCamera = { capture ->
+                // Flash automático: la cámara lo dispara sola cuando el documento está muy oscuro.
+                capture?.flashMode = ImageCapture.FLASH_MODE_AUTO
+                imageCapture = capture
+            },
+            onBack = onVolverClick,
+            onCaptureClick = { if (viewModel.onBotonCapturaPresionado()) takePhoto() },
+            onFramingHint = viewModel::onFramingHint,
+            listening = voiceState is VoiceState.Listening,
+            onGallery = viewModel::pedirGaleria,
+            onMic = viewModel::onMicTapped,
+            onEnfrente = viewModel::cambiarAEntorno,
+        )
+    }
+}
+
+/**
+ * Pantalla 1: Vista previa de cámara a pantalla completa con botón VOLVER AL MENÚ, guía de encuadre y obturador.
+ */
+@Composable
+private fun DocumentCameraScreen(
+    uiState: DocumentReaderUiState,
+    hasCameraPermission: Boolean,
+    onReadyCamera: (ImageCapture?) -> Unit,
+    onBack: () -> Unit,
+    onCaptureClick: () -> Unit,
+    onFramingHint: (FramingHint) -> Unit = {},
+    listening: Boolean = false,
+    onGallery: () -> Unit = {},
+    onMic: () -> Unit = {},
+    onEnfrente: () -> Unit = {},
+) {
+    // Analiza la vista previa para guiar por voz hacia dónde mover el teléfono; se apaga al salir de la cámara.
+    val framingAnalyzer = remember { TextFramingAnalyzer(onFramingHint) }
+    DisposableEffect(framingAnalyzer) { onDispose { framingAnalyzer.close() } }
+
+    Box(modifier = Modifier.fillMaxSize().background(CecapiBackground)) {
         CameraViewfinder(
             hasPermission = hasCameraPermission,
-            onReady = { imageCapture = it },
+            onReady = onReadyCamera,
             modifier = Modifier.fillMaxSize(),
             analyzer = framingAnalyzer,
         )
@@ -265,155 +229,417 @@ fun DocumentReaderScreen(
             FramingGuide(
                 modifier = Modifier
                     .align(Alignment.Center)
-                    .fillMaxWidth(0.8f)
+                    .fillMaxWidth(0.85f)
                     .aspectRatio(3f / 4f),
             )
         }
 
-            Column(
-                modifier = Modifier.fillMaxSize().padding(16.dp),
-                verticalArrangement = Arrangement.spacedBy(12.dp),
+        // Las instrucciones ("apunta la cámara", "toma la foto") solo se dan por voz desde el ViewModel.
+        Column(
+            modifier = Modifier.fillMaxSize().padding(14.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            VolverAlMenuButton(onClick = onBack)
+
+            Spacer(modifier = Modifier.weight(1f))
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceEvenly,
+                verticalAlignment = Alignment.CenterVertically,
             ) {
-                ScreenTopBar(
-                    eyebrow = "CÁMARA",
-                    title = "Leer texto",
-                    onBack = onBack,
-                    onCommands = viewModel::onCommandsRequested,
+                TopAction(
+                    icon = Icons.Filled.PhotoLibrary,
+                    label = "Mis fotos",
+                    help = "Mis fotos. Abre el selector de fotos de tu teléfono para que elijas una imagen que ya tienes. " +
+                        "La aplicación solo ve la foto que tú elijas. También puedes decir: elige una foto.",
+                    onClick = onGallery,
                 )
-
-                Spacer(modifier = Modifier.weight(1f))
-
-                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Center) {
-                    SuggestionChip(label = "toma la foto", onClick = viewModel::pedirCaptura)
-                }
-
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceEvenly,
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    TopAction(
-                        icon = Icons.Filled.PhotoLibrary,
-                        label = "Mis fotos",
-                        help = "Mis fotos. Abre el selector de fotos de tu teléfono para que elijas una imagen que ya tienes. " +
-                            "La aplicación solo ve la foto que tú elijas. También puedes decir: elige una foto.",
-                        onClick = viewModel::pedirGaleria,
-                    )
-                    CaptureButton(
-                        processing = uiState.isProcessing,
-                        enabled = imageCapture != null && !uiState.isProcessing,
-                        help = "Botón de captura. Tócalo para prepararte y tócalo otra vez para tomar la foto. " +
-                            "También puedes decir: toma la foto.",
-                        onClick = { if (viewModel.onBotonCapturaPresionado()) takePhoto() },
-                        size = 136.dp,
-                    )
-                    // Mismo ancho que "Mis fotos" para que el obturador quede centrado, pero ahora es
-                    // un micrófono real — no solo un espacio vacío — para no depender de que alguien
-                    // adivine que ya está escuchando.
-                    val listening = voiceState is VoiceState.Listening
-                    TopAction(
-                        icon = if (listening) Icons.Filled.MicOff else Icons.Filled.Mic,
-                        label = if (listening) "Escuchando" else "Hablar",
-                        help = "Micrófono. Tócalo para hablar — toca la foto, o describe lo que necesitas.",
-                        tint = if (listening) CecapiAccent else CecapiTextPrimary,
-                        onClick = viewModel::onMicTapped,
-                    )
-                }
+                CaptureButton(
+                    processing = uiState.isProcessing,
+                    enabled = !uiState.isProcessing,
+                    help = "Botón de captura. Tócalo para tomar la foto del documento o di toma la foto.",
+                    onClick = onCaptureClick,
+                    size = 136.dp,
+                )
+                // Mismo ancho que "Mis fotos" para que el obturador quede centrado; muestra si ya está escuchando.
+                TopAction(
+                    icon = if (listening) Icons.Filled.MicOff else Icons.Filled.Mic,
+                    label = if (listening) "Escuchando" else "Hablar",
+                    help = "Micrófono. Tócalo para hablar: di toma la foto, o elige una foto.",
+                    tint = if (listening) CecapiAccent else CecapiTextPrimary,
+                    onClick = onMic,
+                )
             }
         }
     }
 }
 
-/** One full-width, same-size button: a big icon badge plus a big bold label, easy to find and tap. */
-private val RepetirTint = Color(0xFFF59E0B)
-private val FlechaTint = Color(0xFF38BDF8)
-private val OtraFotoSection = ModuleSection(Color(0xFFA78BFA), Color(0xFF2A2340))
-
-/** Control con flecha: la flecha va del lado izquierdo o derecho según la dirección, y el texto del otro lado. */
+/**
+ * Pantalla 2: Interfaz futurista CECAPI de lectura. El botón VOLVER AL MENÚ PRINCIPAL está directamente
+ * debajo del botón de TOMAR OTRA FOTO en un tamaño GIGANTE.
+ */
 @Composable
-private fun ControlFlecha(
-    icon: ImageVector,
-    label: String,
-    tint: Color,
-    help: String,
-    onClick: () -> Unit,
-    flechaALaDerecha: Boolean,
-    modifier: Modifier = Modifier,
+private fun DocumentReadoutControlScreen(
+    uiState: DocumentReaderUiState,
+    onBack: () -> Unit,
+    onPause: () -> Unit,
+    onResume: () -> Unit,
+    onRepeat: () -> Unit,
+    onPrevious: () -> Unit,
+    onNext: () -> Unit,
+    onSavePhoto: () -> Unit,
+    onRetakePhoto: () -> Unit,
+    onEnfrente: () -> Unit = {},
 ) {
-    val shape = RoundedCornerShape(20.dp)
-    val flecha: @Composable () -> Unit = {
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(CecapiBackground)
+            .padding(14.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp),
+    ) {
+        // Tarjeta 1 Futurista: PAUSAR / REANUDAR. Explicar "pausar" ya detiene la lectura, pero el botón
+        // sigue mostrando PAUSAR hasta el segundo toque para que no cambie bajo el dedo.
+        val mostrarPausar = uiState.estaLeyendo || uiState.botonArmado == BotonLector.PAUSAR
+        val pauseTint = CecapiAccent
         Box(
             modifier = Modifier
-                .size(48.dp)
-                .clip(RoundedCornerShape(14.dp))
-                .background(tint.copy(alpha = 0.18f)),
+                .fillMaxWidth()
+                .weight(1f)
+                .clip(RoundedCornerShape(24.dp))
+                .background(CecapiSurfaceElevated)
+                .border(2.dp, pauseTint, RoundedCornerShape(24.dp))
+                .semantics {
+                    role = Role.Button
+                    contentDescription = if (mostrarPausar) "Pausar lectura" else "Reanudar lectura"
+                }
+                .clickable { if (mostrarPausar) onPause() else onResume() },
             contentAlignment = Alignment.Center,
         ) {
-            Icon(icon, contentDescription = null, tint = tint, modifier = Modifier.size(28.dp))
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.Center,
+                modifier = Modifier.padding(16.dp),
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(56.dp)
+                        .clip(CircleShape)
+                        .background(pauseTint.copy(alpha = 0.2f))
+                        .border(2.dp, pauseTint, CircleShape),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Icon(
+                        imageVector = if (mostrarPausar) Icons.Filled.Pause else Icons.Filled.PlayArrow,
+                        contentDescription = null,
+                        tint = pauseTint,
+                        modifier = Modifier.size(34.dp),
+                    )
+                }
+                Spacer(modifier = Modifier.size(16.dp))
+                Text(
+                    text = if (mostrarPausar) "PAUSAR LECTURA" else "REANUDAR LECTURA",
+                    fontSize = 22.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = CecapiTextPrimary,
+                )
+            }
         }
-    }
-    Row(
-        modifier = modifier
-            .fillMaxWidth()
-            .heightIn(min = 76.dp)
-            .clip(shape)
-            .background(CecapiSurfaceElevated)
-            .border(2.dp, tint, shape)
-            .clickable(onClick = onClick)
-            .semantics { contentDescription = help }
-            .voiceHint(help)
-            .padding(16.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(12.dp),
-    ) {
-        if (!flechaALaDerecha) flecha()
-        Text(
-            label,
-            style = MaterialTheme.typography.titleMedium,
-            color = tint,
-            modifier = Modifier.weight(1f),
-            textAlign = if (flechaALaDerecha) TextAlign.Start else TextAlign.End,
-        )
-        if (flechaALaDerecha) flecha()
+
+        // Tarjeta 2 Futurista: REPETIR DESDE EL INICIO
+        val repeatTint = ModuleLearningAccent
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .weight(1f)
+                .clip(RoundedCornerShape(24.dp))
+                .background(CecapiSurfaceElevated)
+                .border(2.dp, repeatTint, RoundedCornerShape(24.dp))
+                .semantics {
+                    role = Role.Button
+                    contentDescription = "Repetir lectura desde el inicio"
+                }
+                .clickable { onRepeat() },
+            contentAlignment = Alignment.Center,
+        ) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.Center,
+                modifier = Modifier.padding(16.dp),
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(56.dp)
+                        .clip(CircleShape)
+                        .background(repeatTint.copy(alpha = 0.2f))
+                        .border(2.dp, repeatTint, CircleShape),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Icon(
+                        imageVector = Icons.Filled.Replay,
+                        contentDescription = null,
+                        tint = repeatTint,
+                        modifier = Modifier.size(32.dp),
+                    )
+                }
+                Spacer(modifier = Modifier.size(16.dp))
+                Text(
+                    text = "REPETIR LECTURA",
+                    fontSize = 22.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = CecapiTextPrimary,
+                )
+            }
+        }
+
+        // Tarjeta 3 Futurista: NAVEGACIÓN DE PÁRRAFOS (ANTERIOR / SIGUIENTE)
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .weight(1f),
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            val navBorder = CecapiBorder
+            Box(
+                modifier = Modifier
+                    .weight(1f)
+                    .fillMaxSize()
+                    .clip(RoundedCornerShape(24.dp))
+                    .background(CecapiSurfaceElevated)
+                    .border(2.dp, navBorder, RoundedCornerShape(24.dp))
+                    .semantics {
+                        role = Role.Button
+                        contentDescription = "Ir al párrafo anterior"
+                    }
+                    .clickable { onPrevious() },
+                contentAlignment = Alignment.Center,
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.Center,
+                    modifier = Modifier.padding(12.dp),
+                ) {
+                    Icon(
+                        imageVector = Icons.Filled.SkipPrevious,
+                        contentDescription = null,
+                        tint = CecapiAccent,
+                        modifier = Modifier.size(32.dp),
+                    )
+                    Spacer(modifier = Modifier.size(8.dp))
+                    Text(
+                        text = "ANTERIOR",
+                        fontSize = 17.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = CecapiTextPrimary,
+                    )
+                }
+            }
+
+            Box(
+                modifier = Modifier
+                    .weight(1f)
+                    .fillMaxSize()
+                    .clip(RoundedCornerShape(24.dp))
+                    .background(CecapiSurfaceElevated)
+                    .border(2.dp, navBorder, RoundedCornerShape(24.dp))
+                    .semantics {
+                        role = Role.Button
+                        contentDescription = "Ir al párrafo siguiente"
+                    }
+                    .clickable { onNext() },
+                contentAlignment = Alignment.Center,
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.Center,
+                    modifier = Modifier.padding(12.dp),
+                ) {
+                    Text(
+                        text = "SIGUIENTE",
+                        fontSize = 17.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = CecapiTextPrimary,
+                    )
+                    Spacer(modifier = Modifier.size(8.dp))
+                    Icon(
+                        imageVector = Icons.Filled.SkipNext,
+                        contentDescription = null,
+                        tint = CecapiAccent,
+                        modifier = Modifier.size(32.dp),
+                    )
+                }
+            }
+        }
+
+        // Tarjeta 4 Futurista: GUARDAR FOTO en la galería
+        val saveTint = Color(0xFF22C55E)
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .weight(1f)
+                .clip(RoundedCornerShape(24.dp))
+                .background(CecapiSurfaceElevated)
+                .border(2.dp, saveTint, RoundedCornerShape(24.dp))
+                .semantics {
+                    role = Role.Button
+                    contentDescription = "Guardar foto en la galería"
+                }
+                .clickable { onSavePhoto() },
+            contentAlignment = Alignment.Center,
+        ) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.Center,
+                modifier = Modifier.padding(16.dp),
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(56.dp)
+                        .clip(CircleShape)
+                        .background(saveTint.copy(alpha = 0.2f))
+                        .border(2.dp, saveTint, CircleShape),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Icon(
+                        imageVector = Icons.Filled.Save,
+                        contentDescription = null,
+                        tint = saveTint,
+                        modifier = Modifier.size(30.dp),
+                    )
+                }
+                Spacer(modifier = Modifier.size(16.dp))
+                Text(
+                    text = "GUARDAR FOTO",
+                    fontSize = 22.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = CecapiTextPrimary,
+                )
+            }
+        }
+
+        // Tarjeta 5 Futurista: TOMAR OTRA FOTO
+        val cameraTint = ModuleCameraAccent
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .weight(1f)
+                .clip(RoundedCornerShape(24.dp))
+                .background(CecapiSurfaceElevated)
+                .border(2.dp, cameraTint, RoundedCornerShape(24.dp))
+                .semantics {
+                    role = Role.Button
+                    contentDescription = "Tomar otra foto"
+                }
+                .clickable { onRetakePhoto() },
+            contentAlignment = Alignment.Center,
+        ) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.Center,
+                modifier = Modifier.padding(16.dp),
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(56.dp)
+                        .clip(CircleShape)
+                        .background(cameraTint.copy(alpha = 0.2f))
+                        .border(2.dp, cameraTint, CircleShape),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.CameraAlt,
+                        contentDescription = null,
+                        tint = cameraTint,
+                        modifier = Modifier.size(30.dp),
+                    )
+                }
+                Spacer(modifier = Modifier.size(16.dp))
+                Text(
+                    text = "TOMAR OTRA FOTO",
+                    fontSize = 22.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = CecapiTextPrimary,
+                )
+            }
+        }
+
+        // Después de la foto se elige qué hacer con la cámara: seguir leyendo texto o pasar a qué hay enfrente.
+        SelectorModoCamara(leyendoTexto = true, onLeerTexto = {}, onEnfrente = onEnfrente)
+        VolverAlMenuButton(onClick = onBack)
     }
 }
 
+/**
+ * Botón GIGANTE para volver al menú principal, compartido por la cámara y la pantalla de lectura.
+ */
 @Composable
-private fun BigActionCard(
-    icon: ImageVector,
-    label: String,
-    tint: Color,
-    help: String,
-    onClick: () -> Unit,
-    modifier: Modifier = Modifier,
-) {
-    val shape = RoundedCornerShape(20.dp)
-    Row(
+private fun VolverAlMenuButton(onClick: () -> Unit, modifier: Modifier = Modifier) {
+    val menuTint = Color(0xFFEF4444)
+    Box(
         modifier = modifier
             .fillMaxWidth()
-            .heightIn(min = 76.dp)
-            .clip(shape)
+            .height(82.dp)
+            .clip(RoundedCornerShape(24.dp))
             .background(CecapiSurfaceElevated)
-            .border(2.dp, tint, shape)
-            .clickable(onClick = onClick)
-            .semantics { contentDescription = help }
-            .voiceHint(help)
-            .padding(16.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.Center,
+            .border(2.5.dp, menuTint, RoundedCornerShape(24.dp))
+            .semantics {
+                role = Role.Button
+                contentDescription = "Volver al menú principal"
+            }
+            .clickable { onClick() },
+        contentAlignment = Alignment.Center,
     ) {
-        val iconShape = RoundedCornerShape(15.dp)
-        Box(
-            modifier = Modifier
-                .size(52.dp)
-                .clip(iconShape)
-                .background(tint.copy(alpha = 0.2f))
-                .border(2.dp, tint, iconShape),
-            contentAlignment = Alignment.Center,
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.Center,
+            modifier = Modifier.padding(horizontal = 16.dp),
         ) {
-            Icon(icon, contentDescription = null, tint = tint, modifier = Modifier.size(30.dp))
+            Box(
+                modifier = Modifier
+                    .size(52.dp)
+                    .clip(CircleShape)
+                    .background(menuTint.copy(alpha = 0.2f))
+                    .border(2.dp, menuTint, CircleShape),
+                contentAlignment = Alignment.Center,
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Home,
+                    contentDescription = null,
+                    tint = menuTint,
+                    modifier = Modifier.size(30.dp),
+                )
+            }
+            Spacer(modifier = Modifier.size(14.dp))
+            Text(
+                text = "VOLVER AL MENÚ PRINCIPAL",
+                fontSize = 21.sp,
+                fontWeight = FontWeight.ExtraBold,
+                color = CecapiTextPrimary,
+            )
         }
-        Spacer(modifier = Modifier.width(14.dp))
-        Text(label, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = CecapiTextPrimary)
+    }
+}
+
+@ComposePreview(showBackground = true, name = "Futuristic Document Readout Control Screen")
+@Composable
+private fun DocumentReadoutControlScreenPreview() {
+    MaterialTheme {
+        DocumentReadoutControlScreen(
+            uiState = DocumentReaderUiState(
+                recognizedText = "Texto de ejemplo para la vista previa.",
+                parrafos = listOf("Este es el primer párrafo del documento leído.", "Este es el segundo párrafo del documento."),
+                parrafoActual = 0,
+                estaLeyendo = true,
+            ),
+            onBack = {},
+            onPause = {},
+            onResume = {},
+            onRepeat = {},
+            onPrevious = {},
+            onNext = {},
+            onSavePhoto = {},
+            onRetakePhoto = {},
+        )
     }
 }

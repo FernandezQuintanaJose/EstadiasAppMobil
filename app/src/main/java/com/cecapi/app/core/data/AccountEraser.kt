@@ -8,10 +8,10 @@ import javax.inject.Inject
 import javax.inject.Singleton
 
 /**
- * Deletes one person's account and everything that hangs from it: their chats, results, saved documents and
- * descriptions (the database deletes those with the account), and the photos of theirs that the reader and
- * the environment assistant kept on the phone. Nothing is kept: this is the "borrar mi cuenta y mis datos" the
- * privacy rules ask for. Photos are deleted first, because their paths live in rows that go with the account.
+ * Borra la cuenta de una persona y todo lo que depende de ella: sus chats, resultados, documentos y
+ * descripciones guardadas (la base los borra junto con la cuenta), y las fotos suyas que el lector y el
+ * asistente de entorno guardaron en el teléfono. No se conserva nada: esto es el "borrar mi cuenta y mis datos"
+ * que pide la política de privacidad. Las fotos se borran primero, porque sus rutas viven en filas que se van con la cuenta.
  */
 @Singleton
 class AccountEraser @Inject constructor(
@@ -26,9 +26,9 @@ class AccountEraser @Inject constructor(
                 }
         }
         paths.forEach { runCatching { File(it).delete() } }
-        // Every table that belongs to a person points to `usuarios` with ON DELETE CASCADE.
+        // Toda tabla que pertenece a una persona apunta a `usuarios` con ON DELETE CASCADE.
         database.openHelper.writableDatabase.execSQL("DELETE FROM usuarios WHERE id = ?", arrayOf<Any>(userId))
-        // The delete went around Room's own queries, so tell the screens that watch the tables.
+        // El borrado se hizo por fuera de las consultas propias de Room, así que hay que avisar a las pantallas que observan las tablas.
         database.invalidationTracker.refreshVersionsAsync()
     }
 

@@ -11,7 +11,6 @@ object CecapiDestinations {
     const val CHATS = "chats"
 
     /** The "Cámara" card: one entry that leads to reading text or describing what is in front. */
-    const val CAMERA_HUB = "camera_hub"
 
     const val VOICE_ASSISTANT = "voice_assistant"
     const val AI_ASSISTANT = "ai_assistant"
@@ -25,8 +24,9 @@ object CecapiDestinations {
 
     /** Only for alumno and usuario — the opposite of GESTION: see their educador, report a problem. */
     const val SOPORTE = "soporte"
-    const val EMERGENCIAS = "emergencias"
-    const val REPORTAR_INCIDENTE = "reportar_incidente"
+
+    /** Pantallas que necesitan una cuenta: sin sesión no se abren, ni tocándolas ni diciéndolas. */
+    val REQUIEREN_SESION = setOf(CHATS, REQUESTS, LEARNING, GESTION, RANKING, EDIT_ACCOUNT)
 
     /** Individual and institution standings in Actividades. Open to anyone signed in, every role. */
     const val RANKING = "ranking"

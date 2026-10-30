@@ -5,6 +5,7 @@ import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.net.Uri
 import com.google.mlkit.vision.common.InputImage
+import com.google.mlkit.vision.text.Text
 import com.google.mlkit.vision.text.TextRecognition
 import com.google.mlkit.vision.text.latin.TextRecognizerOptions
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -12,6 +13,7 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.tasks.await
 import javax.inject.Inject
 import javax.inject.Singleton
+import kotlin.math.abs
 
 @Singleton
 class DocumentReaderRepository @Inject constructor(
@@ -28,10 +30,15 @@ class DocumentReaderRepository @Inject constructor(
      * Runs on-device OCR on the captured photo. The camera is free for anyone: with no [usuarioId] (nobody
      * signed in) the text is still read out loud, it just is not saved to a history that would have nowhere
      * to belong. Rejects the photo before running ML Kit if it looks too dark or too blurry to read.
+     *
+     * Aplica estructuración inteligente para Menús, Listas y Recibos:
+     * 1. Extrae líneas individuales y las agrupa por renglones horizontales (mismo nivel Y).
+     * 2. Asocia productos con sus respectivos precios en la misma línea ("Hamburguesa — $85.00").
+     * 3. Formatea la lectura para voz natural (desglosa "Expreso / Americano $35 / $45" en líneas claras).
      */
     suspend fun processCapturedPhoto(usuarioId: Long?, imageUri: Uri, rutaImagen: String): OcrOutcome {
         // A rejected or failed photo is never written to the database, so nothing would ever delete it from
-        // disk on its own (not "libera espacio", not "borrar mi cuenta"). Clean it up right here instead.
+        // disk on its own. Clean it up right here instead.
         return try {
             val bitmap = decodeDownsampledBitmap(imageUri)
                 ?: return reject(rutaImagen, OcrOutcome.Error(IllegalStateException("No se pudo abrir la imagen: $imageUri")))
@@ -48,7 +55,55 @@ class DocumentReaderRepository @Inject constructor(
 
             val inputImage = InputImage.fromFilePath(context, imageUri)
             val visionText = recognizer.process(inputImage).await()
-            val parrafos = visionText.textBlocks.map { it.text.trim() }.filter { it.isNotBlank() }
+
+            // Extraemos todas las líneas de todos los bloques
+            val todasLasLineas = visionText.textBlocks.flatMap { it.lines }
+
+            if (todasLasLineas.isEmpty()) {
+                return reject(rutaImagen, OcrOutcome.SinTexto)
+            }
+
+            // Agrupamos las líneas por filas horizontales (mismo renglón Y)
+            val filas = ArrayList<MutableList<Text.Line>>()
+
+            for (linea in todasLasLineas.sortedBy { it.boundingBox?.top ?: 0 }) {
+                val rect = linea.boundingBox ?: continue
+                val centerY = rect.centerY()
+
+                val filaExistente = filas.find { fila ->
+                    fila.any { item ->
+                        val r = item.boundingBox ?: return@any false
+                        val avgH = (r.height() + rect.height()) / 2f
+                        abs(r.centerY() - centerY) < (avgH * 0.6f)
+                    }
+                }
+
+                if (filaExistente != null) {
+                    filaExistente.add(linea)
+                } else {
+                    filas.add(mutableListOf(linea))
+                }
+            }
+
+            // Para cada fila horizontal, ordenamos de izquierda a derecha y aplicamos formato de voz natural
+            val lineasBrutas = filas.map { fila ->
+                fila.sortedBy { it.boundingBox?.left ?: 0 }
+                    .joinToString(" — ") { juntarPalabrasCortadas(it.text.trim()) }
+                    .trim()
+            }.filter { texto ->
+                val limpio = texto.trim()
+                limpio.length > 2 && limpio.any { it.isLetterOrDigit() }
+            }
+
+            // Formateamos las líneas para que la lectura de menús y opciones sea clara y natural por voz
+            val parrafos = ArrayList<String>()
+            for (linea in lineasBrutas) {
+                val formateadas = formatearTextoParaVozNatural(linea)
+                formateadas.split("\n").forEach { p ->
+                    val t = p.trim()
+                    if (t.isNotBlank()) parrafos.add(t)
+                }
+            }
 
             if (parrafos.isEmpty()) {
                 return reject(rutaImagen, OcrOutcome.SinTexto)
@@ -75,6 +130,38 @@ class DocumentReaderRepository @Inject constructor(
     suspend fun logLectura(documentoId: Long?) {
         if (documentoId == null) return // nothing was saved for an anonymous reading, so there is nothing to log
         historialDao.insert(HistorialLecturaEntity(documentoId = documentoId))
+    }
+
+    /**
+     * Transforma patrones confusos de menús (ej. "Expreso / Americano — $35 / $45") en líneas
+     * claras para ser leídas por el motor de síntesis de voz sin atropellarse.
+     */
+    private fun formatearTextoParaVozNatural(texto: String): String {
+        var resultado = texto
+
+        // 1. Patrón de doble opción y doble precio en menús: "Expreso / Americano — $35 / $45"
+        val patronDobleOpcion = Regex("""^(.+?)\s*[/|]\s*(.+?)\s*—\s*\$?(\d+(?:\.\d{2})?)\s*[/|]\s*\$?(\d+(?:\.\d{2})?)$""", RegexOption.IGNORE_CASE)
+        val matchDoble = patronDobleOpcion.find(resultado.trim())
+        if (matchDoble != null) {
+            val (opcion1, opcion2, precio1, precio2) = matchDoble.destructured
+            return "${opcion1.trim()}: $precio1 pesos.\n${opcion2.trim()}: $precio2 pesos."
+        }
+
+        // 2. Reemplaza '$' por "pesos" para pronunciación hablada clara
+        resultado = resultado.replace(Regex("""\$\s*(\d+(?:\.\d{2})?)"""), "$1 pesos")
+
+        // 3. Reemplaza '/' o '|' entre palabras por " o " para evitar que diga la palabra "barra"
+        resultado = resultado.replace(Regex("""(\w+)\s*[/|]\s*(\w+)"""), "$1 o $2")
+
+        return resultado
+    }
+
+    /**
+     * Junta las palabras que fueron cortadas con un guión al final de una línea
+     * Ejemplo: "pala-\nbra" -> "palabra"
+     */
+    private fun juntarPalabrasCortadas(texto: String): String {
+        return texto.replace(Regex("""(\w+)-\s*[\r\n]+\s*(\w+)"""), "$1$2")
     }
 
     private fun decodeDownsampledBitmap(uri: Uri): Bitmap? {

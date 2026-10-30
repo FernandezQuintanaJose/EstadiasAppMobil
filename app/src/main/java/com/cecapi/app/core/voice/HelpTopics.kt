@@ -15,7 +15,7 @@ object HelpTopics {
             "En cualquier pantalla puedes decir dónde estoy, para saber en qué parte estás; lista de comandos, para saber qué puedes decir ahí; " +
             "y otras formas de decirlo, para conocer más maneras de pedir las cosas. " +
             "Si hablo muy rápido o muy lento, di habla más despacio, o habla más rápido. " +
-            "El menú tiene: cámara, para leer textos y saber qué hay enfrente; documentos, para crear solicitudes; " +
+            "El menú tiene: cámara, para leer textos y saber qué hay enfrente; consultas, para pedir documentos que la inteligencia artificial genera; " +
             "actividades, para entrenar el oído y el tacto; chats, para repasar tus conversaciones; " +
             "personalización, para cambiar mi voz y cómo te hablo; y configuración. " +
             "Para conocer una parte con más detalle di, por ejemplo, tutorial de la cámara, o tutorial de actividades."
@@ -31,8 +31,8 @@ object HelpTopics {
             "ambos lados, cerca o lejos. Son tres niveles; subes de nivel cuando sumas puntos. " +
             "En vibración sientes un patrón y dices si fue corto, largo o mixto. Puedes decir repite, siguiente, o cómo voy para saber tu nivel.",
         "documents" to
-            "Documentos te ayuda a preparar una solicitud, como una constancia. Eliges una plantilla diciendo su nombre y respondes lo que te pregunto, una cosa a la vez. " +
-            "Al final te leo el documento. Si te equivocas, di cancelar y empezamos otra vez.",
+            "Consultas genera documentos con inteligencia artificial. Me dices qué necesitas, por ejemplo una carta para pedir un justificante, " +
+            "y el documento aparece en pantalla. Di lee el documento para escucharlo, o nueva consulta para pedir otro.",
         "chats" to
             "Chats guarda tus conversaciones con el asistente. Di lee el último para escuchar la más reciente, siguiente para moverte, " +
             "y borra este chat si ya no lo quieres. Siempre te pregunto antes de borrar.",

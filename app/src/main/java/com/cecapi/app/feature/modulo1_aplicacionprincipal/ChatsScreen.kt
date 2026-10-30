@@ -41,6 +41,7 @@ import com.cecapi.app.core.theme.CecapiError
 import com.cecapi.app.core.theme.CecapiSurface
 import com.cecapi.app.core.theme.CecapiTextMuted
 import com.cecapi.app.core.ui.MicPad
+import com.cecapi.app.core.ui.PantallaConMicrofono
 import com.cecapi.app.core.ui.NoticeBanner
 import com.cecapi.app.core.ui.ScreenTopBar
 import com.cecapi.app.core.ui.SuggestionChip
@@ -73,10 +74,10 @@ import java.text.DateFormat
 import java.util.Date
 import javax.inject.Inject
 
-/** One saved conversation, shown newest first. */
+/** Una conversación guardada, mostrada de la más reciente a la más antigua. */
 data class ChatItem(val id: Long, val pregunta: String, val respuesta: String?, val fecha: Long)
 
-/** What the person asked to delete and has not confirmed yet. */
+/** Lo que la persona pidió borrar y aún no ha confirmado. */
 enum class PendingDelete { NONE, ONE, ALL }
 
 data class ChatsUiState(
@@ -85,9 +86,10 @@ data class ChatsUiState(
 )
 
 /**
- * Chats: the conversations the person had with the assistant, listed newest first, read aloud one at a time
- * and deleted by voice or touch. It reads the tables that exist today (a question and its answer);
- * when the chat structure in the database is redefined, only [chats] and the delete calls change.
+ * Chats: las conversaciones que la persona tuvo con el asistente, listadas de la más reciente a la más
+ * antigua, leídas en voz alta de una en una y borradas por voz o por tacto. Lee las tablas que existen hoy
+ * (una pregunta y su respuesta); cuando se redefina la estructura de los chats en la base de datos, solo
+ * cambian [chats] y las llamadas de borrado.
  */
 @OptIn(ExperimentalCoroutinesApi::class)
 @HiltViewModel
@@ -124,7 +126,7 @@ class ChatsViewModel @Inject constructor(
     private val _state = MutableStateFlow(ChatsUiState())
     val state: StateFlow<ChatsUiState> = _state.asStateFlow()
 
-    /** When the last "¿borro...?" was asked; a confirmation only counts within [CONFIRM_WINDOW_MS]. */
+    /** Cuándo se preguntó el último "¿borro...?"; una confirmación solo cuenta dentro de [CONFIRM_WINDOW_MS]. */
     private var pendingAskedAt = 0L
 
     private val _back = MutableSharedFlow<Unit>(extraBufferCapacity = 1)
@@ -141,7 +143,7 @@ class ChatsViewModel @Inject constructor(
             voiceEngine.speak(VoiceMessages.NEEDS_LOGIN)
         } else {
             viewModelScope.launch {
-                // The list loads a moment after the screen opens; wait for its first real answer before counting.
+                // La lista se carga un momento después de abrir la pantalla; espera su primera respuesta real antes de contar.
                 val total = chatsFlow.first().size
                 voiceEngine.speak(
                     "Chats. " + countText(total) + " " + CommandCatalog.hint("chats"),
@@ -157,17 +159,17 @@ class ChatsViewModel @Inject constructor(
         else -> "Tienes $total chats guardados. Di lee el último, para escuchar el más reciente."
     }
 
-    /** The commands this screen answers, most specific first. */
+    /** Los comandos que esta pantalla responde, los más específicos primero. */
     private fun onSpeech(spoken: String) {
         val text = VoiceText.normalize(spoken)
         fun has(vararg words: String) = VoiceText.hasAny(text, *words)
-        // A pending confirmation only counts for a short while and "no" always wins ("no estoy seguro" is a no).
+        // Una confirmación pendiente solo cuenta por un rato corto, y "no" siempre gana ("no estoy seguro" es un no).
         val pending = _state.value.pending
             .takeIf { it != PendingDelete.NONE && System.currentTimeMillis() - pendingAskedAt < CONFIRM_WINDOW_MS }
             ?: PendingDelete.NONE
         when {
             CommandCatalog.isRequest(spoken) -> onCommandsRequested()
-            // Only meaningful without a session: there is nothing to confirm/delete/read otherwise.
+            // Solo tiene sentido sin sesión: de otro modo no hay nada que confirmar, borrar o leer.
             sessionRepository.currentUser.value == null && has("crear cuenta", "registrarme", "registrar", "nueva cuenta") -> {
                 voiceEngine.speak("Vamos a crear tu cuenta.")
                 _routes.tryEmit(CecapiDestinations.REGISTER)
@@ -203,14 +205,14 @@ class ChatsViewModel @Inject constructor(
 
     fun onMicTapped() = voiceEngine.startListening()
 
-    /** Two quick taps on the mic silence the assistant, for someone using touch instead of voice. */
+    /** Dos toques rápidos en el micrófono silencian al asistente, para alguien que usa el tacto en vez de la voz. */
     fun onMicDoubleTap() = voiceEngine.mute()
 
     fun speakCount() {
         voiceEngine.speak(countText(chats.value.size), listenAfter = chats.value.isNotEmpty())
     }
 
-    /** Reads chat number [index] (0 is the newest), keeping the position inside the list. */
+    /** Lee el chat número [index] (0 es el más reciente), manteniendo la posición dentro de la lista. */
     fun readAt(index: Int) {
         val list = chats.value
         if (list.isEmpty()) return speakCount()
@@ -267,7 +269,7 @@ class ChatsViewModel @Inject constructor(
     }
 
     private companion object {
-        /** A "sí" or "no" to "¿borro...?" only counts for this long; after that it is a normal command. */
+        /** Un "sí" o "no" a "¿borro...?" solo cuenta durante este tiempo; después de eso es un comando normal. */
         const val CONFIRM_WINDOW_MS = 30_000L
     }
 }
@@ -286,12 +288,11 @@ fun ChatsScreen(
 
     LaunchedEffect(Unit) { viewModel.back.collect { onBack() } }
 
-    Box(modifier = Modifier.fillMaxSize()) {
+    PantallaConMicrofono {
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .padding(horizontal = 16.dp, vertical = 16.dp)
-            .padding(bottom = 230.dp),
+            .padding(horizontal = 16.dp, vertical = 16.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
         ScreenTopBar(
@@ -358,7 +359,6 @@ fun ChatsScreen(
             onDoubleTap = viewModel::onMicDoubleTap,
             hint = if (listening) "Escuchando…" else "Di lee el último, o toca aquí",
             onClick = viewModel::onMicTapped,
-            modifier = Modifier.align(Alignment.BottomCenter),
         )
     }
 }

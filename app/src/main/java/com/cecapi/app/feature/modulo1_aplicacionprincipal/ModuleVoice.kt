@@ -26,12 +26,12 @@ object ModuleVoice {
 
     // What people actually say for each entry, most specific first.
     private val keywords: List<Pair<String, List<String>>> = listOf(
-        MenuItem.SETTINGS_KEY to listOf("configuracion", "ajustes"),
-        MenuItem.PERSONALIZATION_KEY to listOf("personalizacion", "personalizar"),
-        MenuItem.CHATS_KEY to listOf("chats", "chat", "conversaciones", "historial"),
-        ModuloCecapi.CENTRO_APRENDIZAJE.storageCode to listOf("actividades", "actividad", "ejercicios", "entrenar", "entrenamiento"),
-        MenuItem.CAMERA_KEY to listOf("camara", "lector"),
-        ModuloCecapi.CENTRO_SOLICITUDES.storageCode to listOf("documentos", "solicitudes", "solicitud"),
+        MenuItem.SETTINGS_KEY to listOf("configuracion", "ajustes", "opciones del telefono", "preferencias"),
+        MenuItem.PERSONALIZATION_KEY to listOf("personalizacion", "personalizar", "mi experiencia", "cambia tu voz", "como me hablas", "tu voz"),
+        MenuItem.CHATS_KEY to listOf("chats", "chat", "conversaciones", "historial", "consultas anteriores", "lo que te pregunte"),
+        ModuloCecapi.CENTRO_APRENDIZAJE.storageCode to listOf("actividades", "actividad", "ejercicios", "entrenar", "entrenamiento", "juegos", "jugar", "practicar", "sonidos", "vibracion"),
+        MenuItem.CAMERA_KEY to listOf("camara", "lector", "foto", "fotografia", "escanear", "escanea"),
+        ModuloCecapi.CENTRO_SOLICITUDES.storageCode to listOf("consultas", "consulta", "documentos", "documento", "solicitudes", "solicitud", "redacta", "redactar", "escribe una carta", "hazme un documento", "genera un documento"),
     )
 
     fun isListRequest(spoken: String): Boolean {

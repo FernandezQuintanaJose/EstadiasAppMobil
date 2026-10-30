@@ -23,7 +23,7 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
-/** What the next thing the user says means: a command, or the value of a field. */
+/** Qué significa lo próximo que diga el usuario: un comando, o el valor de un campo. */
 private enum class LoginVoiceStep { COMMAND, USERNAME, PASSWORD }
 
 data class LoginUiState(
@@ -34,9 +34,9 @@ data class LoginUiState(
 )
 
 /**
- * Voice flow for blind users: say "usuario", then say the username; say "contraseña", then say
- * the password (it signs in on its own). Saying it another way ("ingresa el usuario") still works,
- * but the assistant tells the user the short form so they learn it.
+ * Flujo de voz para usuarios ciegos: decir "usuario", y luego decir el nombre de usuario; decir "contraseña", y luego decir
+ * la contraseña (inicia sesión por su cuenta). Decirlo de otra forma ("ingresa el usuario") también funciona,
+ * pero el asistente le dice al usuario la forma corta para que la aprenda.
  */
 @HiltViewModel
 class LoginViewModel @Inject constructor(
@@ -66,16 +66,16 @@ class LoginViewModel @Inject constructor(
     private var step = LoginVoiceStep.COMMAND
         set(value) {
             field = value
-            // While a username or password is being dictated, it must reach us untouched by global commands.
+            // Mientras se dicta un nombre de usuario o una contraseña, debe llegarnos sin que lo toquen los comandos globales.
             voiceEngine.rawInput = value != LoginVoiceStep.COMMAND
         }
     private var holdingWakeWord = false
 
-    // After a failed attempt we walk the user through username then password again, without
-    // making them say the "usuario" / "contraseña" keywords.
+    // Después de un intento fallido guiamos al usuario por el nombre de usuario y luego la contraseña otra vez, sin
+    // hacer que diga las palabras clave "usuario" / "contraseña".
     private var guided = false
 
-    // This ViewModel stays alive under the Register screen; ignore speech meant for that one.
+    // Este ViewModel sigue vivo debajo de la pantalla de Registro; ignora la voz dirigida a esa pantalla.
     private var screenActive = false
 
     init {
@@ -102,17 +102,17 @@ class LoginViewModel @Inject constructor(
         screenActive = active
     }
 
-    /** Wake-word listening needs the mic permission, so the screen turns it on only once it has it. */
+    /** Escuchar la palabra de activación necesita el permiso del micrófono, así que la pantalla lo activa solo cuando ya lo tiene. */
     fun setWakeWordEnabled(enabled: Boolean) {
         if (enabled == holdingWakeWord) return
         holdingWakeWord = enabled
-        // Open mic: on this screen the user is in the middle of a task, so no "hola" is needed.
+        // Micrófono abierto: en esta pantalla el usuario está en medio de una tarea, así que no se necesita "hola".
         if (enabled) wakeWordController.acquire(openMic = true) else wakeWordController.release(openMic = true)
     }
 
     private fun onSpeech(text: String) {
-        // A field keyword or "crear cuenta" always wins, even while waiting for a value. Otherwise, if a
-        // prompt timed out, the next "contraseña" would be swallowed as the username.
+        // Una palabra clave de campo o "crear cuenta" siempre gana, incluso mientras se espera un valor. De lo contrario, si
+        // una solicitud expiró, el siguiente "contraseña" sería absorbido como si fuera el nombre de usuario.
         if (step != LoginVoiceStep.COMMAND &&
             (parseFields(text).isNotEmpty() || wantsRegister(VoiceText.normalize(text)))
         ) {
@@ -138,9 +138,9 @@ class LoginViewModel @Inject constructor(
     }
 
     /**
-     * While dictating the username or password, "regresar"/"salir" must leave the login screen like
-     * they do everywhere else — not get typed in as if they were the username or password. A softer
-     * "cancelar"/"no" just cancels this one field and stays, asking again.
+     * Mientras se dicta el nombre de usuario o la contraseña, "regresar"/"salir" debe salir de la pantalla de inicio de sesión
+     * como lo hace en todas partes — no escribirse como si fueran el nombre de usuario o la contraseña. Un
+     * "cancelar"/"no" más suave solo cancela este campo y se queda, preguntando otra vez.
      */
     private fun wantsToLeaveWhileCapturing(text: String): Boolean {
         val words = VoiceText.normalize(text)
@@ -156,7 +156,7 @@ class LoginViewModel @Inject constructor(
         return false
     }
 
-    /** Usernames are stored in UPPERCASE without spaces, so a spoken one matches however it was heard. */
+    /** Los nombres de usuario se guardan en MAYÚSCULAS sin espacios, para que uno hablado coincida sin importar cómo se escuchó. */
     private fun applyUsername(spoken: String) {
         val username = spoken.replace(" ", "").uppercase()
         onUsernameChange(username)
@@ -179,9 +179,9 @@ class LoginViewModel @Inject constructor(
     private class SpokenField(val field: LoginVoiceStep, val value: String)
 
     /**
-     * Finds "usuario" / "contraseña" in [raw] and the value said right after each one, so a single
-     * sentence can carry everything: "usuario pepe contraseña 1234". A keyword with nothing after
-     * it gives an empty value. The value keeps the way it was written (passwords are case-sensitive).
+     * Encuentra "usuario" / "contraseña" en [raw] y el valor dicho justo después de cada uno, así una sola
+     * frase puede llevar todo: "usuario pepe contraseña 1234". Una palabra clave sin nada después
+     * da un valor vacío. El valor conserva la forma en que se escribió (las contraseñas distinguen mayúsculas y minúsculas).
      */
     private fun parseFields(raw: String): List<SpokenField> {
         val folded = VoiceText.fold(raw)
@@ -190,7 +190,7 @@ class LoginViewModel @Inject constructor(
             val field = if (match.groupValues[1].isNotEmpty()) LoginVoiceStep.USERNAME else LoginVoiceStep.PASSWORD
             val start = match.range.last + 1
             val end = if (i + 1 < matches.size) matches[i + 1].range.first else raw.length
-            // Skip fillers like "es", "el", "mi" between the keyword and the value ("mi usuario es pepe").
+            // Omite relleno como "es", "el", "mi" entre la palabra clave y el valor ("mi usuario es pepe").
             val skip = FILLER_PREFIX.find(folded.substring(start, end))?.value?.length ?: 0
             SpokenField(field, raw.substring(start + skip, end).trim { !it.isLetterOrDigit() })
         }
@@ -230,9 +230,9 @@ class LoginViewModel @Inject constructor(
         val words = VoiceText.normalize(text)
         val fields = parseFields(text)
         when {
-            // Before the field parser: "olvidé mi contraseña" ends in the word "contraseña" with nothing
-            // after it, which the parser would otherwise read as "start dictating the password" — and then
-            // whatever the person said next would be tried as the password itself and fail.
+            // Antes del analizador de campos: "olvidé mi contraseña" termina en la palabra "contraseña" sin nada
+            // después, lo cual el analizador de otro modo leería como "empieza a dictar la contraseña" — y entonces
+            // lo que la persona dijera después se intentaría como la contraseña misma y fallaría.
             VoiceText.hasAny(words, FORGOT_PASSWORD_PHRASES) -> voiceEngine.speak(
                 "Todavía no hay una forma automática de recuperar tu contraseña. Pide a un administrador o " +
                     "a quien te dio de alta que te ayude a restablecerla.",
@@ -271,7 +271,7 @@ class LoginViewModel @Inject constructor(
         voiceEngine.speak("${tip}Dime tu $name.", listenAfter = true)
     }
 
-    /** "usuario", "el usuario", "mi contraseña"... as opposed to "ingresa el usuario". */
+    /** "usuario", "el usuario", "mi contraseña"... a diferencia de "ingresa el usuario". */
     private fun isBareFieldCommand(words: String, field: LoginVoiceStep): Boolean {
         val keywords = if (field == LoginVoiceStep.USERNAME) USER_WORDS else PASSWORD_WORDS
         val withoutArticle = words.removePrefix("el ").removePrefix("la ").removePrefix("mi ").removePrefix("tu ")
@@ -294,7 +294,7 @@ class LoginViewModel @Inject constructor(
         voiceEngine.speak(VoiceMessages.MIC_DENIED)
     }
 
-    /** Two quick taps on the mic silence the assistant, for someone using touch instead of voice. */
+    /** Dos toques rápidos en el micrófono silencian al asistente, para alguien que usa el tacto en vez de la voz. */
     fun onMicDoubleTap() = voiceEngine.mute()
 
     fun onCommandsRequested() {
@@ -308,7 +308,7 @@ class LoginViewModel @Inject constructor(
     fun submit() {
         val state = _uiState.value
         if (state.isSubmitting) return
-        // A keyboard suggestion can leave a stray space at either end; it is never part of a credential.
+        // Una sugerencia del teclado puede dejar un espacio suelto en cualquier extremo; nunca es parte de una credencial.
         val username = state.username.trim()
         val password = state.password.trim()
         if (username.isEmpty() || password.isEmpty()) {
@@ -335,7 +335,7 @@ class LoginViewModel @Inject constructor(
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
-                // A database problem is not the user's fault: do not count it as a failed attempt.
+                // Un problema de la base de datos no es culpa del usuario: no lo cuentes como un intento fallido.
                 Log.e(TAG, "login crashed", e)
                 _uiState.update { it.copy(isSubmitting = false, errorMessage = "No se pudo verificar tus datos. Intenta de nuevo.") }
                 voiceEngine.speak("Ocurrió un problema al verificar tus datos. Intenta de nuevo en unos segundos.")
@@ -348,7 +348,7 @@ class LoginViewModel @Inject constructor(
                     cues.play(FeedbackCues.Cue.SUCCESS)
                     guided = false
                     step = LoginVoiceStep.COMMAND
-                    // No speech here: the Dashboard opens next and gives the personalized welcome.
+                    // Sin voz aquí: a continuación se abre el Dashboard, que da la bienvenida personalizada.
                     _uiState.update { it.copy(isSubmitting = false) }
                     _loginSucceeded.tryEmit(Unit)
                 }
@@ -358,8 +358,8 @@ class LoginViewModel @Inject constructor(
     }
 
     /**
-     * 1st miss: try again. 2nd and later: say plainly that a field is wrong and ask for both again.
-     * 5th and 8th: also suggest asking someone for help. 10th: locked.
+     * 1er fallo: intenta otra vez. 2do y siguientes: dice claramente que un campo está mal y pide ambos otra vez.
+     * 5to y 8vo: también sugiere pedir ayuda a alguien. 10mo: bloqueado.
      */
     private suspend fun onFailedLogin() {
         val failures = attemptsStore.recordFailure()
@@ -423,7 +423,7 @@ class LoginViewModel @Inject constructor(
         val USER_WORDS = listOf("usuario", "nombre de usuario", "user")
         val PASSWORD_WORDS = listOf("contrasena", "clave", "password", "pasword")
 
-        // Group 1 = username keyword, group 2 = password keyword (matched on accent-free lowercase text).
+        // Grupo 1 = palabra clave de usuario, grupo 2 = palabra clave de contraseña (coincide en texto en minúsculas sin acentos).
         val FIELD_KEYWORD = Regex(
             "(?<![\\p{L}\\p{N}])(?:(nombre de usuario|usuario)|(contrasena|clave|password|pasword))(?![\\p{L}\\p{N}])",
         )

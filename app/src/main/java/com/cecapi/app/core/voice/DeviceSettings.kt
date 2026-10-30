@@ -5,6 +5,7 @@ import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.floatPreferencesKey
 import androidx.datastore.preferences.core.intPreferencesKey
+import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -114,7 +115,17 @@ class DeviceSettings @Inject constructor(
 
     suspend fun setAnnounceNotifications(enabled: Boolean) = context.deviceSettingsStore.edit { it[KEY_ANNOUNCE] = enabled }
 
+    /** Cuándo (epoch millis) aceptó la persona que el micrófono siga activo fuera de la app; null si nunca. */
+    val listenConsentAt: Flow<Long?> = data.map { it[KEY_LISTEN_CONSENT] }
+
+    suspend fun setListenConsent(epochMillis: Long) = context.deviceSettingsStore.edit { it[KEY_LISTEN_CONSENT] = epochMillis }
+
     suspend fun setBackgroundListening(enabled: Boolean) = context.deviceSettingsStore.edit { it[KEY_BACKGROUND] = enabled }
+
+    /** Si ya se le ofreció a la persona activar el lector de pantalla de Android. Se ofrece una sola vez, la primera que abre la app. */
+    val accessibilityOffered: Flow<Boolean> = data.map { it[KEY_A11Y_OFFERED] ?: false }
+
+    suspend fun setAccessibilityOffered() = context.deviceSettingsStore.edit { it[KEY_A11Y_OFFERED] = true }
 
     suspend fun setHolaEnabled(enabled: Boolean) = context.deviceSettingsStore.edit { it[KEY_HOLA] = enabled }
 
@@ -145,6 +156,8 @@ class DeviceSettings @Inject constructor(
         val KEY_ANNOUNCE = booleanPreferencesKey("announce_notifications")
         val KEY_BACKGROUND = booleanPreferencesKey("background_listening")
         val KEY_HOLA = booleanPreferencesKey("hola_enabled")
+        val KEY_A11Y_OFFERED = booleanPreferencesKey("accessibility_offered")
+        val KEY_LISTEN_CONSENT = longPreferencesKey("listen_consent_at")
         val KEY_BLACK_SCREEN = booleanPreferencesKey("black_screen")
         val KEY_MIN_BRIGHTNESS = booleanPreferencesKey("min_brightness")
         val KEY_AI = booleanPreferencesKey("ai_enabled")

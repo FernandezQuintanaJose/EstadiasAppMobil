@@ -20,13 +20,17 @@ import com.cecapi.app.core.voice.AssistantMode
 import com.cecapi.app.core.voice.DeviceSettings
 import com.cecapi.app.core.voice.VoiceEngine
 import com.cecapi.app.core.voice.WakeWordController
+import com.cecapi.app.feature.modulo1_aplicacionprincipal.SessionRepository
 import dagger.hilt.android.AndroidEntryPoint
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -72,6 +76,12 @@ class ListeningService : Service() {
         return START_NOT_STICKY
     }
 
+    /** La persona quitó la app de recientes: es cerrarla, así que el micrófono deja de estar activo. */
+    override fun onTaskRemoved(rootIntent: Intent?) {
+        stopSelf()
+        super.onTaskRemoved(rootIntent)
+    }
+
     override fun onDestroy() {
         if (running) {
             wakeWordController.release()
@@ -91,8 +101,8 @@ class ListeningService : Service() {
         val stop = PendingIntent.getService(this, 1, Intent(this, ListeningService::class.java).setAction(ACTION_STOP), flags)
         val notification: Notification = NotificationCompat.Builder(this, CHANNEL_ID)
             .setSmallIcon(R.drawable.ic_widget_mic)
-            .setContentTitle("Asistente activo")
-            .setContentText("Di el nombre del asistente. Di \"para\" para detenerlo.")
+            .setContentTitle("Micrófono activo")
+            .setContentText("El asistente escucha su nombre. Di \"para\" o toca Detener.")
             .setOngoing(true)
             .setContentIntent(open)
             .addAction(0, "Detener", stop)
@@ -119,13 +129,39 @@ class ListeningService : Service() {
 class BackgroundListening @Inject constructor(
     @ApplicationContext private val context: Context,
     private val deviceSettings: DeviceSettings,
+    private val sessionRepository: SessionRepository,
+    private val voiceEngine: VoiceEngine,
 ) {
-    /** Call while the app is visible: starts the service if the setting is on, stops it if it is off. */
+    private var wasRunning = false
+
+    init {
+        // La escucha fuera de la app solo existe con sesión iniciada: se enciende al entrar (o al restaurarse la
+        // sesión recordada) y se apaga al cerrar sesión, avisando por voz porque la persona no ve el aviso fijo.
+        CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate).launch {
+            combine(deviceSettings.backgroundListening, sessionRepository.currentUser.map { it != null }) { on, logged -> on to logged }
+                .distinctUntilChanged()
+                .collect { (on, logged) ->
+                    if (on && logged) {
+                        start()
+                        wasRunning = true
+                    } else {
+                        if (wasRunning && on && !logged) {
+                            voiceEngine.speak("Cerraste sesión, así que dejé de escuchar fuera de la aplicación.")
+                        }
+                        wasRunning = false
+                        stop()
+                    }
+                }
+        }
+    }
+
+    /** Call while the app is visible: starts the service if the setting is on and there is a session, stops it otherwise. */
     suspend fun syncWithSetting() {
-        if (deviceSettings.backgroundListening.first()) start() else stop()
+        if (deviceSettings.backgroundListening.first() && sessionRepository.currentUser.value != null) start() else stop()
     }
 
     fun start() {
+        if (sessionRepository.currentUser.value == null) return
         val hasMic = ContextCompat.checkSelfPermission(context, android.Manifest.permission.RECORD_AUDIO) ==
             android.content.pm.PackageManager.PERMISSION_GRANTED
         if (!hasMic) return

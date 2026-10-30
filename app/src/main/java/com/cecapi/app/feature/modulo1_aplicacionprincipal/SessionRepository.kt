@@ -7,6 +7,7 @@ import androidx.datastore.preferences.preferencesDataStore
 import com.cecapi.app.core.data.AccountEraser
 import com.cecapi.app.core.model.ModuloCecapi
 import com.cecapi.app.core.util.PasswordHasher
+import com.cecapi.app.core.util.PasswordRules
 import com.cecapi.app.core.voice.VoiceEngine
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.CoroutineScope
@@ -47,9 +48,9 @@ class SessionRepository @Inject constructor(
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
 
     init {
-        // Opening the app from the same device it was used on before signs the person straight in,
-        // without asking for the password again — the phone's own lock screen is the security boundary,
-        // the same trade-off every app that "stays signed in" makes. Cleared the moment they log out.
+        // Abrir la aplicación desde el mismo dispositivo donde se usó antes inicia sesión directamente,
+        // sin volver a pedir la contraseña — la pantalla de bloqueo del propio teléfono es el límite de seguridad,
+        // el mismo compromiso que hace cualquier aplicación que "mantiene la sesión iniciada". Se borra en el momento en que cierran sesión.
         scope.launch { restoreRememberedSession() }
     }
 
@@ -62,8 +63,7 @@ class SessionRepository @Inject constructor(
     suspend fun login(nombreUsuario: String, contrasena: String): LoginResult {
         val usuario = usuarioDao.findByUsername(nombreUsuario.trim())
             ?: return LoginResult.InvalidCredentials
-        val hashed = PasswordHasher.hash(contrasena.trim())
-        if (usuario.contrasenaHash != hashed) {
+        if (!passwordMatches(usuario.contrasenaHash, contrasena)) {
             return LoginResult.InvalidCredentials
         }
         completeLogin(usuario)
@@ -71,29 +71,38 @@ class SessionRepository @Inject constructor(
     }
 
     /**
-     * Creates a new CECAPI account. Anyone can self-register and sign in right away — "por default se
-     * les dejará ingresar" — but [UsuarioEntity.validado] defaults to false, so it shows up as pending in
-     * whoever is above them in Gestión (administrador > directivo > educador > alumno, or
-     * administrador > usuario) to confirm later. Nothing here blocks on that.
+     * Compara la contraseña normalizada (ver [PasswordRules.normalize]). Las cuentas creadas antes de la regla
+     * de 15 letras guardaron el hash de lo que se escribió tal cual, así que también se acepta ese hash para
+     * que sigan entrando; al cambiar su contraseña quedan con la forma nueva.
+     */
+    fun passwordMatches(storedHash: String, entered: String): Boolean =
+        storedHash == PasswordHasher.hash(PasswordRules.normalize(entered)) ||
+            storedHash == PasswordHasher.hash(entered.trim())
+
+    /**
+     * Crea una cuenta nueva de CECAPI. Cualquiera puede autorregistrarse e iniciar sesión de inmediato — "por default se
+     * les dejará ingresar" — pero [UsuarioEntity.validado] empieza en false, así que aparece como pendiente para
+     * quien esté por encima en Gestión (administrador > directivo > educador > alumno, o
+     * administrador > usuario) para confirmarlo después. Nada aquí bloquea por eso.
      */
     suspend fun register(
         nombreUsuario: String,
         contrasena: String,
         nombreCompleto: String,
         origen: String = "",
-        fechaNacimiento: Long? = null,
+        email: String? = null,
     ): RegisterResult {
         val nombreNormalizado = nombreUsuario.trim().uppercase()
-        // The table has no unique index on the username, so the duplicate check has to be explicit.
+        // La tabla no tiene un índice único en el nombre de usuario, así que la verificación de duplicados debe ser explícita.
         if (usuarioDao.findByUsername(nombreNormalizado) != null) return RegisterResult.UsernameTaken
         val institucion = origen.trim()
         // Todos empiezan como usuarios. Si eligieron una institución, queda la solicitud pendiente; la institución
         // la valida después, y solo entonces pasa a ser su institución.
         val usuario = UsuarioEntity(
             nombreUsuario = nombreNormalizado,
-            contrasenaHash = PasswordHasher.hash(contrasena.trim()),
+            contrasenaHash = PasswordHasher.hash(PasswordRules.normalize(contrasena)),
             nombreCompleto = nombreCompleto.trim(),
-            fechaNacimiento = fechaNacimiento,
+            email = email?.trim()?.ifBlank { null },
             institucionSolicitada = institucion.ifBlank { null },
             solicitaValidacion = institucion.isNotBlank(),
             revisionCuenta = "nueva",
@@ -114,7 +123,7 @@ class SessionRepository @Inject constructor(
         scope.launch { context.sessionStore.edit { it.remove(KEY_REMEMBERED_USER_ID) } }
     }
 
-    /** Deletes the signed-in person's account and all their data, then signs out. False when nobody is signed in. */
+    /** Borra la cuenta de la persona con sesión iniciada y todos sus datos, y luego cierra sesión. False cuando nadie tiene sesión iniciada. */
     suspend fun deleteCurrentAccount(): Boolean {
         val user = _currentUser.value ?: return false
         accountEraser.erase(user.id)
@@ -129,9 +138,9 @@ class SessionRepository @Inject constructor(
     }
 
     /**
-     * Each person edits their own name and, optionally, their password — never someone else's (Gestión
-     * only ever changes a role, not these). Confirms with the CURRENT password first, same as deleting
-     * the account, so a stray "cambia mi nombre" from someone else in the room cannot silently do it.
+     * Cada persona edita su propio nombre y, opcionalmente, su propia contraseña — nunca la de otra persona
+     * (Gestión solo cambia un rol, no esto). Confirma primero con la contraseña ACTUAL, igual que al borrar
+     * la cuenta, para que un "cambia mi nombre" suelto de otra persona en la habitación no lo haga en silencio.
      */
     suspend fun actualizarPerfil(
         nombreCompleto: String,
@@ -140,17 +149,16 @@ class SessionRepository @Inject constructor(
         apodo: String? = null,
         usarApodoRanking: Boolean = false,
         email: String? = null,
-        fechaNacimiento: Long? = null,
     ): EditarPerfilResult {
         val user = _currentUser.value ?: return EditarPerfilResult.SinSesion
-        if (PasswordHasher.hash(contrasenaActual.trim()) != user.contrasenaHash) {
+        if (!passwordMatches(user.contrasenaHash, contrasenaActual)) {
             return EditarPerfilResult.ContrasenaActualIncorrecta
         }
         val nombreLimpio = nombreCompleto.trim().ifBlank { user.nombreCompleto }
         usuarioDao.actualizarNombre(user.id, nombreLimpio)
         var nuevoHash = user.contrasenaHash
         if (!nuevaContrasena.isNullOrBlank()) {
-            nuevoHash = PasswordHasher.hash(nuevaContrasena.trim())
+            nuevoHash = PasswordHasher.hash(PasswordRules.normalize(nuevaContrasena))
             usuarioDao.actualizarContrasena(user.id, nuevoHash)
         }
         val apodoLimpio = apodo?.trim()?.ifBlank { null }
@@ -158,14 +166,12 @@ class SessionRepository @Inject constructor(
         usuarioDao.actualizarUsarApodoRanking(user.id, usarApodoRanking)
         val correoLimpio = email?.trim()?.ifBlank { null }
         usuarioDao.actualizarEmail(user.id, correoLimpio)
-        usuarioDao.actualizarFechaNacimiento(user.id, fechaNacimiento)
         _currentUser.value = user.copy(
             nombreCompleto = nombreLimpio,
             contrasenaHash = nuevoHash,
             apodo = apodoLimpio,
             usarApodoRanking = usarApodoRanking,
             email = correoLimpio,
-            fechaNacimiento = fechaNacimiento,
         )
         return EditarPerfilResult.Exito
     }
@@ -173,15 +179,11 @@ class SessionRepository @Inject constructor(
     /** Pide unirse a una institución; mientras no la valide, la persona sigue como usuario. */
     suspend fun pedirInstitucion(institucion: String) {
         val user = _currentUser.value ?: return
-        usuarioDao.solicitarInstitucion(user.id, institucion)
-        _currentUser.value = user.copy(institucionSolicitada = institucion, solicitaValidacion = true)
-    }
-
-    /** Un menor no se da de baja solo: queda pedida para que la autorice un adulto responsable. */
-    suspend fun pedirBajaDeMenor() {
-        val user = _currentUser.value ?: return
-        usuarioDao.actualizarSolicitaBaja(user.id, true)
-        _currentUser.value = user.copy(solicitaBaja = true)
+        // Un espacio de más no debe crear otra institución: se quitan los de las orillas y se junta lo repetido.
+        val limpia = institucion.trim().replace(Regex("""\s+"""), " ")
+        if (limpia.isEmpty()) return
+        usuarioDao.solicitarInstitucion(user.id, limpia)
+        _currentUser.value = user.copy(institucionSolicitada = limpia, solicitaValidacion = true)
     }
 
     /** Borra la cuenta de otra persona con la autorización de quien puede hacerlo (Gestión). */
@@ -205,21 +207,21 @@ class SessionRepository @Inject constructor(
         return aviso
     }
 
-    /** True once after a logout, so the home screen can say "Sesión cerrada" as it opens. */
+    /** True una sola vez después de cerrar sesión, para que la pantalla de inicio pueda decir "Sesión cerrada" al abrir. */
     fun consumeLogoutNotice(): Boolean = logoutNoticePending.also { logoutNoticePending = false }
 
-    /** Shared by login and register: sets up defaults for a brand-new account and is a
-     * harmless no-op for a returning one, then applies saved voice settings and opens the session. */
+    /** Compartido por iniciar sesión y registrarse: configura los valores por defecto para una cuenta nueva y es una
+     * operación sin efecto para una que regresa, luego aplica los ajustes de voz guardados y abre la sesión. */
     private suspend fun completeLogin(usuario: UsuarioEntity) {
         ensureDefaultPermisos(usuario.id)
-        // Voice speed and cues are per device now (DeviceSettings); the per-user row is kept only so
-        // older accounts and the database schema stay intact.
+        // La velocidad de voz y los avisos ahora son por dispositivo (DeviceSettings); la fila por usuario se conserva solo para que
+        // las cuentas antiguas y el esquema de la base de datos se mantengan intactos.
         ensureDefaultConfiguracion(usuario.id)
         _currentUser.value = usuario
         context.sessionStore.edit { it[KEY_REMEMBERED_USER_ID] = usuario.id }
     }
 
-    /** First login for a user: grant access to all six functional modules by default. */
+    /** Primer inicio de sesión de un usuario: otorga acceso a los seis módulos funcionales por defecto. */
     private suspend fun ensureDefaultPermisos(usuarioId: Long) {
         if (permisosModuloDao.countByUser(usuarioId) > 0) return
         val defaults = ModuloCecapi.entries.map { modulo ->

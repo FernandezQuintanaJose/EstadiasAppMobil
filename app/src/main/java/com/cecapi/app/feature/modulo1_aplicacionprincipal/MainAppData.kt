@@ -65,16 +65,11 @@ data class UsuarioEntity(
     /** En Clasificación, por default se muestra el nombre; esto deja mostrar el apodo en su lugar. */
     @ColumnInfo(name = "usar_apodo_ranking")
     val usarApodoRanking: Boolean = false,
-    /** Epoch millis. Nula en cuentas de antes de este campo. Es lo único que dice si la cuenta es de un menor. */
-    @ColumnInfo(name = "fecha_nacimiento")
-    val fechaNacimiento: Long? = null,
     /** Opcional: solo sirve para recuperar la contraseña. Nunca se muestra a otras personas. */
     @ColumnInfo(name = "email")
     val email: String? = null,
     @ColumnInfo(name = "solicita_validacion")
     val solicitaValidacion: Boolean = false,
-    @ColumnInfo(name = "solicita_baja")
-    val solicitaBaja: Boolean = false,
     /** Un aviso que se le dice a la persona al abrir la app, por ejemplo un cambio de contraseña hecho por un administrador. */
     @ColumnInfo(name = "aviso_pendiente")
     val avisoPendiente: String? = null,
@@ -241,17 +236,11 @@ interface UsuarioDao {
     @Query("UPDATE usuarios SET solicita_cambio_educador = :solicita WHERE id = :usuarioId")
     suspend fun actualizarSolicitaCambioEducador(usuarioId: Long, solicita: Boolean)
 
-    @Query("UPDATE usuarios SET fecha_nacimiento = :fecha WHERE id = :usuarioId")
-    suspend fun actualizarFechaNacimiento(usuarioId: Long, fecha: Long?)
-
     @Query("UPDATE usuarios SET email = :email WHERE id = :usuarioId")
     suspend fun actualizarEmail(usuarioId: Long, email: String?)
 
     @Query("UPDATE usuarios SET solicita_validacion = :solicita WHERE id = :usuarioId")
     suspend fun actualizarSolicitaValidacion(usuarioId: Long, solicita: Boolean)
-
-    @Query("UPDATE usuarios SET solicita_baja = :solicita WHERE id = :usuarioId")
-    suspend fun actualizarSolicitaBaja(usuarioId: Long, solicita: Boolean)
 
     @Query("UPDATE usuarios SET aviso_pendiente = :aviso WHERE id = :usuarioId")
     suspend fun actualizarAviso(usuarioId: Long, aviso: String?)
@@ -330,43 +319,6 @@ data class IncidenciaEntity(
     @ColumnInfo(name = "anonimo")
     val anonimo: Boolean = false,
 )
-
-@Entity(
-    tableName = "contactos_emergencia",
-    foreignKeys = [
-        ForeignKey(
-            entity = UsuarioEntity::class,
-            parentColumns = ["id"],
-            childColumns = ["usuario_id"],
-            onDelete = ForeignKey.CASCADE,
-        ),
-    ],
-    indices = [Index("usuario_id")],
-)
-data class ContactoEmergenciaEntity(
-    @PrimaryKey(autoGenerate = true)
-    val id: Long = 0,
-    @ColumnInfo(name = "usuario_id")
-    val usuarioId: Long,
-    @ColumnInfo(name = "nombre")
-    val nombre: String,
-    @ColumnInfo(name = "telefono")
-    val telefono: String,
-    @ColumnInfo(name = "relacion")
-    val relacion: String? = null,
-)
-
-@Dao
-interface ContactoEmergenciaDao {
-    @Query("SELECT * FROM contactos_emergencia WHERE usuario_id = :usuarioId ORDER BY nombre")
-    fun observeDeUsuario(usuarioId: Long): Flow<List<ContactoEmergenciaEntity>>
-
-    @Insert
-    suspend fun insert(contacto: ContactoEmergenciaEntity): Long
-
-    @Query("DELETE FROM contactos_emergencia WHERE id = :id AND usuario_id = :usuarioId")
-    suspend fun borrar(id: Long, usuarioId: Long)
-}
 
 @Dao
 interface IncidenciaDao {

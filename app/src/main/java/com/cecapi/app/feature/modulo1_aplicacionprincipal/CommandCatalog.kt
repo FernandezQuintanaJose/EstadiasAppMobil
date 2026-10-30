@@ -56,6 +56,7 @@ object CommandCatalog {
             "Siguiente párrafo, o párrafo anterior, para moverte por el texto. " +
             "Pausa, para detener la lectura, y continúa, para seguir. " +
             "Otra foto, para empezar con otro papel. " +
+            "Guarda la foto, para guardarla en tu galería. " +
             "Elige una foto, para leer una imagen que ya tienes en tu teléfono; tú eliges cuál y solo veo esa. " +
             "Qué hay enfrente, para cambiar a describir lo que ve la cámara. " +
             "Atrás, para volver a la cámara. " + MORE
@@ -72,6 +73,11 @@ object CommandCatalog {
             "Mientras respondes las preguntas, di tu respuesta con normalidad. " +
             "Repite la pregunta, para escucharla otra vez. Cancelar, para elegir otra plantilla. " +
             "Atrás, para volver al menú. " + MORE
+
+    const val CONSULTAS =
+        "En consultas puedes decir qué documento necesitas, por ejemplo: una carta para pedir un justificante, " +
+            "y la inteligencia artificial lo genera. Cuando esté listo, di lee el documento, para escucharlo, " +
+            "o nueva consulta, para pedir otro. Atrás, para volver al menú. " + MORE
 
     const val ACTIVITIES =
         "En actividades escuchas un sonido y dices de dónde viene: izquierda, derecha, ambos lados, cerca, lejos, " +
@@ -93,7 +99,7 @@ object CommandCatalog {
             "Otra voz, para probar la siguiente voz, o voz anterior. " +
             "Más rápido, más lento, más grave o más agudo, para cambiar cómo hablo. " +
             "Activa o desactiva los sonidos y las vibraciones. Vibración suave, normal o fuerte. " +
-            "Perfil de niño, perfil normal o perfil de persona mayor, para ajustar mi voz a tu edad. " +
+            "Perfil normal o perfil de persona mayor, para ajustar mi voz. " +
             "Pantalla negra, o brillo mínimo. Prueba de voz, para escucharme. Atrás, para volver al menú. " + MORE
 
     const val SETTINGS =

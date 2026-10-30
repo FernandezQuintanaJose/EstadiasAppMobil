@@ -4,6 +4,7 @@ import com.cecapi.app.core.theme.CecapiBorder
 import androidx.compose.foundation.border
 import androidx.compose.material.icons.filled.Close
 import com.cecapi.app.core.ui.BigBtnSize
+import com.cecapi.app.core.ui.desplazableConBarra
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material.icons.filled.Check
@@ -41,8 +42,10 @@ import com.cecapi.app.core.theme.CecapiSurface
 import com.cecapi.app.core.theme.CecapiTextMuted
 import com.cecapi.app.core.theme.Sections
 import com.cecapi.app.core.ui.BigBtn
+import com.cecapi.app.core.ui.TarjetaLectura
 import com.cecapi.app.core.ui.BigBtnVariant
 import com.cecapi.app.core.ui.MicPad
+import com.cecapi.app.core.ui.PantallaConMicrofono
 import com.cecapi.app.core.ui.NoticeBanner
 import com.cecapi.app.core.ui.ScreenTopBar
 import com.cecapi.app.core.voice.VoiceState
@@ -63,13 +66,12 @@ fun SoporteScreen(
     val conCuenta = viewModel.hayCuenta()
     LaunchedEffect(Unit) { viewModel.back.collect { onBack() } }
 
-    Box(modifier = Modifier.fillMaxSize()) {
+    PantallaConMicrofono {
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .verticalScroll(rememberScrollState())
-                .padding(horizontal = 16.dp, vertical = 16.dp)
-                .padding(bottom = 230.dp),
+                .desplazableConBarra()
+                .padding(horizontal = 16.dp, vertical = 16.dp),
             verticalArrangement = Arrangement.spacedBy(14.dp),
         ) {
             ScreenTopBar(
@@ -99,14 +101,14 @@ fun SoporteScreen(
                         label = "Reportar un problema técnico",
                         section = Sections.Ayuda,
                         enabled = !state.esperandoMensaje,
-                        onClick = { if (conCuenta) vista = VistaAyuda.Escribir },
+                        onClick = { if (conCuenta) vista = VistaAyuda.Escribir else viewModel.avisarSinCuenta() },
                     )
                     BigBtn(
                         icon = Icons.Filled.ReportProblem,
                         label = "Reportar con mi voz",
                         section = Sections.Ayuda,
                         enabled = !state.esperandoMensaje,
-                        onClick = { if (conCuenta) viewModel.pedirMensaje() },
+                        onClick = { if (conCuenta) viewModel.pedirMensaje() else viewModel.avisarSinCuenta() },
                     )
                     if (!conCuenta) {
                         NoticeBanner("Para reportar un problema o ver tus reportes, inicia sesión.")
@@ -222,29 +224,18 @@ fun SoporteScreen(
             onDoubleTap = viewModel::onMicDoubleTap,
             hint = if (listening) "Escuchando…" else "Di reportar un problema, o toca aquí",
             onClick = viewModel::onMicTapped,
-            modifier = Modifier.align(Alignment.BottomCenter),
         )
     }
 }
 
+/** Cada bloque de texto se lee en voz alta al tocarlo: sin eso, una tarjeta que solo se ve no le sirve a quien no ve. */
 @Composable
 private fun BloqueTexto(
     titulo: String,
     cuerpo: String,
     colorCuerpo: androidx.compose.ui.graphics.Color = CecapiTextMuted,
 ) {
-    Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clip(RoundedCornerShape(20.dp))
-            .background(CecapiSurface)
-            .border(1.dp, CecapiBorder, RoundedCornerShape(20.dp))
-            .padding(16.dp),
-        verticalArrangement = Arrangement.spacedBy(8.dp),
-    ) {
-        Text(titulo, style = MaterialTheme.typography.titleLarge, color = MaterialTheme.colorScheme.onBackground)
-        Text(cuerpo, style = MaterialTheme.typography.bodyLarge, color = colorCuerpo)
-    }
+    TarjetaLectura(titulo = titulo, cuerpo = cuerpo, colorCuerpo = colorCuerpo, section = Sections.Ayuda)
 }
 
 @Composable
@@ -285,20 +276,28 @@ private fun MensajesParaAdmin(
 }
 
 private val PreguntasFrecuentes = listOf(
-    "¿Cómo llamo al asistente?" to "Di hola o el nombre del asistente, o toca el micrófono. Para usar la palabra hola, actívala en Configuración, en Privacidad.",
+    "¿Cómo llamo al asistente?" to "Di el nombre del asistente o toca el micrófono, que ocupa toda la parte de abajo de la pantalla. Para usar también la palabra hola, actívala en Configuración, en Privacidad.",
     "¿Cómo cambio el nombre del asistente?" to "Di llámate y el nombre que quieras, o hazlo en Personalización.",
-    "¿Qué funciona sin internet?" to "Los comandos básicos funcionan sin internet: abrir módulos, leer texto con la cámara y las actividades. Las preguntas a la IA necesitan internet.",
-    "¿Mis fotos se guardan en la app?" to "No. La app no guarda tus fotos. Solo se guardan en tu galería si tú decides guardarlas.",
-    "¿Quién ve mis datos?" to "Tu correo y tu fecha de nacimiento no se muestran a otras personas.",
-    "¿Cómo me doy de baja?" to "En Mi cuenta, toca Darme de baja. Si perteneces a una institución, la baja la confirma tu educador o directivo.",
-    "¿Qué hago en una emergencia?" to "En Emergencias puedes llamar a tu contacto o al 911, y enviar tu ubicación.",
-    "¿Cómo reporto un problema?" to "En Ayuda y soporte, toca Reportar un problema técnico. Necesitas iniciar sesión.",
+    "¿Qué funciona sin internet?" to "Abrir las pantallas, leer texto con la cámara, las actividades y los comandos del teléfono. Consultas necesita internet.",
+    "¿Cómo pido un documento?" to "Abre Consultas y di qué necesitas, por ejemplo una carta para pedir un justificante. El documento aparece en pantalla y te lo leo si dices lee el documento.",
+    "¿Dónde quedan mis consultas?" to "En Consultas, en Consultas anteriores. Ahí puedes volver a escucharlas o borrarlas.",
+    "¿Mis fotos se guardan en la app?" to "No. Solo se guardan en tu galería si tú decides guardarlas.",
+    "¿Quién ve mis datos?" to "En Cuenta, toca ¿Cómo me ven? para escuchar lo que ven los demás. Tu correo no se muestra a nadie.",
+    "¿Cómo borro mi cuenta?" to "En Cuenta, hasta abajo, toca Borrar mis datos y mi cuenta. Te pido tu contraseña y luego que confirmes; no se puede deshacer.",
+    "¿Cómo reporto un problema?" to "En Ayuda y soporte, toca Reportar un problema técnico o Reportar con mi voz. Necesitas iniciar sesión.",
 )
 
 private val ManualDeUso = listOf(
-    "Inicio" to "Di hola o toca el micrófono para empezar. Desde el inicio puedes entrar a la cámara, documentos, actividades, personalización y configuración.",
-    "Micrófono" to "Toca una vez para hablar. Dos toques seguidos lo silencian.",
-    "Detener" to "Di para para detener todo lo que el asistente esté diciendo.",
-    "Volver" to "Cada pantalla tiene arriba el botón Volver para regresar al menú.",
+    "La pantalla" to "Arriba está el contenido y abajo, en casi la mitad de la pantalla, el micrófono. Toda esa parte de abajo es el botón: no tienes que atinarle a un círculo.",
+    "Micrófono" to "Toca una vez para hablar. Dos toques seguidos, o un toque con dos dedos, me callan. Mantén presionado para escuchar esta ayuda.",
+    "Moverte entre botones" to "Desliza un dedo a la derecha para pasar al siguiente botón y a la izquierda para regresar. El botón donde estás se ilumina y te digo su nombre.",
+    "Escuchar un botón" to "Mantén presionado cualquier botón o tarjeta para escuchar qué hace sin abrirlo.",
+    "Detener" to "Di para, o silencio, para que deje de hablar.",
+    "Volver" to "Cada pantalla tiene arriba el botón Volver. También puedes decir atrás o menú.",
     "Comandos" to "En cualquier pantalla, di lista de comandos para escuchar lo que puedes decir ahí.",
+    "Cámara" to "Apunta la cámara a un papel y di toma la foto; te leo el texto. También te digo qué hay enfrente.",
+    "Consultas" to "Pide un documento por voz o escribiendo y la inteligencia artificial lo genera. Tus consultas anteriores quedan guardadas para volver a escucharlas.",
+    "Actividades" to "Ejercicios de sonido y de vibración para entrenar el oído y el tacto, y juegos para hacer solo o en grupo.",
+    "Cuenta" to "Escucha cómo te ven, edita tus datos, cierra sesión o borra tu cuenta.",
+    "Lector de pantalla" to "Si prefieres TalkBack, el lector de pantalla de Android, actívalo en Configuración, en Lector de pantalla de Android.",
 )

@@ -12,7 +12,11 @@ import com.cecapi.app.core.util.WikidataFact
 import com.cecapi.app.core.util.WikidataLookup
 import com.cecapi.app.core.util.WikipediaLookup
 import com.cecapi.app.core.voice.VoiceMessages
+import com.cecapi.app.core.util.CrashGuard
 import com.cecapi.app.core.voice.VoiceText
+import android.content.Context
+import android.view.accessibility.AccessibilityManager
+import dagger.hilt.android.qualifiers.ApplicationContext
 import com.cecapi.app.core.voice.AssistantPreferences
 import com.cecapi.app.core.voice.FeedbackCues
 import com.cecapi.app.core.voice.DeviceSettings
@@ -30,6 +34,7 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withTimeoutOrNull
@@ -40,11 +45,13 @@ sealed interface HomeNavEvent {
     data object GoToRegister : HomeNavEvent
     data object GoToSettings : HomeNavEvent
     data object ExitApp : HomeNavEvent
+    data object OpenAccessibilitySettings : HomeNavEvent
     data class GoToModule(val route: String) : HomeNavEvent
 }
 
 @HiltViewModel
 class HomeViewModel @Inject constructor(
+    @ApplicationContext private val appContext: Context,
     private val voiceEngine: VoiceEngine,
     private val assistantPreferences: AssistantPreferences,
     private val wakeWordController: WakeWordController,
@@ -70,13 +77,48 @@ class HomeViewModel @Inject constructor(
         viewModelScope, SharingStarted.Eagerly, "",
     )
 
+    /** True cuando hay una cuenta (por ejemplo, la sesión recordada que se restaura al abrir): se entra directo al menú. */
+    val haySesion: StateFlow<Boolean> = sessionRepository.currentUser
+        .map { it != null }
+        .stateIn(viewModelScope, SharingStarted.Eagerly, false)
+
     private var holdingWakeWord = false
 
-    /** The main menu. Same for everyone here; the dashboard filters it by what the account may use. */
+    /** True entre que se ofrece activar el lector de pantalla y la respuesta de la persona. */
+    private var offeringAccessibility = false
+
+    private fun screenReaderOn(): Boolean =
+        (appContext.getSystemService(Context.ACCESSIBILITY_SERVICE) as? AccessibilityManager)?.isTouchExplorationEnabled == true
+
+    /**
+     * Sí abre los ajustes de accesibilidad de Android; no lo deja para después. Cualquier otra cosa se toma
+     * como un comando normal, así que quien no contesta no queda atorado. Devuelve true si ya se atendió.
+     */
+    private fun answerAccessibilityOffer(text: String): Boolean {
+        val normalized = VoiceText.normalize(text)
+        when {
+            VoiceText.hasAny(normalized, "si", "claro", "dale", "ok", "okey", "abrelos", "abre", "actívalo", "activalo", "acepto") -> {
+                offeringAccessibility = false
+                voiceEngine.speak("Abriendo los ajustes de accesibilidad de Android. Ahí busca el lector de pantalla y enciéndelo.")
+                _navEvents.tryEmit(HomeNavEvent.OpenAccessibilitySettings)
+            }
+            VoiceText.hasAny(normalized, "no", "luego", "despues", "ahora no", "despues lo hago") -> {
+                offeringAccessibility = false
+                voiceEngine.speak("De acuerdo. Cuando quieras, está en configuración, en lector de pantalla de Android.")
+            }
+            else -> {
+                offeringAccessibility = false
+                return false
+            }
+        }
+        return true
+    }
+
+    /** El menú principal. Es igual para todos aquí; el dashboard lo filtra según lo que la cuenta puede usar. */
     val menu: List<MenuItem> = ModuleVoice.menu(ModuloCecapi.entries)
 
-    // This ViewModel outlives its screen while Login/Register are open on top of it, so it must
-    // ignore speech that belongs to those screens.
+    // Este ViewModel sobrevive a su pantalla mientras Login/Register están abiertos encima de él,
+    // así que debe ignorar el habla que pertenece a esas pantallas.
     private var screenActive = false
 
     val isOnline: StateFlow<Boolean> = connectivityObserver.observe().stateIn(
@@ -88,14 +130,15 @@ class HomeViewModel @Inject constructor(
 
     init {
         viewModelScope.launch {
-            // Opened from the widget's "Hablar" button: answer and listen instead of the long greeting.
+            // Abierto desde el botón "Hablar" del widget: responde y escucha en lugar del saludo largo.
             if (launchRequests.consumeListen()) {
                 voiceEngine.speak(voiceEngine.wakePrompt(), listenAfter = true)
                 return@launch
             }
             val name = assistantPreferences.assistantName.first()
             val online = connectivityObserver.observe().first()
-            val loggedOut = if (sessionRepository.consumeLogoutNotice()) "Sesión cerrada. " else ""
+            val loggedOut = (if (CrashGuard.consumirAviso(appContext)) "Hubo un problema y volví al inicio. Si se repite, avisa al equipo. " else "") +
+                if (sessionRepository.consumeLogoutNotice()) "Sesión cerrada. " else ""
             val style = deviceSettings.addressStyle.first()
             val intro = loggedOut + if (name.isBlank()) {
                 style.pick(
@@ -110,10 +153,18 @@ class HomeViewModel @Inject constructor(
                     "Hola, soy $name. Diga hola o $name para hablar conmigo. ",
                 )
             }
-            // Connection status is only mentioned when there is a problem.
+            // El estado de la conexión solo se menciona cuando hay un problema.
             val offlineNotice = if (online) "" else "$OFFLINE_NOTICE "
+            // La primera vez que se abre la app se sugiere activar el lector de pantalla de Android (TalkBack).
+            // Si ya está encendido no se pregunta, y después solo se puede cambiar desde Configuración.
+            val firstOpen = !deviceSettings.accessibilityOffered.first()
+            if (firstOpen) deviceSettings.setAccessibilityOffered()
+            val offerAccessibility = firstOpen && !screenReaderOn()
+            offeringAccessibility = offerAccessibility
             voiceEngine.speak(
-                intro + offlineNotice + style.pick("Di menú para saber qué puedo hacer.", "Diga menú para saber qué puedo hacer."),
+                intro + offlineNotice + style.pick("Di menú para saber qué puedo hacer.", "Diga menú para saber qué puedo hacer.") +
+                    if (offerAccessibility) " " + style.pick(ACCESSIBILITY_OFFER, ACCESSIBILITY_OFFER_FORMAL) else "",
+                listenAfter = offerAccessibility,
             )
         }
         viewModelScope.launch {
@@ -152,13 +203,13 @@ class HomeViewModel @Inject constructor(
         _navEvents.tryEmit(HomeNavEvent.GoToRegister)
     }
 
-    /** A card of the main menu was tapped (or named out loud). */
+    /** Se tocó una tarjeta del menú principal (o se nombró en voz alta). */
     fun onMenuItemSelected(item: MenuItem) = onMenuKey(item.key)
 
     private fun onMenuKey(key: String) {
         when (key) {
             MenuItem.SETTINGS_KEY -> onSettingsSelected()
-            MenuItem.CAMERA_KEY -> openRoute(CecapiDestinations.CAMERA_HUB, "Abriendo la cámara.")
+            MenuItem.CAMERA_KEY -> openRoute(CecapiDestinations.DOCUMENT_READER, "Abriendo la cámara. Para saber qué hay enfrente, toca el botón de arriba o dilo.")
             MenuItem.PERSONALIZATION_KEY -> openRoute(CecapiDestinations.PERSONALIZATION, "Abriendo la personalización.")
             MenuItem.CHATS_KEY -> openRoute(CecapiDestinations.CHATS, "Abriendo los chats.")
             else -> ModuloCecapi.fromStorageCode(key)?.let(::onModuleSelected)
@@ -180,21 +231,21 @@ class HomeViewModel @Inject constructor(
         screenActive = active
     }
 
-    /** Wake-word listening needs the mic permission, so the screen turns it on only once it has it. */
+    /** Escuchar la palabra de activación necesita el permiso del micrófono, así que la pantalla lo activa solo una vez que lo tiene. */
     fun setWakeWordEnabled(enabled: Boolean) {
         if (enabled == holdingWakeWord) return
         holdingWakeWord = enabled
         if (enabled) wakeWordController.acquire() else wakeWordController.release()
     }
 
-    /** Two quick taps on the mic silence the assistant, for someone using touch with their hands instead of voice. */
+    /** Dos toques rápidos en el micrófono silencian al asistente, para alguien que usa el tacto con las manos en lugar de la voz. */
     fun onMicDoubleTap() = voiceEngine.mute()
 
     fun onMicTapped() {
         voiceEngine.startListening()
     }
 
-    /** The user refused the mic permission: say why nothing will happen instead of staying silent. */
+    /** El usuario rechazó el permiso del micrófono: dice por qué no pasará nada en lugar de quedarse en silencio. */
     fun onMicPermissionDenied() {
         voiceEngine.speak(VoiceMessages.MIC_DENIED)
     }
@@ -207,9 +258,9 @@ class HomeViewModel @Inject constructor(
     private var pendingExitAskedAt = 0L
 
     /**
-     * Answers "¿Cierro la aplicación? Di sí o no." Only for a short while, and only with a deliberate word:
-     * closing the app can happen to anyone, including a child, so a word that also means something else in
-     * passing conversation ("va", "sale") must not count.
+     * Responde a "¿Cierro la aplicación? Di sí o no." Solo durante un rato corto, y solo con una palabra
+     * deliberada: cerrar la app le puede pasar a cualquiera, incluyendo un niño, así que una palabra que
+     * también signifique otra cosa en una conversación casual ("va", "sale") no debe contar.
      */
     private fun handlePendingConfirm(text: String): Boolean {
         if (!pendingExit || System.currentTimeMillis() - pendingExitAskedAt > EXIT_CONFIRM_WINDOW_MS) {
@@ -231,6 +282,7 @@ class HomeViewModel @Inject constructor(
     }
 
     private fun interpretCommand(text: String) {
+        if (offeringAccessibility && answerAccessibilityOffer(text)) return
         if (handlePendingConfirm(text)) return
         when (voiceMemory.repeatKind(text)) {
             VoiceMemory.Repeat.RESPONSE ->
@@ -247,7 +299,7 @@ class HomeViewModel @Inject constructor(
     }
 
     private fun runCommand(text: String, allowFallback: Boolean = true) {
-        // "dime más": go deeper on the last thing the AI answered, or read the rest of a Wikipedia summary.
+        // "dime más": profundiza en lo último que respondió la IA, o lee el resto de un resumen de Wikipedia.
         intentFallback.deepQuestionFor(text)?.let { question ->
             askAi(question, deep = true)
             return
@@ -261,7 +313,7 @@ class HomeViewModel @Inject constructor(
         }
         val newName = NAME_COMMAND.find(text)?.groupValues?.get(1)?.trim { !it.isLetterOrDigit() }
         val phoneStatus = phoneStatusReader.answer(text)
-        // Changing the volume is an action, so only try it when nothing above already claimed the phrase.
+        // Cambiar el volumen es una acción, así que solo se intenta cuando nada de lo anterior ya reclamó la frase.
         val volume = if (newName == null && phoneStatus == null) volumeControl.handle(text) else null
         val notification = notificationReader.handle(text)
         val cameraRoute = ModuleVoice.directCameraRoute(text)
@@ -282,10 +334,15 @@ class HomeViewModel @Inject constructor(
             ModuleVoice.isListRequest(text) -> voiceEngine.speak(ModuleVoice.spokenList(menu))
             cameraRoute != null -> openCameraMode(cameraRoute)
             menuKey != null -> onMenuKey(menuKey)
-            "iniciar sesión" in text || "iniciar sesion" in text -> {
+            VoiceText.hasAny(
+                VoiceText.normalize(text),
+                "iniciar sesion", "inicia sesion", "entrar a mi cuenta", "entrar", "ingresar", "acceder", "login", "loguearme",
+            ) -> {
                 voiceEngine.speak("Abriendo el inicio de sesión.")
                 _navEvents.tryEmit(HomeNavEvent.GoToLogin)
             }
+            VoiceText.hasAny(VoiceText.normalize(text), "crear cuenta", "crea una cuenta", "registrarme", "registrame", "nueva cuenta", "darme de alta") ->
+                onCrearCuentaSelected()
             "ayuda" in text -> voiceEngine.speak(
                 "Soy un asistente para personas invidentes. Puedo abrir la cámara para leer texto o describir lo que hay enfrente, " +
                     "y decirte cómo está tu teléfono. Di menú, estado del teléfono, " +
@@ -297,29 +354,30 @@ class HomeViewModel @Inject constructor(
     }
 
     /**
-     * Not one of our commands. If a resolver is registered (the AI team's "traductor de frases") and there is
-     * internet, it gets one chance to turn the phrase into a command we know; otherwise we say so.
+     * No es uno de nuestros comandos. Si hay un resolver registrado (el "traductor de frases" del equipo de
+     * IA) y hay internet, se le da una oportunidad de convertir la frase en un comando que conocemos; si no,
+     * se dice que no se entendió.
      */
     private fun notUnderstood(text: String, allowFallback: Boolean) {
         val fact = wikidataLookup.matchFact(text)
         val wikiQuery = wikiQuery(text)
         when {
-            // A specific, structured fact ("cuándo nació", "capital de", "población de"...) goes first:
-            // Wikidata answers it more precisely than hunting for the number in Wikipedia's prose.
+            // Un dato específico y estructurado ("cuándo nació", "capital de", "población de"...) va primero:
+            // Wikidata lo responde con más precisión que buscar el número dentro del texto de Wikipedia.
             allowFallback && fact != null && isOnline.value -> askWikidataFact(fact)
             allowFallback && intentFallback.resolver != null && isOnline.value -> askAi(text, deep = false)
-            // The AI is off (its providers do not allow minors) or not connected yet: Wikipedia still helps
-            // with a plain "qué es / quién fue / busca..." when there is internet, without needing an account.
+            // La IA está apagada (sus proveedores no permiten menores de edad) o aún no hay conexión: Wikipedia
+            // sigue ayudando con un simple "qué es / quién fue / busca..." cuando hay internet, sin necesitar cuenta.
             allowFallback && wikiQuery != null && isOnline.value -> askWikipedia(wikiQuery)
-            // Last resort before giving up: the phrase did not say "qué es" or "busca", but might still be a
-            // topic on its own ("Miguel Hidalgo", "pregúntale por el día de la independencia"...). Wikipedia
-            // is safe to try blindly — it is curated reference content, not an open answer from anywhere.
+            // Último recurso antes de rendirse: la frase no dijo "qué es" ni "busca", pero podría ser un tema
+            // por sí mismo ("Miguel Hidalgo", "pregúntale por el día de la independencia"...). Es seguro probar
+            // con Wikipedia a ciegas: es contenido de referencia curado, no una respuesta abierta de cualquier lado.
             allowFallback && isOnline.value && text.trim().length >= 3 -> askWikipedia(text.trim())
             else -> sayNotUnderstood()
         }
     }
 
-    /** A structured fact from Wikidata; falls back to the AI or a plain Wikipedia search if it has none. */
+    /** Un dato estructurado de Wikidata; recurre a la IA o a una búsqueda simple en Wikipedia si no tiene ninguno. */
     private fun askWikidataFact(fact: WikidataFact) {
         voiceEngine.speak("Buscando el dato.")
         viewModelScope.launch {
@@ -332,13 +390,13 @@ class HomeViewModel @Inject constructor(
         }
     }
 
-    /** The part after "qué es", "quién fue", "busca"... in the words the person actually said (accents kept). */
+    /** La parte después de "qué es", "quién fue", "busca"... en las palabras que la persona realmente dijo (con acentos). */
     private fun wikiQuery(text: String): String? {
         val match = WIKI_TRIGGER.find(VoiceText.fold(text)) ?: return null
         return text.substring(match.groups[1]!!.range.first).trim().takeIf { it.length >= 2 }
     }
 
-    /** What to say after the current Wikipedia summary if the person says "dime más". */
+    /** Qué decir después del resumen actual de Wikipedia si la persona dice "dime más". */
     private var pendingWikiRest: String? = null
 
     private fun askWikipedia(query: String) {
@@ -357,7 +415,7 @@ class HomeViewModel @Inject constructor(
         }
     }
 
-    /** Asks the AI backend. It answers with a command to run, or a short answer to read aloud. */
+    /** Consulta al backend de IA. Responde con un comando para ejecutar, o con una respuesta corta para leer en voz alta. */
     private fun askAi(question: String, deep: Boolean) {
         val resolver = intentFallback.resolver ?: return sayNotUnderstood()
         viewModelScope.launch {
@@ -370,8 +428,9 @@ class HomeViewModel @Inject constructor(
                     intentFallback.lastQuestion = question
                     voiceEngine.speak(answer + if (reply.hasMore) " Si quieres saber más, di dime más." else "")
                 }
-                // The AI could not answer (server unreachable, no reply...): a "qué es / quién fue / busca"
-                // question might still work through Wikipedia instead of giving up right there.
+                // La IA no pudo responder (servidor inalcanzable, sin respuesta...): una pregunta de tipo
+                // "qué es / quién fue / busca" todavía podría funcionar a través de Wikipedia en lugar de
+                // rendirse en ese momento.
                 else -> askWikipedia(wikiQuery(question) ?: question.trim())
             }
         }
@@ -382,7 +441,7 @@ class HomeViewModel @Inject constructor(
         voiceEngine.speak("No entendí ese comando. Di lista de comandos para escuchar lo que puedo hacer.")
     }
 
-    /** Says goodbye, waits for it to finish, then closes the app so the phone is free again. */
+    /** Se despide, espera a que termine, y luego cierra la app para que el teléfono quede libre de nuevo. */
     private fun exitApp() {
         voiceEngine.speak("Cerrando la aplicación. Hasta luego.")
         viewModelScope.launch {
@@ -416,11 +475,18 @@ class HomeViewModel @Inject constructor(
         const val OFFLINE_NOTICE =
             "Ahora no tienes conexión a internet, así que mis respuestas pueden ser menos precisas."
 
+        const val ACCESSIBILITY_OFFER =
+            "Te recomiendo activar el lector de pantalla de Android, que te va leyendo cada botón que toques. " +
+                "¿Quieres abrir esos ajustes ahora? Di sí o no."
+        const val ACCESSIBILITY_OFFER_FORMAL =
+            "Le recomiendo activar el lector de pantalla de Android, que le va leyendo cada botón que toque. " +
+                "¿Desea abrir esos ajustes ahora? Diga sí o no."
+
         const val EXIT_CONFIRM_WINDOW_MS = 30_000L
         val EXIT_CONFIRM_WORDS = setOf("si", "cerrar", "cierra", "confirmo", "hazlo", "correcto")
 
-        // Matched against VoiceText.fold(text) — accents stripped, same length as the original — so the
-        // captured group's range lines up with the words the person actually said, accents and all.
+        // Se compara contra VoiceText.fold(text) — sin acentos, con la misma longitud que el original — para que
+        // el rango del grupo capturado coincida con las palabras que la persona realmente dijo, con acentos y todo.
         // Las preguntas clave en español: qué, quién, cómo, cuándo, dónde, por qué, cuál, cuánto.
         val WIKI_TRIGGER = Regex(
             "(?:busca(?:r)? en wikipedia|busca(?:r)?|informacion sobre|dime sobre|wikipedia|" +

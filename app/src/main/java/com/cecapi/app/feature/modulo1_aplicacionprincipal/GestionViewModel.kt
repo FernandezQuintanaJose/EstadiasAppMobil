@@ -2,6 +2,7 @@ package com.cecapi.app.feature.modulo1_aplicacionprincipal
 
 import com.cecapi.app.core.navigation.CecapiDestinations
 import com.cecapi.app.core.util.PasswordHasher
+import com.cecapi.app.core.util.PasswordRules
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.cecapi.app.core.voice.FeedbackCues
@@ -184,8 +185,15 @@ class GestionViewModel @Inject constructor(
     fun onCambiarContrasena(persona: UsuarioEntity, nueva: String) {
         val autor = sessionRepository.currentUser.value ?: return
         if (!puedeCambiarContrasenaDe(persona) || nueva.isBlank()) return
+        val limpia = PasswordRules.normalize(nueva)
+        val problema = PasswordRules.problem(limpia)
+        if (problema != null) {
+            cues.play(FeedbackCues.Cue.ERROR)
+            voiceEngine.speak(problema)
+            return
+        }
         viewModelScope.launch {
-            usuarioDao.actualizarContrasena(persona.id, PasswordHasher.hash(nueva.trim()))
+            usuarioDao.actualizarContrasena(persona.id, PasswordHasher.hash(limpia))
             cambioCuentaDao.insert(
                 CambioCuentaEntity(objetivoId = persona.id, autorId = autor.id, tipo = "contrasena", detalle = "Cambiada por un administrador"),
             )
@@ -195,32 +203,6 @@ class GestionViewModel @Inject constructor(
             )
             cues.play(FeedbackCues.Cue.SUCCESS)
             voiceEngine.speak("Listo. Cambié la contraseña de ${persona.nombreCompleto}. Se lo avisaré al abrir su cuenta.")
-        }
-        _expandidoId.value = null
-    }
-
-    /** Una baja pedida por una cuenta de institución la confirma un administrador, un directivo de su institución o su educador. */
-    fun puedeAutorizarBajaDe(persona: UsuarioEntity): Boolean {
-        val autor = sessionRepository.currentUser.value ?: return false
-        if (!persona.solicitaBaja || persona.rol == RolUsuario.ADMINISTRADOR.codigo) return false
-        return when (RolUsuario.fromCodigo(autor.rol)) {
-            RolUsuario.ADMINISTRADOR -> true
-            RolUsuario.DIRECTIVO -> autor.origen.equals(persona.origen, ignoreCase = true)
-            RolUsuario.EDUCADOR -> persona.educadorId == autor.id
-            else -> false
-        }
-    }
-
-    fun onAutorizarBajaDe(persona: UsuarioEntity) {
-        val autor = sessionRepository.currentUser.value ?: return
-        if (!puedeAutorizarBajaDe(persona)) return
-        viewModelScope.launch {
-            cambioCuentaDao.insert(
-                CambioCuentaEntity(objetivoId = persona.id, autorId = autor.id, tipo = "baja", detalle = "Autorizada por ${autor.nombreCompleto}"),
-            )
-            sessionRepository.borrarCuentaDe(persona.id)
-            cues.play(FeedbackCues.Cue.SUCCESS)
-            voiceEngine.speak("Listo. Di de baja la cuenta de ${persona.nombreCompleto}.")
         }
         _expandidoId.value = null
     }

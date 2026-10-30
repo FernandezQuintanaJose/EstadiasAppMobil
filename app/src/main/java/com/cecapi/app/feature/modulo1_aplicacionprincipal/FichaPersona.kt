@@ -46,7 +46,6 @@ internal data class PermisosFicha(
     val puedeDarDeBaja: Boolean,
     val puedeEliminar: Boolean,
     val puedeCambiarContrasena: Boolean,
-    val puedeAutorizarBaja: Boolean,
 )
 
 /** Ficha de una cuenta: sus datos y las acciones que le toca a quien la mira. */
@@ -62,7 +61,6 @@ internal fun FichaPersona(
     onRolElegido: (RolUsuario) -> Unit,
     onEducadorElegido: (UsuarioEntity?) -> Unit,
     onCambiarContrasena: (String) -> Unit,
-    onAutorizarBaja: () -> Unit,
     onDarDeBaja: () -> Unit,
     onEliminar: () -> Unit,
     onEditarDatos: (String, String, String) -> Unit,
@@ -107,11 +105,6 @@ internal fun FichaPersona(
                 BigBtn(icon = Icons.Filled.Check, label = "Sí", size = com.cecapi.app.core.ui.BigBtnSize.Standard, half = true, onClick = onValidar, modifier = Modifier.weight(1f))
                 BigBtn(icon = Icons.Filled.Close, label = "No", variant = BigBtnVariant.Danger, half = true, onClick = onRechazar, modifier = Modifier.weight(1f))
             }
-        }
-
-        if (persona.solicitaBaja && permisos.puedeAutorizarBaja) {
-            Text("PIDIÓ DARSE DE BAJA", style = MaterialTheme.typography.labelLarge, color = CecapiTextMuted)
-            BigBtn(icon = Icons.Filled.Close, label = "Confirmar baja", variant = BigBtnVariant.Danger, onClick = onAutorizarBaja)
         }
 
         if (persona.solicitaCambioEducador && permisos.puedeEditar) {
@@ -224,12 +217,12 @@ internal fun FichaPersona(
             Text("CONTRASEÑA", style = MaterialTheme.typography.labelLarge, color = CecapiTextMuted)
             OutlinedTextField(
                 value = nueva,
-                onValueChange = { nueva = it.filter(Char::isDigit) },
+                onValueChange = { nueva = it },
                 modifier = Modifier.fillMaxWidth(),
                 label = { Text("Nueva contraseña *") },
                 singleLine = true,
                 visualTransformation = PasswordVisualTransformation(),
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword),
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
             )
             BigBtn(
                 icon = Icons.Filled.Lock,

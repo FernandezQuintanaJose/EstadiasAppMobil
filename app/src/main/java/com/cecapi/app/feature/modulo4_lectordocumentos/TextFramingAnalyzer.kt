@@ -18,7 +18,7 @@ enum class FramingHint(val mensaje: String) {
     DERECHA("Mueve el teléfono a la derecha."),
     ARRIBA("Mueve el teléfono hacia arriba."),
     ABAJO("Mueve el teléfono hacia abajo."),
-    LISTO("Así está bien. Toca el botón o di toma la foto."),
+    LISTO("Así está bien."),
 }
 
 /**

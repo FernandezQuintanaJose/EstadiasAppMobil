@@ -16,23 +16,23 @@ import javax.inject.Inject
 import javax.inject.Singleton
 
 /**
- * Answers "what is my phone doing" in words a screen-reader-free user can hear: battery, Wi-Fi or
- * mobile data and signal, time and date. Read-only; it never changes any setting.
+ * Responde "qué está haciendo mi teléfono" con palabras que un usuario sin lector de pantalla pueda
+ * escuchar: batería, Wi-Fi o datos móviles y señal, hora y fecha. Solo lectura; nunca cambia ninguna configuración.
  */
 @Singleton
 class PhoneStatusReader @Inject constructor(
     @ApplicationContext private val context: Context,
 ) {
 
-    /** The spoken answer if [spoken] asks about the phone's state, or null if it is about something else. */
+    /** La respuesta hablada si [spoken] pregunta sobre el estado del teléfono, o null si se trata de otra cosa. */
     fun answer(spoken: String): String? {
         val text = VoiceText.normalize(spoken)
         val significant = text.split(" ").filter { it.isNotEmpty() && it !in FILLER }
-        // Only a short question is about the phone. A longer sentence that merely mentions "hora" or "internet" is
-        // an answer to a form or a question for the AI, and must reach the screen instead.
+        // Solo una pregunta corta es sobre el teléfono. Una oración más larga que apenas menciona "hora" o "internet"
+        // es una respuesta a un formulario o una pregunta para la IA, y debe llegar a la pantalla en su lugar.
         if (significant.size > MAX_TOPIC_WORDS) return null
-        // The date words are common inside an ordinary sentence ("el 5 de este mes", "el año pasado"), so they
-        // only answer when the question is essentially bare: the trigger word and, at most, one filler-adjacent word.
+        // Las palabras de fecha son comunes dentro de una oración ordinaria ("el 5 de este mes", "el año pasado"), así
+        // que solo responden cuando la pregunta es esencialmente desnuda: la palabra disparadora y, cuando mucho, una palabra de relleno adyacente.
         val bareDateQuestion = significant.size <= 1
         return when {
             listOf("estado del telefono", "estado del celular", "estado de la pantalla", "estado del dispositivo",
@@ -50,7 +50,7 @@ class PhoneStatusReader @Inject constructor(
 
     fun fullReport(): String = "${time()} ${date()} ${battery()} ${network()}"
 
-    /** The short version for the home-screen widget: time, battery and connection. */
+    /** La versión corta para el widget de la pantalla de inicio: hora, batería y conexión. */
     fun shortReport(): String = "${time()} ${battery()} ${network()}"
 
     fun battery(): String {
@@ -100,13 +100,13 @@ class PhoneStatusReader @Inject constructor(
         return "$lead$minutes $period."
     }
 
-    /** Full date with the year: "Hoy es viernes 25 de septiembre de 2026." */
+    /** Fecha completa con el año: "Hoy es viernes 25 de septiembre de 2026." */
     fun date(): String {
         val formatter = DateTimeFormatter.ofPattern("EEEE d 'de' MMMM 'de' yyyy", LOCALE)
         return "Hoy es ${LocalDateTime.now().format(formatter)}."
     }
 
-    /** "Qué día es hoy": weekday and day of the month, without the year. */
+    /** "Qué día es hoy": día de la semana y día del mes, sin el año. */
     fun today(): String {
         val formatter = DateTimeFormatter.ofPattern("EEEE d 'de' MMMM", LOCALE)
         return "Hoy es ${LocalDateTime.now().format(formatter)}."
@@ -114,7 +114,7 @@ class PhoneStatusReader @Inject constructor(
 
     fun year(): String = "Estamos en el año ${LocalDateTime.now().year}."
 
-    /** The month by name and by number: "Estamos en septiembre, el mes número 9." */
+    /** El mes por nombre y por número: "Estamos en septiembre, el mes número 9." */
     fun month(): String {
         val now = LocalDateTime.now()
         val name = now.format(DateTimeFormatter.ofPattern("MMMM", LOCALE))
@@ -124,8 +124,9 @@ class PhoneStatusReader @Inject constructor(
     private companion object {
         val LOCALE: Locale = Locale("es", "MX")
         /**
-         * Words that carry no topic. A question about the phone is short once these are set aside ("qué hora es"),
-         * while "a qué hora abre el banco" or "el 5 de este mes" has more to it and belongs to the screen or the AI.
+         * Palabras que no llevan ningún tema. Una pregunta sobre el teléfono es corta una vez que se descartan estas
+         * ("qué hora es"), mientras que "a qué hora abre el banco" o "el 5 de este mes" tiene más contenido y le
+         * corresponde a la pantalla o a la IA.
          */
         val FILLER = setOf(
             "que", "cual", "cuanto", "cuanta", "como", "esta", "estoy", "es", "el", "la", "los", "las", "de", "del", "en",
@@ -140,7 +141,7 @@ class PhoneStatusReader @Inject constructor(
         val MONTH = Regex("\\bmes\\b")
     }
 
-    /** ", señal buena" when the system reports a level; empty when it does not (older Android, or no value). */
+    /** ", señal buena" cuando el sistema reporta un nivel; vacío cuando no lo hace (Android más antiguo, o sin valor). */
     private fun signalWord(capabilities: NetworkCapabilities): String {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) return ""
         val dbm = capabilities.signalStrength

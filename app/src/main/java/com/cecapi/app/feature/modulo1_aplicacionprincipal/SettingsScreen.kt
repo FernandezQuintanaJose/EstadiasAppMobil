@@ -4,6 +4,12 @@ import com.cecapi.app.core.theme.CecapiBorder
 import androidx.compose.foundation.border
 import android.Manifest
 import android.os.Build
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.material.icons.filled.Accessibility
+import android.provider.Settings
+import android.content.Intent
+import android.content.Context
+import android.content.ActivityNotFoundException
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
@@ -77,8 +83,10 @@ import com.cecapi.app.core.theme.CecapiSurfaceElevated
 import com.cecapi.app.core.theme.CecapiTextMuted
 import com.cecapi.app.core.theme.Sections
 import com.cecapi.app.core.ui.BigBtn
+import com.cecapi.app.core.ui.desplazableConBarra
 import com.cecapi.app.core.ui.BigBtnVariant
 import com.cecapi.app.core.ui.MicPad
+import com.cecapi.app.core.ui.PantallaConMicrofono
 import com.cecapi.app.core.ui.NoticeBanner
 import com.cecapi.app.core.ui.ScreenTopBar
 import com.cecapi.app.core.ui.SuggestionChip
@@ -86,7 +94,7 @@ import com.cecapi.app.core.ui.voiceHint
 import com.cecapi.app.core.voice.VoiceState
 import kotlin.math.roundToInt
 
-private enum class SettingsSub { VOLUMEN, NOTIFICACIONES, ALMACENAMIENTO, PRIVACIDAD, CUENTA }
+private enum class SettingsSub { VOLUMEN, NOTIFICACIONES, ALMACENAMIENTO, PRIVACIDAD }
 
 /**
  * Configuración, como un vestíbulo con una tarjeta por tema en vez de una sola columna larga:
@@ -98,6 +106,7 @@ private enum class SettingsSub { VOLUMEN, NOTIFICACIONES, ALMACENAMIENTO, PRIVAC
 fun SettingsScreen(
     onBack: () -> Unit,
     onLoggedOut: () -> Unit,
+    onOpenAccount: () -> Unit,
     viewModel: SettingsViewModel = hiltViewModel(),
 ) {
     val simpleMode by viewModel.simpleMode.collectAsState()
@@ -108,19 +117,17 @@ fun SettingsScreen(
     val storage by viewModel.storage.collectAsState()
     val pendingClean by viewModel.pendingClean.collectAsState()
     val aiEnabled by viewModel.aiEnabled.collectAsState()
-    val pendingDeleteAccount by viewModel.pendingDeleteAccount.collectAsState()
-    val awaitingDeletePassword by viewModel.awaitingDeletePassword.collectAsState()
-    var deletePassword by remember { mutableStateOf("") }
-    var deletePasswordVisible by remember { mutableStateOf(false) }
     var sub by remember { mutableStateOf<SettingsSub?>(null) }
+    val contexto = LocalContext.current
 
     var volume by remember { mutableFloatStateOf(viewModel.currentVolumePercent().toFloat()) }
     val voiceState by viewModel.voiceState.collectAsState()
     val listening = voiceState is VoiceState.Listening
 
     LaunchedEffect(Unit) { viewModel.loggedOut.collect { onLoggedOut() } }
+    LaunchedEffect(Unit) { viewModel.openAccount.collect { onOpenAccount() } }
 
-    // The permission is granted in Android's own settings, so check again every time we come back.
+    // El permiso se concede en los ajustes propios de Android, así que se verifica otra vez cada vez que volvemos.
     var notificationAccess by remember { mutableStateOf(viewModel.isNotificationAccessEnabled()) }
     val lifecycleOwner = LocalLifecycleOwner.current
     DisposableEffect(lifecycleOwner) {
@@ -131,12 +138,12 @@ fun SettingsScreen(
         onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
     }
 
-    // Android 13+ asks before showing the always-visible "Asistente activo" notice; the service works either way.
+    // Android 13+ pregunta antes de mostrar el aviso siempre visible de "Asistente activo"; el servicio funciona de cualquier forma.
     val notificationPermission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) {
         viewModel.onListenOutsideAppChanged(true)
     }
 
-    // The switch and the voice command ("activa escuchar fuera de la aplicación") do the same thing.
+    // El interruptor y el comando de voz ("activa escuchar fuera de la aplicación") hacen lo mismo.
     val changeListenOutside: (Boolean) -> Unit = { enabled ->
         if (enabled && Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             notificationPermission.launch(Manifest.permission.POST_NOTIFICATIONS)
@@ -147,13 +154,12 @@ fun SettingsScreen(
     LaunchedEffect(Unit) { viewModel.listenOutsideRequests.collect { changeListenOutside(it) } }
     LaunchedEffect(Unit) { viewModel.back.collect { onBack() } }
 
-    Box(modifier = Modifier.fillMaxSize()) {
+    PantallaConMicrofono {
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .verticalScroll(rememberScrollState())
-            .padding(horizontal = 24.dp, vertical = 16.dp)
-            .padding(bottom = 230.dp),
+            .desplazableConBarra()
+            .padding(horizontal = 24.dp, vertical = 16.dp),
         verticalArrangement = Arrangement.spacedBy(20.dp),
     ) {
         when (sub) {
@@ -195,12 +201,21 @@ fun SettingsScreen(
                         modifier = Modifier.weight(1f),
                     )
                 }
+                // TalkBack es el lector de pantalla de Android. Se activa o se apaga en los ajustes del teléfono;
+                // con él encendido, la app sigue iluminando las tarjetas y leyendo en voz alta por su cuenta.
+                BigBtn(
+                    icon = Icons.Filled.Accessibility,
+                    label = "Lector de pantalla de Android",
+                    sub = "Abre los ajustes de Android para activar o apagar TalkBack",
+                    section = Sections.Settings,
+                    onClick = { abrirAjustesDeAccesibilidad(contexto) },
+                )
                 if (user != null) {
                     BigBtn(
                         icon = Icons.Filled.Person,
                         label = "Cuenta",
                         section = Sections.Settings,
-                        onClick = { sub = SettingsSub.CUENTA },
+                        onClick = onOpenAccount,
                     )
                 }
             }
@@ -340,75 +355,6 @@ fun SettingsScreen(
                 )
             }
 
-            SettingsSub.CUENTA -> user?.let { current ->
-                ScreenTopBar(eyebrow = "MENÚ", title = "Cuenta", onBack = { sub = null }, onCommands = viewModel::onCommandsRequested)
-                Text(current.nombreCompleto, style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onBackground)
-                BigBtn(
-                    icon = Icons.AutoMirrored.Filled.Logout,
-                    label = "Cerrar sesión",
-                    variant = BigBtnVariant.Danger,
-                    onClick = viewModel::onLogout,
-                )
-                if (awaitingDeletePassword) {
-                    NoticeBanner("Para borrar tu cuenta, dime o escribe tu contraseña.")
-                    OutlinedTextField(
-                        value = deletePassword,
-                        onValueChange = { deletePassword = it.filter(Char::isDigit) },
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .heightIn(min = 64.dp)
-                            .voiceHint("Campo de contraseña, para confirmar que quieres borrar tu cuenta. Se ve oculta por seguridad."),
-                        placeholder = { Text("Tu contraseña") },
-                        leadingIcon = { Icon(Icons.Filled.Lock, contentDescription = null) },
-                        trailingIcon = {
-                            IconButton(onClick = { deletePasswordVisible = !deletePasswordVisible }) {
-                                Icon(
-                                    imageVector = if (deletePasswordVisible) Icons.Filled.VisibilityOff else Icons.Filled.Visibility,
-                                    contentDescription = if (deletePasswordVisible) "Ocultar contraseña" else "Mostrar contraseña",
-                                )
-                            }
-                        },
-                        singleLine = true,
-                        visualTransformation = if (deletePasswordVisible) VisualTransformation.None else PasswordVisualTransformation(),
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword, imeAction = ImeAction.Done),
-                        keyboardActions = KeyboardActions(onDone = {
-                            viewModel.onDeletePasswordEntered(deletePassword)
-                            deletePassword = ""
-                        }),
-                        colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = CecapiAccent, unfocusedBorderColor = CecapiTextMuted),
-                    )
-                    Row(horizontalArrangement = Arrangement.spacedBy(12.dp), modifier = Modifier.padding(top = 8.dp)) {
-                        BigBtn(
-                            icon = Icons.Filled.Check,
-                            label = "Confirmar",
-                            variant = BigBtnVariant.Danger,
-                            half = true,
-                            onClick = { viewModel.onDeletePasswordEntered(deletePassword); deletePassword = "" },
-                            modifier = Modifier.weight(1f),
-                        )
-                        BigBtn(
-                            icon = Icons.Filled.Close,
-                            label = "Cancelar",
-                            half = true,
-                            onClick = { deletePassword = ""; viewModel.cancelDeleteAccount() },
-                            modifier = Modifier.weight(1f),
-                        )
-                    }
-                } else if (pendingDeleteAccount) {
-                    NoticeBanner("¿Borrar tu cuenta y todo lo que guardaste? No se puede deshacer. Di sí, borrar, o no.")
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        BigBtn(icon = Icons.Filled.Check, label = "Sí, borrar", variant = BigBtnVariant.Danger, half = true, onClick = viewModel::confirmDeleteAccount, modifier = Modifier.weight(1f))
-                        BigBtn(icon = Icons.Filled.Close, label = "No", half = true, onClick = viewModel::cancelDeleteAccount, modifier = Modifier.weight(1f))
-                    }
-                } else {
-                    ActionButton(
-                        "Borrar mi cuenta y mis datos",
-                        "Borrar mi cuenta y mis datos. Elimina tu cuenta y todo lo que guardaste: chats, resultados, documentos y fotos. " +
-                            "Te pido tu contraseña y luego confirmar; no se puede deshacer. También puedes decir: borra mi cuenta.",
-                        viewModel::askDeleteAccount,
-                    )
-                }
-            }
         }
     }
 
@@ -417,7 +363,6 @@ fun SettingsScreen(
             onDoubleTap = viewModel::onMicDoubleTap,
             hint = if (listening) "Escuchando…" else "Di cuánto espacio tengo, o toca aquí",
             onClick = viewModel::onMicTapped,
-            modifier = Modifier.align(Alignment.BottomCenter),
         )
     }
 }
@@ -502,3 +447,12 @@ internal fun ActionButton(text: String, help: String, onClick: () -> Unit) {
 /** Tamaño corto para la pantalla: GB o MB. */
 private fun espacio(bytes: Long): String =
     if (bytes >= 1_000_000_000L) "%.1f GB".format(bytes / 1_000_000_000.0) else "%d MB".format(bytes / 1_000_000)
+
+/** Abre los ajustes de accesibilidad de Android, donde se enciende o se apaga TalkBack. */
+internal fun abrirAjustesDeAccesibilidad(contexto: Context) {
+    try {
+        contexto.startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+    } catch (e: ActivityNotFoundException) {
+        // Teléfonos sin esa pantalla: no hay nada más que abrir.
+    }
+}
