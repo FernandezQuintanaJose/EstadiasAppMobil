@@ -134,9 +134,10 @@ class ConsultasViewModel @Inject constructor(
         _uiState.value = ConsultasUiState(paso = ConsultaPaso.GENERANDO, consulta = pedido, esDocumento = esDocumento)
         viewModelScope.launch {
             try {
-                // Un documento se pide con instrucciones extra; en el historial solo queda lo que la persona dijo.
+                // Un documento va a /documento (instrucciones propias para texto largo); una pregunta, a /preguntar.
+                // En el historial solo queda lo que la persona dijo.
                 val resultado = voiceEngine.speakWhile {
-                    repository.ask(usuario.id, if (esDocumento) "$INSTRUCCION $pedido" else pedido, guardarComo = pedido)
+                    if (esDocumento) repository.documento(usuario.id, pedido) else repository.ask(usuario.id, pedido)
                 }
                 resultado.onSuccess { texto ->
                     val documento = limpiarFormato(texto)
@@ -201,11 +202,6 @@ class ConsultasViewModel @Inject constructor(
     }
 
     internal companion object {
-        /** El pedido se manda con esta instrucción para que la respuesta sea el documento y nada más. */
-        const val INSTRUCCION =
-            "Redacta en español el documento que se pide a continuación. Entrega solo el documento listo para " +
-                "usar, con título, sin explicaciones antes ni después y sin formato especial. Pedido:"
-
         private val ATRAS = setOf("atras", "volver", "vuelve", "regresa", "regresar", "salir", "menu", "inicio")
         private val LEER = setOf("lee", "leer", "lee el documento", "leelo", "repite", "repetir")
         private val ANTERIORES = setOf("consultas anteriores", "anteriores", "chats", "historial", "mis consultas")

@@ -24,7 +24,7 @@ class IAFalsa:
         self.falla = falla
         self.llamadas = []
 
-    def preguntar(self, pregunta, contexto):
+    def preguntar(self, pregunta, contexto, instrucciones=None):
         self.llamadas.append((pregunta, list(contexto)))
         if self.falla:
             raise proveedores.ProveedorNoDisponible("prueba")
@@ -81,7 +81,9 @@ def test_uso_responde(ia):
 
 def test_entender_reconoce_comando_sin_llamar_a_la_ia(ia):
     r = cliente.post("/entender", json={"pregunta": "¿Qué hay enfrente de mí?"})
-    assert r.json() == {"tipo": "comando", "comando": "ENVIRONMENT"}
+    datos = r.json()
+    assert datos.pop("conversacionId")
+    assert datos == {"tipo": "comando", "comando": "ENVIRONMENT"}
     assert ia.llamadas == []
 
 
@@ -98,7 +100,9 @@ def test_entender_pregunta_libre_va_a_la_ia(ia):
 def test_preguntar_devuelve_respuesta(ia):
     r = cliente.post("/preguntar", json={"pregunta": "¿Por qué el cielo es azul?"})
     assert r.status_code == 200
-    assert r.json() == {"respuesta": "Respuesta de prueba.", "proveedor": "groq", "hayMas": False}
+    datos = r.json()
+    assert datos.pop("conversacionId")
+    assert datos == {"respuesta": "Respuesta de prueba.", "proveedor": "groq", "hayMas": False}
 
 
 @pytest.mark.parametrize("ruta", ["/preguntar", "/entender"])
@@ -220,12 +224,13 @@ def test_ver_rechaza_peticiones_invalidas(ia, cuerpo):
 
 def test_cada_ruta_esta_documentada():
     rutas = cliente.get("/openapi.json").json()["paths"]
-    assert set(rutas) == {"/", "/uso", "/preguntar", "/entender", "/ver"}
+    assert set(rutas) == {"/", "/uso", "/panel", "/panel/datos", "/preguntar", "/entender", "/ver", "/documento"}
     for ruta, metodos in rutas.items():
         for metodo, doc in metodos.items():
             assert doc.get("summary") and doc.get("description"), f"{metodo} {ruta} sin texto"
             assert doc.get("tags"), f"{metodo} {ruta} sin etiqueta"
-            assert "schema" in doc["responses"]["200"]["content"]["application/json"]
+            tipo = "text/html" if ruta == "/panel" else "application/json"
+            assert "schema" in doc["responses"]["200"]["content"][tipo]
             if ruta != "/":
                 assert {"401", "429"} <= set(doc["responses"]), f"{metodo} {ruta} sin errores de seguridad"
 
@@ -234,6 +239,7 @@ def test_cada_ruta_esta_documentada():
     ("/preguntar", main.EJEMPLOS_PREGUNTA),
     ("/entender", main.EJEMPLOS_ENTENDER),
     ("/ver", main.EJEMPLOS_IMAGEN),
+    ("/documento", main.EJEMPLOS_DOCUMENTO),
 ])
 def test_los_ejemplos_de_docs_funcionan(ia, ruta, ejemplos):
     # Lo que se ve en /docs con "Try it out" debe responder 200, no un error.
@@ -245,3 +251,41 @@ def test_ejemplo_con_dato_personal_no_sale_a_la_ia(ia):
     r = cliente.post("/preguntar", json=main.EJEMPLOS_PREGUNTA["dato_personal"]["value"])
     assert r.json()["proveedor"] is None
     assert ia.llamadas == []
+
+
+# --- /documento, /estadisticas y /panel ---------------------------------------------
+
+def test_documento_usa_las_instrucciones_de_documento(monkeypatch):
+    llamadas = []
+
+    def falsa(pregunta, contexto, instrucciones=None):
+        llamadas.append((pregunta, contexto, instrucciones))
+        return "Solicitud de permiso\n\nPor medio de la presente...", "groq", False
+
+    monkeypatch.setattr(proveedores, "preguntar_con_respaldo", falsa)
+    r = cliente.post("/documento", json={"pedido": "una carta para faltar el viernes"})
+    assert r.status_code == 200
+    assert r.json() == {
+        "documento": "Solicitud de permiso\n\nPor medio de la presente...", "aviso": None, "proveedor": "groq",
+    }
+    assert llamadas == [("una carta para faltar el viernes", [], proveedores.INSTRUCCIONES_DOCUMENTO)]
+
+
+def test_documento_con_dato_personal_no_sale_a_la_ia(ia):
+    r = cliente.post("/documento", json={"pedido": "una solicitud con mi CURP GODE561231HDFRRN09"})
+    assert r.json() == {"documento": None, "aviso": main.privacidad.MENSAJE_BLOQUEO, "proveedor": None}
+    assert ia.llamadas == []
+
+
+def test_documento_sin_ia_responde_503(monkeypatch):
+    def falla(*args, **kwargs):
+        raise proveedores.ProveedorNoDisponible("prueba")
+
+    monkeypatch.setattr(proveedores, "preguntar_con_respaldo", falla)
+    r = cliente.post("/documento", json={"pedido": "una carta"})
+    assert r.status_code == 503
+    assert r.json()["detail"] == "El asistente no está disponible en este momento."
+
+
+def test_uso_incluye_al_proveedor_de_fotos():
+    assert "groq_vision" in cliente.get("/uso").json()["proveedores"]

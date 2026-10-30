@@ -2,7 +2,14 @@
 
 > Propuesta · Dueño: Módulo 3 (asistente inteligente) · Revisado el 10 oct 2026 contra `6240887` · SQL: [database/servidor.sql](../../database/servidor.sql)
 
-El servidor (`backend/`) todavía **no usa base de datos**. Hoy solo guarda el contador diario en `backend/uso_diario.json` y no guarda las conversaciones. Este es el diseño de las cinco tablas para cuando se guarden.
+**Actualización del 30 oct 2026:** el servidor ya usa tres de las cinco tablas (`backend/db.py`, con Alembic): SQLite en la computadora de cada quien y PostgreSQL en Neon cuando está publicado (decisión 0017). Hay diferencias con el diseño de abajo mientras no existan `usuarios` ni `proveedores`:
+
+- `conversaciones.id` es un UUID al azar (texto), no un entero: es el `conversacionId` que ve la app, y así nadie puede adivinar el de otra persona. `usuario_id` no tiene llave foránea y por ahora siempre es NULL.
+- `mensajes` y `uso_diario` guardan el nombre del proveedor (`groq`, `gemini`, `groq_vision`) en vez de `proveedor_id`.
+- `mensajes` tiene además `ruta` (`preguntar`, `entender`, `ver` o `documento`). De `/ver` y `/documento` se crea una conversación por petición.
+- `mensajes.texto` y `conversaciones.titulo` quedan en NULL salvo con `GUARDAR_TEXTOS=1` (decisión 0005). Lo bloqueado por privacidad, el contexto y las fotos nunca se guardan.
+
+`usuarios` y `proveedores` esperan a que el servidor tenga cuentas.
 
 No son las tablas del Módulo 3 que están en `database/schema.sql` (`consultas_ia`, `respuestas_ia`, `contextos_conversacion`). Esas viven en el teléfono, con Room. Estas otras viven en la computadora donde corre el servidor.
 

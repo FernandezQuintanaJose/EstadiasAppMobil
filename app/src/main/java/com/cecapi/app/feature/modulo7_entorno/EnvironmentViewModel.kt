@@ -5,13 +5,20 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.cecapi.app.core.navigation.CecapiDestinations
 import com.cecapi.app.core.ui.GALLERY_WORDS
+import com.cecapi.app.core.util.ConnectivityObserver
 import com.cecapi.app.core.util.StorageReport
+import com.cecapi.app.core.voice.IntentFallback
 import com.cecapi.app.core.voice.FeedbackCues
 import com.cecapi.app.core.voice.VoiceEngine
 import com.cecapi.app.core.voice.VoiceState
 import com.cecapi.app.core.voice.VoiceText
 import com.cecapi.app.feature.modulo1_aplicacionprincipal.CommandCatalog
 import com.cecapi.app.feature.modulo1_aplicacionprincipal.SessionRepository
+import com.cecapi.app.feature.modulo3_asistenteinteligente.AiAssistantApi
+import com.cecapi.app.feature.modulo3_asistenteinteligente.AiMessages
+import com.cecapi.app.feature.modulo3_asistenteinteligente.FotoParaIa
+import com.cecapi.app.feature.modulo3_asistenteinteligente.ModoVision
+import kotlinx.coroutines.Dispatchers
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -21,6 +28,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import javax.inject.Inject
 
 data class EnvironmentUiState(
@@ -38,7 +46,19 @@ class EnvironmentViewModel @Inject constructor(
     private val repository: EnvironmentRepository,
     private val cues: FeedbackCues,
     private val storageReport: StorageReport,
+    // Módulo 3: describir la última foto con la IA del servidor (/ver), solo si la persona lo pide.
+    private val aiApi: AiAssistantApi,
+    private val intentFallback: IntentFallback,
+    connectivityObserver: ConnectivityObserver,
 ) : ViewModel() {
+
+    private val isOnline: StateFlow<Boolean> = connectivityObserver.observe().stateIn(
+        viewModelScope, SharingStarted.WhileSubscribed(5_000), true,
+    )
+
+    /** La última foto que se describió en el teléfono, y si era de un billete, para mandarla a la IA si la persona lo pide. */
+    private var ultimaFoto: String? = null
+    private var ultimaFueBillete = false
 
     val voiceState: StateFlow<VoiceState> = voiceEngine.state.stateIn(
         viewModelScope, SharingStarted.WhileSubscribed(5_000), VoiceState.Idle,
@@ -79,6 +99,9 @@ class EnvironmentViewModel @Inject constructor(
         when {
             CommandCatalog.isRequest(spoken) -> voiceEngine.speak(CommandCatalog.ENVIRONMENT, listenAfter = true)
             has("atras", "volver", "vuelve", "regresa", "regresar", "salir", "menu", "inicio", "pantalla anterior") -> _back.tryEmit(Unit)
+            // Antes que "describe" y "billete": "describe con la IA" no es tomar otra foto.
+            has("con inteligencia artificial", "con la ia", "con ia", "mas detalle", "mas detalles",
+                "describelo mejor", "describe mejor", "explicame la foto") -> describirConIa()
             has("cuanto llevo", "cuanto dinero llevo", "que llevo", "cuanto suman", "total de billetes", "dime el total") -> decirTotalBilletes()
             has("borra los billetes", "borrar billetes", "limpia los billetes", "empieza de nuevo", "reinicia los billetes", "borrar total") -> reiniciarBilletes()
             has("agrega este billete", "agregar billete", "agrega billete", "suma este billete", "sumar billete", "anota este billete", "anotar billete") -> pedirSumarBillete()
@@ -188,6 +211,51 @@ class EnvironmentViewModel @Inject constructor(
         voiceEngine.speak("Listo. Apunta la cámara y di qué hay enfrente.")
     }
 
+    /**
+     * Manda la última foto a la IA del servidor (`/ver`): en modo billete si la foto era de un billete, y si no,
+     * en modo escena (hasta 3 objetos con su posición). El análisis del teléfono no cambia; esto es una segunda
+     * opinión que la persona pide con la voz, y solo funciona con internet y con la IA activada.
+     */
+    fun describirConIa() {
+        if (_uiState.value.isProcessing) return
+        val foto = ultimaFoto
+        when {
+            foto == null -> {
+                voiceEngine.speak("Primero toma una foto. Di qué hay enfrente.", listenAfter = true)
+                return
+            }
+            !intentFallback.disponible -> {
+                voiceEngine.speak(AiMessages.DISABLED, listenAfter = true)
+                return
+            }
+            !isOnline.value -> {
+                voiceEngine.speak("No hay conexión a internet. La descripción con inteligencia artificial necesita internet.", listenAfter = true)
+                return
+            }
+        }
+        val modo = if (ultimaFueBillete) ModoVision.BILLETE else ModoVision.ESCENA
+        _uiState.value = _uiState.value.copy(isProcessing = true, errorMessage = null)
+        viewModelScope.launch {
+            val jpeg = withContext(Dispatchers.Default) { runCatching { FotoParaIa.desdeArchivo(foto!!) }.getOrNull() }
+            if (jpeg == null) {
+                _uiState.value = _uiState.value.copy(isProcessing = false)
+                voiceEngine.speak("No pude abrir la última foto. Toma otra.", listenAfter = true)
+                return@launch
+            }
+            val resultado = voiceEngine.speakWhile { aiApi.describe(jpeg, modo) }
+            resultado
+                .onSuccess { texto ->
+                    _uiState.value = _uiState.value.copy(isProcessing = false, descripcion = texto)
+                    voiceEngine.speak(texto, listenAfter = true)
+                }
+                .onFailure { error ->
+                    _uiState.value = _uiState.value.copy(isProcessing = false)
+                    cues.play(FeedbackCues.Cue.ERROR)
+                    voiceEngine.speak(AiMessages.forFailure(error), listenAfter = true)
+                }
+        }
+    }
+
     fun repetir() {
         val descripcion = _uiState.value.descripcion
         if (descripcion == null) {
@@ -256,6 +324,8 @@ class EnvironmentViewModel @Inject constructor(
         buscandoBilleteActual = false
         sumandoBilleteActual = false
         voiceEngine.speak(if (buscarBillete) "Leyendo el billete." else "Analizando el entorno.")
+        ultimaFoto = rutaImagen
+        ultimaFueBillete = buscarBillete
         viewModelScope.launch {
             repository.processCapturedPhoto(usuarioId, imageUri, rutaImagen, buscarBillete)
                 .onSuccess { result ->
