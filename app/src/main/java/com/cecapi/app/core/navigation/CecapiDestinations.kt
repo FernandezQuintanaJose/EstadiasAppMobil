@@ -17,6 +17,7 @@ object CecapiDestinations {
     const val DOCUMENT_READER = "document_reader"
     const val REQUESTS = "requests"
     const val LEARNING = "learning"
+    const val JUEGO_CAMARA = "juego_camara"
     const val ENVIRONMENT = "environment"
 
     /** Only for administrador, directivo and educador — never shown or reachable for alumno/usuario. */

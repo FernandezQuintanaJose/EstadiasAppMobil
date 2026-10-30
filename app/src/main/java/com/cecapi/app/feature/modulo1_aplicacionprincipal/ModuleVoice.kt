@@ -29,7 +29,7 @@ object ModuleVoice {
         MenuItem.SETTINGS_KEY to listOf("configuracion", "ajustes", "opciones del telefono", "preferencias"),
         MenuItem.PERSONALIZATION_KEY to listOf("personalizacion", "personalizar", "mi experiencia", "cambia tu voz", "como me hablas", "tu voz"),
         MenuItem.CHATS_KEY to listOf("chats", "chat", "conversaciones", "historial", "consultas anteriores", "lo que te pregunte"),
-        ModuloCecapi.CENTRO_APRENDIZAJE.storageCode to listOf("actividades", "actividad", "ejercicios", "entrenar", "entrenamiento", "juegos", "jugar", "practicar", "sonidos", "vibracion"),
+        ModuloCecapi.CENTRO_APRENDIZAJE.storageCode to listOf("actividades", "actividad", "ejercicios", "entrenar", "entrenamiento", "juegos", "jugar", "practicar", "sonidos", "vibracion", "busca y encuentra"),
         MenuItem.CAMERA_KEY to listOf("camara", "lector", "foto", "fotografia", "escanear", "escanea"),
         ModuloCecapi.CENTRO_SOLICITUDES.storageCode to listOf("consultas", "consulta", "documentos", "documento", "solicitudes", "solicitud", "redacta", "redactar", "escribe una carta", "hazme un documento", "genera un documento"),
     )

@@ -28,6 +28,7 @@ import com.cecapi.app.feature.modulo2_asistentevoz.VoiceAssistantScreen
 import com.cecapi.app.feature.modulo3_asistenteinteligente.AiAssistantScreen
 import com.cecapi.app.feature.modulo4_lectordocumentos.DocumentReaderScreen
 import com.cecapi.app.feature.modulo5_solicitudes.ConsultasScreen
+import com.cecapi.app.feature.modulo6_aprendizaje.JuegoCamaraScreen
 import com.cecapi.app.feature.modulo6_aprendizaje.LearningScreen
 import com.cecapi.app.feature.modulo7_entorno.EnvironmentScreen
 
@@ -183,7 +184,15 @@ fun CecapiNavGraph(navController: NavHostController = rememberNavController()) {
             }
         }
         composable(CecapiDestinations.LEARNING) {
-            WakeScope { LearningScreen(onBack = { navController.popBackStack() }) }
+            WakeScope {
+                LearningScreen(
+                    onBack = { navController.popBackStack() },
+                    onOpen = { route -> navController.navigate(route) },
+                )
+            }
+        }
+        composable(CecapiDestinations.JUEGO_CAMARA) {
+            WakeScope { JuegoCamaraScreen(onBack = { navController.popBackStack() }) }
         }
         composable(CecapiDestinations.ENVIRONMENT) {
             WakeScope {

@@ -29,6 +29,8 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import com.cecapi.app.core.navigation.CecapiDestinations
+import androidx.compose.material.icons.filled.CameraAlt
 import com.cecapi.app.core.theme.ModuleSection
 import com.cecapi.app.core.theme.CecapiBorder
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -114,6 +116,7 @@ import kotlinx.coroutines.launch
 @Composable
 fun LearningScreen(
     onBack: () -> Unit,
+    onOpen: (String) -> Unit = {},
     viewModel: LearningViewModel = hiltViewModel(),
 ) {
     val context = LocalContext.current
@@ -160,7 +163,7 @@ fun LearningScreen(
                         onBack = { recreativas = false },
                         onCommands = viewModel::onCommandsRequested,
                     )
-                    RecreationalPage(modifier = Modifier.weight(1f))
+                    RecreationalPage(onOpen = onOpen, modifier = Modifier.weight(1f))
                 }
                 seleccion != null -> {
                     ScreenTopBar(
@@ -539,9 +542,17 @@ private fun opcionesDe(respuesta: String): List<OpcionDeRespuesta> = when (respu
  * contenido para ir trabajando con el Equipo 4, no algo terminado todavía.
  */
 @Composable
-private fun RecreationalPage(modifier: Modifier = Modifier) {
+private fun RecreationalPage(onOpen: (String) -> Unit, modifier: Modifier = Modifier) {
     val helper = LocalVoiceHelp.current
     ActivityScrollArea(modifier = modifier) {
+        // El juego que sí usa la cámara: la voz da un reto y la persona enseña lo que encontró.
+        BigBtn(
+            icon = Icons.Filled.CameraAlt,
+            label = "Busca y encuentra",
+            sub = "Con la cámara: encuentra colores y objetos",
+            variant = BigBtnVariant.Accent,
+            onClick = { onOpen(CecapiDestinations.JUEGO_CAMARA) },
+        )
         // Un juego al azar, para quien no quiere recorrer toda la lista.
         BigBtn(
             icon = Icons.Filled.SportsEsports,
