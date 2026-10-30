@@ -507,6 +507,9 @@ class DocumentReaderViewModel @Inject constructor(
         }
     }
 
+    /** Botón "Qué hay enfrente" del selector de modo de la cámara. */
+    fun cambiarAEntorno() = cambiarA(CecapiDestinations.ENVIRONMENT, "Cambiando a describir lo que hay enfrente.")
+
     private fun cambiarA(route: String, speech: String) {
         detenerLectura()
         cues.play(FeedbackCues.Cue.NAVIGATE)

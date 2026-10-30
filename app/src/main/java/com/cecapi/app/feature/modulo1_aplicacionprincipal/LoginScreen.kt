@@ -62,6 +62,7 @@ import com.cecapi.app.core.theme.CecapiEyebrowStyle
 import com.cecapi.app.core.theme.CecapiSurface
 import com.cecapi.app.core.theme.CecapiTextMuted
 import com.cecapi.app.core.ui.BigBtn
+import com.cecapi.app.core.ui.desplazableConBarra
 import com.cecapi.app.core.ui.BigBtnVariant
 import com.cecapi.app.core.ui.MicPad
 import com.cecapi.app.core.ui.PantallaConMicrofono
@@ -130,7 +131,7 @@ fun LoginScreen(
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .verticalScroll(rememberScrollState())
+            .desplazableConBarra()
             .padding(horizontal = 24.dp, vertical = 16.dp),
     ) {
         ScreenTopBar(

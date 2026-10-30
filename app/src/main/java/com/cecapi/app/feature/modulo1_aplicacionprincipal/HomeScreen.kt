@@ -47,6 +47,7 @@ import com.cecapi.app.core.theme.CecapiEyebrowStyle
 import com.cecapi.app.core.theme.CecapiTextMuted
 import com.cecapi.app.core.theme.Sections
 import com.cecapi.app.core.ui.BigBtn
+import com.cecapi.app.core.ui.desplazableConBarra
 import com.cecapi.app.core.ui.BigBtnVariant
 import com.cecapi.app.core.ui.MenuItem
 import com.cecapi.app.core.ui.MicPad
@@ -132,7 +133,7 @@ fun HomeScreen(
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .verticalScroll(rememberScrollState())
+            .desplazableConBarra()
             .padding(vertical = 16.dp),
     ) {
         Column(

@@ -41,6 +41,7 @@ import androidx.core.content.ContextCompat
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.cecapi.app.core.theme.CecapiBackground
 import com.cecapi.app.core.ui.ScreenTopBar
+import com.cecapi.app.core.ui.SelectorModoCamara
 import com.cecapi.app.core.ui.CameraViewfinder
 import com.cecapi.app.core.ui.CapturedPhotoPreview
 import com.cecapi.app.core.ui.CaptureButton
@@ -146,6 +147,7 @@ fun EnvironmentScreen(
                 onBack = onBack,
                 onCommands = viewModel::onCommandsRequested,
             )
+            SelectorModoCamara(leyendoTexto = false, onLeerTexto = viewModel::cambiarALectura, onEnfrente = {})
 
             // La foto tiene su propio espacio, separado de los botones: así no se encima con ellos.
             if (photoPath != null) {

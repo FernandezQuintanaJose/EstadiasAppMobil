@@ -35,6 +35,8 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -106,8 +108,21 @@ private val LocalMicAlLado = compositionLocalOf { false }
  * quedan neutras. Cambia cuando una tarjeta recibe el foco, cuando se toca y se mantiene oprimida
  * o al deslizar un dedo a la derecha (siguiente) o a la izquierda (anterior).
  */
-class SeleccionTarjeta {
+class SeleccionTarjeta(private val claveGuardada: MutableState<String?> = mutableStateOf(null)) {
     var actual: Any? by mutableStateOf(null)
+
+    /**
+     * El nombre de la tarjeta elegida. Se guarda con la pantalla, así que al volver de un submódulo se
+     * ilumina la misma tarjeta donde se quedó la persona, no otra vez la primera.
+     */
+    var clave: String?
+        get() = claveGuardada.value
+        set(value) { claveGuardada.value = value }
+
+    fun elegir(tarjeta: Any, nombre: String) {
+        actual = tarjeta
+        clave = nombre
+    }
 
     /** La próxima vez que una tarjeta reciba el foco no se lee en voz alta (foco inicial automático). */
     var silenciar: Boolean = false
@@ -150,7 +165,8 @@ fun PantallaConMicrofono(
     content: @Composable () -> Unit,
 ) {
     val alLado = LocalConfiguration.current.orientation == Configuration.ORIENTATION_LANDSCAPE
-    val seleccion = remember { SeleccionTarjeta() }
+    val claveGuardada = rememberSaveable { mutableStateOf<String?>(null) }
+    val seleccion = remember { SeleccionTarjeta(claveGuardada) }
     val focusManager = LocalFocusManager.current
     val contexto = LocalContext.current
     CompositionLocalProvider(LocalMicAlLado provides alLado, LocalSeleccionTarjeta provides seleccion) {
@@ -436,16 +452,18 @@ fun BigBtn(
         DisposableEffect(seleccion) {
             onDispose { if (seleccion.actual === yo) seleccion.actual = null }
         }
-        if (section != null) {
-            LaunchedEffect(seleccion) {
-                if (seleccion.actual == null) {
-                    seleccion.actual = yo
-                    seleccion.silenciar = true
-                    try {
-                        foco.requestFocus()
-                    } catch (e: Exception) {
-                        seleccion.silenciar = false
-                    }
+        LaunchedEffect(seleccion) {
+            val guardada = seleccion.clave
+            // Al volver a la pantalla se recupera la tarjeta donde estaba la persona; si no hay ninguna
+            // guardada, la primera tarjeta de módulo nace seleccionada.
+            val tomarla = if (guardada != null) guardada == help else section != null && seleccion.actual == null
+            if (tomarla && seleccion.actual == null) {
+                seleccion.elegir(yo, help)
+                seleccion.silenciar = true
+                try {
+                    foco.requestFocus()
+                } catch (e: Exception) {
+                    seleccion.silenciar = false
                 }
             }
         }
@@ -461,7 +479,7 @@ fun BigBtn(
             .focusRequester(foco)
             .onFocusChanged { estado ->
                 if (estado.isFocused) {
-                    if (seleccion != null) seleccion.actual = yo else enFocoLocal = true
+                    if (seleccion != null) seleccion.elegir(yo, help) else enFocoLocal = true
                     if (seleccion?.silenciar == true) {
                         seleccion.silenciar = false
                     } else if (!lectorDePantallaActivo(contexto)) {
@@ -471,9 +489,9 @@ fun BigBtn(
                     enFocoLocal = false
                 }
             }
-            .clickable(enabled = enabled && !locked, onClick = { seleccion?.actual = yo; onClick() })
+            .clickable(enabled = enabled && !locked, onClick = { seleccion?.elegir(yo, help); onClick() })
             .semantics { contentDescription = help }
-            .voiceHint(help, onHold = { seleccion?.actual = yo })
+            .voiceHint(help, onHold = { seleccion?.elegir(yo, help) })
             .padding(
                 top = if (half) 18.dp else 20.dp,
                 start = if (half) 10.dp else 16.dp,

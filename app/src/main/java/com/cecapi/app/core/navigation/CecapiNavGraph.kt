@@ -9,7 +9,6 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import com.cecapi.app.core.ui.WakeScope
-import com.cecapi.app.feature.modulo1_aplicacionprincipal.CameraHubScreen
 import com.cecapi.app.feature.modulo1_aplicacionprincipal.DashboardScreen
 import com.cecapi.app.feature.modulo1_aplicacionprincipal.EditAccountScreen
 import com.cecapi.app.feature.modulo1_aplicacionprincipal.HomeScreen
@@ -138,14 +137,6 @@ fun CecapiNavGraph(navController: NavHostController = rememberNavController()) {
         composable(CecapiDestinations.CHATS) {
             WakeScope {
                 ChatsScreen(
-                    onBack = { navController.popBackStack() },
-                    onOpen = { route -> navController.navigate(route) },
-                )
-            }
-        }
-        composable(CecapiDestinations.CAMERA_HUB) {
-            WakeScope {
-                CameraHubScreen(
                     onBack = { navController.popBackStack() },
                     onOpen = { route -> navController.navigate(route) },
                 )

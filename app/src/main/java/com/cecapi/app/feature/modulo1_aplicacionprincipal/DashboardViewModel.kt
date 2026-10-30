@@ -444,7 +444,7 @@ class DashboardViewModel @Inject constructor(
     private fun onMenuKey(key: String) {
         when (key) {
             MenuItem.SETTINGS_KEY -> onSettingsSelected()
-            MenuItem.CAMERA_KEY -> openRoute(CecapiDestinations.CAMERA_HUB, "Abriendo la cámara.")
+            MenuItem.CAMERA_KEY -> openRoute(CecapiDestinations.DOCUMENT_READER, "Abriendo la cámara. Para saber qué hay enfrente, toca el botón de arriba o dilo.")
             MenuItem.PERSONALIZATION_KEY -> openRoute(CecapiDestinations.PERSONALIZATION, "Abriendo la personalización.")
             MenuItem.CHATS_KEY -> openRoute(CecapiDestinations.CHATS, "Abriendo los chats.")
             else -> ModuloCecapi.fromStorageCode(key)?.let(::onModuleSelected)

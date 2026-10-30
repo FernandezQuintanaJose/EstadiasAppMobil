@@ -83,11 +83,7 @@ class EnvironmentViewModel @Inject constructor(
             has("borra los billetes", "borrar billetes", "limpia los billetes", "empieza de nuevo", "reinicia los billetes", "borrar total") -> reiniciarBilletes()
             has("agrega este billete", "agregar billete", "agrega billete", "suma este billete", "sumar billete", "anota este billete", "anotar billete") -> pedirSumarBillete()
             has("billete", "billetes", "dinero", "cuanto vale", "cuanto dinero") -> pedirCapturaBillete()
-            has("leer texto", "lee", "leer", "texto", "documento") -> {
-                cues.play(FeedbackCues.Cue.NAVIGATE)
-                voiceEngine.speak("Cambiando al lector de texto.")
-                _routes.tryEmit(CecapiDestinations.DOCUMENT_READER)
-            }
+            has("leer texto", "lee", "leer", "texto", "documento") -> cambiarALectura()
             has(*GALLERY_WORDS) -> pedirGaleria()
             has("otra vez", "repite", "repetir", "de nuevo", "dilo") -> repetir()
             has("enfrente", "describe", "descripcion", "foto", "fotografia", "captura", "toma", "analiza",
@@ -199,6 +195,13 @@ class EnvironmentViewModel @Inject constructor(
         } else {
             voiceEngine.speak(descripcion)
         }
+    }
+
+    /** Botón "Leer texto" del selector de modo de la cámara (y la voz). */
+    fun cambiarALectura() {
+        cues.play(FeedbackCues.Cue.NAVIGATE)
+        voiceEngine.speak("Cambiando al lector de texto.")
+        _routes.tryEmit(CecapiDestinations.DOCUMENT_READER)
     }
 
     fun onCommandsRequested() {

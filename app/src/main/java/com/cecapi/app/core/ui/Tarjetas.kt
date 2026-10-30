@@ -9,6 +9,10 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectVerticalDragGestures
 import androidx.compose.foundation.gestures.scrollBy
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
+import androidx.compose.ui.draw.drawWithContent
+import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -28,6 +32,7 @@ import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.TextSnippet
 import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.material3.Icon
@@ -180,13 +185,13 @@ fun TarjetaLectura(
             .border(if (iluminada) 4.dp else 1.dp, if (iluminada) color else CecapiBorder, forma)
             .onFocusChanged { estado ->
                 if (estado.isFocused) {
-                    if (seleccion != null) seleccion.actual = yo else enFocoLocal = true
+                    if (seleccion != null) seleccion.elegir(yo, titulo) else enFocoLocal = true
                     if (!lectorActivo(contexto)) helper?.speak(lectura)
                 } else if (seleccion == null) {
                     enFocoLocal = false
                 }
             }
-            .clickable { seleccion?.actual = yo; helper?.speak(lectura) }
+            .clickable { seleccion?.elegir(yo, titulo); helper?.speak(lectura) }
             .semantics { contentDescription = lectura }
             .padding(16.dp),
         verticalAlignment = Alignment.CenterVertically,
@@ -273,6 +278,89 @@ fun CampoTexto(
             keyboardActions = keyboardActions,
             shape = RoundedCornerShape(16.dp),
             colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = CecapiAccent, unfocusedBorderColor = CecapiTextMuted),
+        )
+    }
+}
+
+/**
+ * Reemplazo directo de `verticalScroll(rememberScrollState())`: además de desplazar, dibuja a la derecha la
+ * barra visible de Actividades y deja arrastrarla con el dedo (franja de 24 dp del borde derecho). Como usa
+ * un estado guardable, al volver a la pantalla el contenido se queda donde estaba.
+ */
+@Composable
+fun Modifier.desplazableConBarra(estado: ScrollState = rememberScrollState()): Modifier {
+    val scope = rememberCoroutineScope()
+    return this
+        .drawWithContent {
+            drawContent()
+            if (estado.maxValue > 0 && estado.maxValue != Int.MAX_VALUE) {
+                val visible = (size.height / (size.height + estado.maxValue.toFloat())).coerceIn(0f, 1f)
+                val altoGuia = (size.height * visible).coerceAtLeast(36.dp.toPx()).coerceAtMost(size.height)
+                val recorrido = (size.height - altoGuia).coerceAtLeast(0f)
+                val guiaY = (estado.value.toFloat() / estado.maxValue) * recorrido
+                val anchoLinea = 6.dp.toPx()
+                val x = size.width - 10.dp.toPx() - anchoLinea / 2f
+                drawRoundRect(
+                    color = CecapiTextMuted.copy(alpha = 0.25f),
+                    topLeft = Offset(x, 0f),
+                    size = Size(anchoLinea, size.height),
+                    cornerRadius = CornerRadius(anchoLinea / 2f),
+                )
+                drawRoundRect(
+                    color = CecapiAccent,
+                    topLeft = Offset(x, guiaY),
+                    size = Size(anchoLinea, altoGuia),
+                    cornerRadius = CornerRadius(anchoLinea / 2f),
+                )
+            }
+        }
+        .pointerInput(estado) {
+            // Solo los toques que empiezan en la franja de la barra la arrastran; el resto desplaza como siempre.
+            awaitEachGesture {
+                val inicio = awaitFirstDown(requireUnconsumed = false, pass = PointerEventPass.Initial)
+                if (estado.maxValue <= 0 || inicio.position.x < size.width - 24.dp.toPx()) return@awaitEachGesture
+                inicio.consume()
+                var anterior = inicio.position.y
+                while (true) {
+                    val evento = awaitPointerEvent(PointerEventPass.Initial)
+                    val cambio = evento.changes.firstOrNull { it.id == inicio.id } ?: break
+                    if (!cambio.pressed) break
+                    val arrastre = cambio.position.y - anterior
+                    anterior = cambio.position.y
+                    cambio.consume()
+                    if (size.height > 0) {
+                        scope.launch { estado.scrollBy(arrastre * (estado.maxValue + size.height).toFloat() / size.height) }
+                    }
+                }
+            }
+        }
+        .verticalScroll(estado)
+}
+
+/**
+ * Una sola cámara con dos modos: leer texto y decir qué hay enfrente. Los dos botones van arriba en las
+ * dos pantallas de cámara; el modo actual se ve encendido y el otro cambia de modo sin volver al menú.
+ */
+@Composable
+fun SelectorModoCamara(leyendoTexto: Boolean, onLeerTexto: () -> Unit, onEnfrente: () -> Unit) {
+    Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+        BigBtn(
+            icon = Icons.Filled.TextSnippet,
+            label = "Leer texto",
+            variant = if (leyendoTexto) BigBtnVariant.Accent else BigBtnVariant.Neutral,
+            half = true,
+            size = BigBtnSize.Secondary,
+            onClick = { if (!leyendoTexto) onLeerTexto() },
+            modifier = Modifier.weight(1f),
+        )
+        BigBtn(
+            icon = Icons.Filled.Visibility,
+            label = "Qué hay enfrente",
+            variant = if (!leyendoTexto) BigBtnVariant.Accent else BigBtnVariant.Neutral,
+            half = true,
+            size = BigBtnSize.Secondary,
+            onClick = { if (leyendoTexto) onEnfrente() },
+            modifier = Modifier.weight(1f),
         )
     }
 }

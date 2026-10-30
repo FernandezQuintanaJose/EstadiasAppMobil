@@ -72,6 +72,7 @@ import com.cecapi.app.core.theme.CecapiTextPrimary
 import com.cecapi.app.core.theme.ModuleCameraAccent
 import com.cecapi.app.core.theme.ModuleLearningAccent
 import com.cecapi.app.core.ui.CameraViewfinder
+import com.cecapi.app.core.ui.SelectorModoCamara
 import com.cecapi.app.core.ui.CaptureButton
 import com.cecapi.app.core.ui.FramingGuide
 import com.cecapi.app.core.ui.TopAction
@@ -190,6 +191,7 @@ fun DocumentReaderScreen(
             listening = voiceState is VoiceState.Listening,
             onGallery = viewModel::pedirGaleria,
             onMic = viewModel::onMicTapped,
+            onEnfrente = viewModel::cambiarAEntorno,
         )
     }
 }
@@ -208,6 +210,7 @@ private fun DocumentCameraScreen(
     listening: Boolean = false,
     onGallery: () -> Unit = {},
     onMic: () -> Unit = {},
+    onEnfrente: () -> Unit = {},
 ) {
     // Analiza la vista previa para guiar por voz hacia dónde mover el teléfono; se apaga al salir de la cámara.
     val framingAnalyzer = remember { TextFramingAnalyzer(onFramingHint) }
@@ -236,6 +239,7 @@ private fun DocumentCameraScreen(
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
             VolverAlMenuButton(onClick = onBack)
+            SelectorModoCamara(leyendoTexto = true, onLeerTexto = {}, onEnfrente = onEnfrente)
 
             Spacer(modifier = Modifier.weight(1f))
 

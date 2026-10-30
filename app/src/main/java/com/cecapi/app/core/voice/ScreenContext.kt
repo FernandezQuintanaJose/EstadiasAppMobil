@@ -22,7 +22,6 @@ class ScreenContext @Inject constructor() {
         CecapiDestinations.SETTINGS -> "configuración"
         CecapiDestinations.PERSONALIZATION -> "personalización"
         CecapiDestinations.CHATS -> "chats"
-        CecapiDestinations.CAMERA_HUB -> "la cámara"
         CecapiDestinations.DOCUMENT_READER -> "el lector de texto"
         CecapiDestinations.ENVIRONMENT -> "la descripción de lo que hay enfrente"
         CecapiDestinations.REQUESTS -> "documentos"
