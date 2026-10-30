@@ -122,6 +122,11 @@ class DeviceSettings @Inject constructor(
 
     suspend fun setBackgroundListening(enabled: Boolean) = context.deviceSettingsStore.edit { it[KEY_BACKGROUND] = enabled }
 
+    /** Si ya se le ofreció a la persona activar el lector de pantalla de Android. Se ofrece una sola vez, la primera que abre la app. */
+    val accessibilityOffered: Flow<Boolean> = data.map { it[KEY_A11Y_OFFERED] ?: false }
+
+    suspend fun setAccessibilityOffered() = context.deviceSettingsStore.edit { it[KEY_A11Y_OFFERED] = true }
+
     suspend fun setHolaEnabled(enabled: Boolean) = context.deviceSettingsStore.edit { it[KEY_HOLA] = enabled }
 
     suspend fun setBlackScreen(enabled: Boolean) = context.deviceSettingsStore.edit { it[KEY_BLACK_SCREEN] = enabled }
@@ -151,6 +156,7 @@ class DeviceSettings @Inject constructor(
         val KEY_ANNOUNCE = booleanPreferencesKey("announce_notifications")
         val KEY_BACKGROUND = booleanPreferencesKey("background_listening")
         val KEY_HOLA = booleanPreferencesKey("hola_enabled")
+        val KEY_A11Y_OFFERED = booleanPreferencesKey("accessibility_offered")
         val KEY_LISTEN_CONSENT = longPreferencesKey("listen_consent_at")
         val KEY_BLACK_SCREEN = booleanPreferencesKey("black_screen")
         val KEY_MIN_BRIGHTNESS = booleanPreferencesKey("min_brightness")

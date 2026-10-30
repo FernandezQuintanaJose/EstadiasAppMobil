@@ -26,7 +26,7 @@ import com.cecapi.app.feature.modulo1_aplicacionprincipal.SettingsScreen
 import com.cecapi.app.feature.modulo2_asistentevoz.VoiceAssistantScreen
 import com.cecapi.app.feature.modulo3_asistenteinteligente.AiAssistantScreen
 import com.cecapi.app.feature.modulo4_lectordocumentos.DocumentReaderScreen
-import com.cecapi.app.feature.modulo5_solicitudes.RequestsScreen
+import com.cecapi.app.feature.modulo5_solicitudes.ConsultasScreen
 import com.cecapi.app.feature.modulo6_aprendizaje.LearningScreen
 import com.cecapi.app.feature.modulo7_entorno.EnvironmentScreen
 
@@ -168,7 +168,7 @@ fun CecapiNavGraph(navController: NavHostController = rememberNavController()) {
             }
         }
         composable(CecapiDestinations.REQUESTS) {
-            WakeScope { RequestsScreen(onBack = { navController.popBackStack() }) }
+            WakeScope { ConsultasScreen(onBack = { navController.popBackStack() }) }
         }
         composable(CecapiDestinations.LEARNING) {
             WakeScope { LearningScreen(onBack = { navController.popBackStack() }) }

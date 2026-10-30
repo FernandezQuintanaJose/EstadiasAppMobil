@@ -74,6 +74,11 @@ object CommandCatalog {
             "Repite la pregunta, para escucharla otra vez. Cancelar, para elegir otra plantilla. " +
             "Atrás, para volver al menú. " + MORE
 
+    const val CONSULTAS =
+        "En consultas puedes decir qué documento necesitas, por ejemplo: una carta para pedir un justificante, " +
+            "y la inteligencia artificial lo genera. Cuando esté listo, di lee el documento, para escucharlo, " +
+            "o nueva consulta, para pedir otro. Atrás, para volver al menú. " + MORE
+
     const val ACTIVITIES =
         "En actividades escuchas un sonido y dices de dónde viene: izquierda, derecha, ambos lados, cerca, lejos, " +
             "de izquierda a derecha o de derecha a izquierda, y en el nivel tres también enfrente o atrás. " +

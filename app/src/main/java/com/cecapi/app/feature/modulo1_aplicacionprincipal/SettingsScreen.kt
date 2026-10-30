@@ -519,7 +519,7 @@ private fun espacio(bytes: Long): String =
     if (bytes >= 1_000_000_000L) "%.1f GB".format(bytes / 1_000_000_000.0) else "%d MB".format(bytes / 1_000_000)
 
 /** Abre los ajustes de accesibilidad de Android, donde se enciende o se apaga TalkBack. */
-private fun abrirAjustesDeAccesibilidad(contexto: Context) {
+internal fun abrirAjustesDeAccesibilidad(contexto: Context) {
     try {
         contexto.startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
     } catch (e: ActivityNotFoundException) {

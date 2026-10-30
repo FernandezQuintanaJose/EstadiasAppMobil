@@ -31,7 +31,7 @@ object ModuleVoice {
         MenuItem.CHATS_KEY to listOf("chats", "chat", "conversaciones", "historial"),
         ModuloCecapi.CENTRO_APRENDIZAJE.storageCode to listOf("actividades", "actividad", "ejercicios", "entrenar", "entrenamiento"),
         MenuItem.CAMERA_KEY to listOf("camara", "lector"),
-        ModuloCecapi.CENTRO_SOLICITUDES.storageCode to listOf("documentos", "solicitudes", "solicitud"),
+        ModuloCecapi.CENTRO_SOLICITUDES.storageCode to listOf("consultas", "consulta", "documentos", "documento", "solicitudes", "solicitud"),
     )
 
     fun isListRequest(spoken: String): Boolean {

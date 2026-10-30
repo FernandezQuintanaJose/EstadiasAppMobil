@@ -75,11 +75,10 @@ object CommandAlternatives {
         Area(
             key = "documents",
             spokenName = "documentos",
-            keywords = listOf("documento", "documentos", "solicitud", "solicitudes", "plantilla", "plantillas"),
-            text = "Documentos. Elegir una plantilla: di su nombre o una palabra del título, como constancia, justificación o apoyo. " +
-                "Repetir la pregunta: repite, repite la pregunta o otra vez. " +
-                "Cambiar de plantilla: cancelar, cancela, reiniciar, otra plantilla o nueva plantilla. " +
-                "Cuando ya está lista: repite, otra vez o lee para escucharla de nuevo. " +
+            keywords = listOf("consulta", "consultas", "documento", "documentos", "solicitud", "solicitudes"),
+            text = "Consultas. Pedir un documento: di qué necesitas, por ejemplo una carta para pedir un justificante. " +
+                "Cuando ya está listo: lee, lee el documento o repite para escucharlo. " +
+                "Pedir otro: nueva consulta, otra consulta o nuevo documento. " +
                 "Volver: atrás, volver, regresa, salir o menú.",
         ),
         Area(
@@ -129,7 +128,7 @@ object CommandAlternatives {
             spokenName = "menú",
             keywords = listOf("menu", "principal", "opciones", "modulos", "abrir"),
             text = "Menú. Ver las opciones: menú, módulos u opciones. " +
-                "Abrir una opción: cámara o lector; documentos, solicitudes o solicitud; actividades, ejercicios o entrenar; " +
+                "Abrir una opción: cámara o lector; consultas, documentos o solicitud; actividades, ejercicios o entrenar; " +
                 "chats, conversaciones o historial; personalización o personalizar; configuración o ajustes. " +
                 "Atajos: qué hay enfrente, describe o entorno abre la descripción; leer texto, lee esto o lee el texto abre el lector. " +
                 "Ponerme nombre: llámate, te llamas o tu nombre es, y el nombre.",
@@ -139,7 +138,7 @@ object CommandAlternatives {
             spokenName = "ayuda y aprendizaje",
             keywords = listOf("ayuda", "tutorial", "aprender", "perfil", "perfiles", "progreso", "donde estoy", "ensename"),
             text = "Ayuda y aprendizaje. Aprender a usar la aplicación: tutorial, cómo se usa, cómo funciona la aplicación o enséñame a usar la aplicación. " +
-                "Una parte en concreto: tutorial de la cámara, de actividades, de documentos, de chats, de personalización, de configuración o de la pantalla negra. " +
+                "Una parte en concreto: tutorial de la cámara, de actividades, de consultas, de chats, de personalización, de configuración o de la pantalla negra. " +
                 "Saber dónde estás: dónde estoy, en qué pantalla estoy o qué pantalla es esta. " +
                 "Tu avance: cómo voy, mi nivel, mi progreso o en qué nivel voy. " +
                 "Hablar más despacio: habla más despacio, habla más lento o más despacio por favor; y más rápido: habla más rápido o hablas muy despacio. " +

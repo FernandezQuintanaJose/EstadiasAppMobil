@@ -12,7 +12,11 @@ import com.cecapi.app.core.util.WikidataFact
 import com.cecapi.app.core.util.WikidataLookup
 import com.cecapi.app.core.util.WikipediaLookup
 import com.cecapi.app.core.voice.VoiceMessages
+import com.cecapi.app.core.util.CrashGuard
 import com.cecapi.app.core.voice.VoiceText
+import android.content.Context
+import android.view.accessibility.AccessibilityManager
+import dagger.hilt.android.qualifiers.ApplicationContext
 import com.cecapi.app.core.voice.AssistantPreferences
 import com.cecapi.app.core.voice.FeedbackCues
 import com.cecapi.app.core.voice.DeviceSettings
@@ -41,11 +45,13 @@ sealed interface HomeNavEvent {
     data object GoToRegister : HomeNavEvent
     data object GoToSettings : HomeNavEvent
     data object ExitApp : HomeNavEvent
+    data object OpenAccessibilitySettings : HomeNavEvent
     data class GoToModule(val route: String) : HomeNavEvent
 }
 
 @HiltViewModel
 class HomeViewModel @Inject constructor(
+    @ApplicationContext private val appContext: Context,
     private val voiceEngine: VoiceEngine,
     private val assistantPreferences: AssistantPreferences,
     private val wakeWordController: WakeWordController,
@@ -78,6 +84,36 @@ class HomeViewModel @Inject constructor(
 
     private var holdingWakeWord = false
 
+    /** True entre que se ofrece activar el lector de pantalla y la respuesta de la persona. */
+    private var offeringAccessibility = false
+
+    private fun screenReaderOn(): Boolean =
+        (appContext.getSystemService(Context.ACCESSIBILITY_SERVICE) as? AccessibilityManager)?.isTouchExplorationEnabled == true
+
+    /**
+     * Sí abre los ajustes de accesibilidad de Android; no lo deja para después. Cualquier otra cosa se toma
+     * como un comando normal, así que quien no contesta no queda atorado. Devuelve true si ya se atendió.
+     */
+    private fun answerAccessibilityOffer(text: String): Boolean {
+        val normalized = VoiceText.normalize(text)
+        when {
+            VoiceText.hasAny(normalized, "si", "claro", "dale", "ok", "okey", "abrelos", "abre", "actívalo", "activalo", "acepto") -> {
+                offeringAccessibility = false
+                voiceEngine.speak("Abriendo los ajustes de accesibilidad de Android. Ahí busca el lector de pantalla y enciéndelo.")
+                _navEvents.tryEmit(HomeNavEvent.OpenAccessibilitySettings)
+            }
+            VoiceText.hasAny(normalized, "no", "luego", "despues", "ahora no", "despues lo hago") -> {
+                offeringAccessibility = false
+                voiceEngine.speak("De acuerdo. Cuando quieras, está en configuración, en lector de pantalla de Android.")
+            }
+            else -> {
+                offeringAccessibility = false
+                return false
+            }
+        }
+        return true
+    }
+
     /** El menú principal. Es igual para todos aquí; el dashboard lo filtra según lo que la cuenta puede usar. */
     val menu: List<MenuItem> = ModuleVoice.menu(ModuloCecapi.entries)
 
@@ -101,7 +137,8 @@ class HomeViewModel @Inject constructor(
             }
             val name = assistantPreferences.assistantName.first()
             val online = connectivityObserver.observe().first()
-            val loggedOut = if (sessionRepository.consumeLogoutNotice()) "Sesión cerrada. " else ""
+            val loggedOut = (if (CrashGuard.consumirAviso(appContext)) "Hubo un problema y volví al inicio. Si se repite, avisa al equipo. " else "") +
+                if (sessionRepository.consumeLogoutNotice()) "Sesión cerrada. " else ""
             val style = deviceSettings.addressStyle.first()
             val intro = loggedOut + if (name.isBlank()) {
                 style.pick(
@@ -118,8 +155,16 @@ class HomeViewModel @Inject constructor(
             }
             // El estado de la conexión solo se menciona cuando hay un problema.
             val offlineNotice = if (online) "" else "$OFFLINE_NOTICE "
+            // La primera vez que se abre la app se sugiere activar el lector de pantalla de Android (TalkBack).
+            // Si ya está encendido no se pregunta, y después solo se puede cambiar desde Configuración.
+            val firstOpen = !deviceSettings.accessibilityOffered.first()
+            if (firstOpen) deviceSettings.setAccessibilityOffered()
+            val offerAccessibility = firstOpen && !screenReaderOn()
+            offeringAccessibility = offerAccessibility
             voiceEngine.speak(
-                intro + offlineNotice + style.pick("Di menú para saber qué puedo hacer.", "Diga menú para saber qué puedo hacer."),
+                intro + offlineNotice + style.pick("Di menú para saber qué puedo hacer.", "Diga menú para saber qué puedo hacer.") +
+                    if (offerAccessibility) " " + style.pick(ACCESSIBILITY_OFFER, ACCESSIBILITY_OFFER_FORMAL) else "",
+                listenAfter = offerAccessibility,
             )
         }
         viewModelScope.launch {
@@ -237,6 +282,7 @@ class HomeViewModel @Inject constructor(
     }
 
     private fun interpretCommand(text: String) {
+        if (offeringAccessibility && answerAccessibilityOffer(text)) return
         if (handlePendingConfirm(text)) return
         when (voiceMemory.repeatKind(text)) {
             VoiceMemory.Repeat.RESPONSE ->
@@ -423,6 +469,13 @@ class HomeViewModel @Inject constructor(
         const val MAX_NAME_LENGTH = 30
         const val OFFLINE_NOTICE =
             "Ahora no tienes conexión a internet, así que mis respuestas pueden ser menos precisas."
+
+        const val ACCESSIBILITY_OFFER =
+            "Te recomiendo activar el lector de pantalla de Android, que te va leyendo cada botón que toques. " +
+                "¿Quieres abrir esos ajustes ahora? Di sí o no."
+        const val ACCESSIBILITY_OFFER_FORMAL =
+            "Le recomiendo activar el lector de pantalla de Android, que le va leyendo cada botón que toque. " +
+                "¿Desea abrir esos ajustes ahora? Diga sí o no."
 
         const val EXIT_CONFIRM_WINDOW_MS = 30_000L
         val EXIT_CONFIRM_WORDS = setOf("si", "cerrar", "cierra", "confirmo", "hazlo", "correcto")

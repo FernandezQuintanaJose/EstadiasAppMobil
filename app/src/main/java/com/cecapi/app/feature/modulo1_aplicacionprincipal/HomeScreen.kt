@@ -94,6 +94,7 @@ fun HomeScreen(
                 is HomeNavEvent.GoToModule -> onNavigateToModule(event.route)
                 HomeNavEvent.GoToSettings -> onNavigateToSettings()
                 HomeNavEvent.ExitApp -> (context as? Activity)?.finishAffinity()
+                HomeNavEvent.OpenAccessibilitySettings -> abrirAjustesDeAccesibilidad(context)
             }
         }
     }

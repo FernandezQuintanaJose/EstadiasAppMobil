@@ -49,9 +49,9 @@ enum class ModuloCecapi(
     CENTRO_SOLICITUDES(
         storageCode = "REQUESTS",
         route = CecapiDestinations.REQUESTS,
-        title = "Documentos",
-        subtitle = "Solicitudes CECAPI",
-        voicePrompt = "Abriendo el centro de solicitudes.",
+        title = "Consultas",
+        subtitle = "Pide y genera documentos",
+        voicePrompt = "Abriendo consultas.",
         accent = ModuleDocumentsAccent,
     ),
     CENTRO_APRENDIZAJE(
