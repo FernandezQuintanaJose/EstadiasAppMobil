@@ -63,6 +63,7 @@ import com.cecapi.app.core.theme.CecapiTextMuted
 import com.cecapi.app.core.ui.BigBtn
 import com.cecapi.app.core.ui.BigBtnVariant
 import com.cecapi.app.core.ui.MicPad
+import com.cecapi.app.core.ui.PantallaConMicrofono
 import com.cecapi.app.core.ui.ScreenTopBar
 import com.cecapi.app.core.ui.voiceHint
 import com.cecapi.app.core.voice.VoiceState
@@ -94,13 +95,12 @@ fun RegisterScreen(
 
     // Mismo micrófono grande y fijo que en el resto de la app — un solo control, siempre en el
     // mismo lugar, para alguien que no ve dónde está un botón chico.
-    Box(modifier = Modifier.fillMaxSize()) {
+    PantallaConMicrofono {
     Column(
         modifier = Modifier
             .fillMaxSize()
             .verticalScroll(rememberScrollState())
-            .padding(horizontal = 24.dp, vertical = 16.dp)
-            .padding(bottom = 250.dp),
+            .padding(horizontal = 24.dp, vertical = 16.dp),
     ) {
         ScreenTopBar(
             eyebrow = "CREAR CUENTA",
@@ -349,7 +349,6 @@ fun RegisterScreen(
                 ) == PackageManager.PERMISSION_GRANTED
                 if (granted) viewModel.onMicTapped() else permissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
             },
-            modifier = Modifier.align(Alignment.BottomCenter),
         )
     }
 }

@@ -41,6 +41,7 @@ import com.cecapi.app.core.theme.CecapiError
 import com.cecapi.app.core.theme.CecapiSurface
 import com.cecapi.app.core.theme.CecapiTextMuted
 import com.cecapi.app.core.ui.MicPad
+import com.cecapi.app.core.ui.PantallaConMicrofono
 import com.cecapi.app.core.ui.NoticeBanner
 import com.cecapi.app.core.ui.ScreenTopBar
 import com.cecapi.app.core.ui.SuggestionChip
@@ -287,12 +288,11 @@ fun ChatsScreen(
 
     LaunchedEffect(Unit) { viewModel.back.collect { onBack() } }
 
-    Box(modifier = Modifier.fillMaxSize()) {
+    PantallaConMicrofono {
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .padding(horizontal = 16.dp, vertical = 16.dp)
-            .padding(bottom = 230.dp),
+            .padding(horizontal = 16.dp, vertical = 16.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
         ScreenTopBar(
@@ -359,7 +359,6 @@ fun ChatsScreen(
             onDoubleTap = viewModel::onMicDoubleTap,
             hint = if (listening) "Escuchando…" else "Di lee el último, o toca aquí",
             onClick = viewModel::onMicTapped,
-            modifier = Modifier.align(Alignment.BottomCenter),
         )
     }
 }

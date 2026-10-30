@@ -52,6 +52,7 @@ import com.cecapi.app.core.theme.CecapiTextMuted
 import com.cecapi.app.core.ui.BigBtn
 import com.cecapi.app.core.ui.BigBtnVariant
 import com.cecapi.app.core.ui.MicPad
+import com.cecapi.app.core.ui.PantallaConMicrofono
 import com.cecapi.app.core.ui.NoticeBanner
 import com.cecapi.app.core.ui.ScreenTopBar
 import com.cecapi.app.core.ui.voiceHint
@@ -76,13 +77,12 @@ fun EditAccountScreen(
     LaunchedEffect(Unit) { viewModel.guardado.collect { editando = false } }
     LaunchedEffect(Unit) { viewModel.errorMensaje.collect { error = it } }
 
-    Box(modifier = Modifier.fillMaxSize()) {
+    PantallaConMicrofono {
         Column(
             modifier = Modifier
                 .fillMaxSize()
                 .verticalScroll(rememberScrollState())
-                .padding(horizontal = 24.dp, vertical = 16.dp)
-                .padding(bottom = 230.dp),
+                .padding(horizontal = 24.dp, vertical = 16.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
             ScreenTopBar(
@@ -186,7 +186,6 @@ fun EditAccountScreen(
             onDoubleTap = viewModel::onMicDoubleTap,
             hint = if (listening) "Escuchando…" else "Toca aquí para hablar",
             onClick = viewModel::onMicTapped,
-            modifier = Modifier.align(Alignment.BottomCenter),
         )
     }
 }

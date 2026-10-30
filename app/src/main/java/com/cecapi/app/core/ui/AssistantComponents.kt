@@ -53,6 +53,17 @@ import androidx.compose.ui.semantics.onClick
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import android.content.res.Configuration
+import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.width
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.compositionLocalOf
+import androidx.compose.ui.layout.Layout
+import androidx.compose.ui.layout.layoutId
+import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.unit.Constraints
+import kotlin.math.roundToInt
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.cecapi.app.core.theme.CecapiAccent
@@ -67,16 +78,76 @@ import com.cecapi.app.core.theme.CecapiTextMuted
 import com.cecapi.app.core.theme.CecapiTextPrimary
 import com.cecapi.app.core.theme.CecapiWarning
 
+/** Si la pantalla está en horizontal el micrófono va a la derecha; la fija [PantallaConMicrofono]. */
+private val LocalMicAlLado = compositionLocalOf { false }
+
+/** Marca el hijo de [PantallaConMicrofono] que es el micrófono. */
+private const val MIC_ID = "zona-microfono"
+
 /**
- * El micrófono es el control principal de toda la app: un botón circular dentro de su propio
- * panel acoplado, que coincide exactamente con el MicBar del prototipo de Figma (círculo de 132dp,
- * anillo pulsante mientras escucha, leyenda "Di lista de comandos" debajo). Se usa en la pantalla de
- * inicio y en el panel de la sesión iniciada, para que ambos se sientan igual.
+ * Parte de la pantalla que se queda para el micrófono: un poco menos de la mitad. Es una
+ * proporción, no una medida en dp, así que se adapta a cualquier teléfono, al texto grande y
+ * a la rotación. En vertical es el alto de abajo; en horizontal, el ancho de la derecha.
+ */
+private const val MIC_FRACCION = 0.42f
+
+/** En tablets y pantallas muy anchas el contenido no pasa de este ancho y queda centrado. */
+private val ANCHO_MAXIMO_CONTENIDO = 720.dp
+
+/**
+ * Pantalla dividida en dos zonas que nunca se encimian:
+ *  - Zona del contenido: todos los hijos menos el [MicPad]. Es la parte que se desplaza.
+ *  - Zona del micrófono: el [MicPad] ocupa todo el [MIC_FRACCION] restante.
  *
- * Posición: el centro del botón queda siempre en la mitad vertical del área que la persona puede
- * tocar (sin la barra de estado ni la de navegación, con sus flechitas o su menú). Quien no ve la
- * pantalla lo busca siempre en el mismo lugar: la altura del panel es fija y no depende del tamaño
- * del texto ni del contenido de la pantalla, así que nada lo mueve.
+ * Vertical: contenido arriba, micrófono abajo. Horizontal: contenido a la izquierda, micrófono a
+ * la derecha, a todo el alto. Los márgenes del sistema ya los pone MainActivity (`safeDrawingPadding`).
+ *
+ * Reemplaza al `Box` con `padding(bottom = 230.dp)` y el panel flotante de antes: aquellas medidas
+ * fijas no se adaptaban a la pantalla, y el contenido seguía "debajo" del panel, aunque no se viera,
+ * con lo que TalkBack podía enfocar elementos tapados.
+ */
+@Composable
+fun PantallaConMicrofono(
+    modifier: Modifier = Modifier,
+    content: @Composable () -> Unit,
+) {
+    val alLado = LocalConfiguration.current.orientation == Configuration.ORIENTATION_LANDSCAPE
+    CompositionLocalProvider(LocalMicAlLado provides alLado) {
+        Layout(content = content, modifier = modifier.fillMaxSize()) { medibles, restricciones ->
+            val ancho = restricciones.maxWidth
+            val alto = restricciones.maxHeight
+            val anchoMic = if (alLado) (ancho * MIC_FRACCION).roundToInt() else ancho
+            val altoMic = if (alLado) alto else (alto * MIC_FRACCION).roundToInt()
+            val anchoContenido = if (alLado) ancho - anchoMic else ancho
+            val altoContenido = if (alLado) alto else alto - altoMic
+            val anchoUtil = minOf(anchoContenido, ANCHO_MAXIMO_CONTENIDO.roundToPx())
+
+            val colocables = medibles.map { medible ->
+                if (medible.layoutId == MIC_ID) {
+                    medible to medible.measure(Constraints.fixed(anchoMic, altoMic))
+                } else {
+                    medible to medible.measure(Constraints.fixed(anchoUtil, altoContenido))
+                }
+            }
+            layout(ancho, alto) {
+                colocables.forEach { (medible, colocable) ->
+                    if (medible.layoutId == MIC_ID) {
+                        colocable.place(x = if (alLado) ancho - anchoMic else 0, y = if (alLado) 0 else alto - altoMic)
+                    } else {
+                        colocable.place(x = (anchoContenido - anchoUtil) / 2, y = 0)
+                    }
+                }
+            }
+        }
+    }
+}
+
+/**
+ * El micrófono es el control principal de toda la app. Va dentro de [PantallaConMicrofono] y
+ * ocupa toda su zona: **toda esa zona es el botón** (tocar una vez para hablar, dos veces para
+ * callar al asistente, mantener para oír la ayuda). Quien no ve la pantalla no tiene que
+ * apuntar a un círculo pequeño. El círculo, la leyenda y el anillo que pulsa al escuchar se
+ * dibujan centrados y se escalan al espacio disponible.
  */
 @Composable
 fun MicPad(
@@ -100,55 +171,55 @@ fun MicPad(
         label = "mic-ring-alpha",
     )
     val helper = LocalVoiceHelp.current
+    val alLado = LocalMicAlLado.current
     val holdHelp = "Este es el micrófono. Tócalo una vez para hablarme y dime lo que necesitas, " +
         "por ejemplo: módulos disponibles, o estado del teléfono. Tócalo dos veces seguidas para que se calle."
 
-    // El contenedor ocupa toda el área tocable pero no atrapa toques: solo el panel responde.
-    Box(modifier = modifier.fillMaxSize().windowInsetsPadding(WindowInsets.systemBars)) {
-    Column(
-        modifier = Modifier
-            .align(Alignment.Center)
-            // El centro del círculo queda a MIC_CENTER_DESDE_ARRIBA del borde superior del panel; se baja el
-            // panel lo que haga falta para que ese centro coincida con la mitad del área tocable.
-            .offset(y = MIC_PANEL_ALTO / 2 - MIC_CENTER_DESDE_ARRIBA + MIC_BAJADA)
-            .fillMaxWidth()
-            .height(MIC_PANEL_ALTO),
-        horizontalAlignment = Alignment.CenterHorizontally,
+    BoxWithConstraints(
+        modifier = modifier
+            .layoutId(MIC_ID)
+            .fillMaxSize()
+            .background(CecapiSurface)
+            .pointerInput(onDoubleTap, holdHelp) {
+                detectTapGestures(
+                    onTap = { onClick() },
+                    onDoubleTap = { onDoubleTap?.invoke() },
+                    onLongPress = { helper?.speak(holdHelp) },
+                )
+            }
+            .semantics {
+                contentDescription = "Micrófono. Toca dos veces para hablar con el asistente."
+                onClick(label = "Hablar") { onClick(); true }
+                onDoubleTap?.let { silence ->
+                    customActions = listOf(
+                        CustomAccessibilityAction("Silenciar al asistente") { silence(); true },
+                    )
+                }
+            },
     ) {
-        HorizontalDivider(color = CecapiBorder, thickness = 1.dp)
+        // Línea que separa el micrófono del contenido: arriba en vertical, a la izquierda en horizontal.
+        if (alLado) {
+            Box(Modifier.align(Alignment.CenterStart).fillMaxHeight().width(1.dp).background(CecapiBorder))
+        } else {
+            Box(Modifier.align(Alignment.TopCenter).fillMaxWidth().height(1.dp).background(CecapiBorder))
+        }
+
+        // El círculo se ajusta al espacio: lo que sobra después de la leyenda y el aire, entre 88 y 176 dp
+        // (220 en pantallas grandes), y nunca más ancho que la zona.
+        val textos = 14.dp + 64.dp + 4.dp + 24.dp
+        val tope = if (maxWidth >= 600.dp || maxHeight >= 600.dp) 220.dp else 176.dp
+        val circulo = (maxHeight - textos - 32.dp).coerceIn(88.dp, tope).coerceAtMost(maxWidth - 48.dp)
+
         Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .weight(1f)
-                .background(CecapiSurface)
-                .padding(top = MIC_PADDING_ARRIBA, start = 24.dp, end = 24.dp),
+            modifier = Modifier.fillMaxSize().padding(horizontal = 24.dp),
+            verticalArrangement = Arrangement.Center,
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
-            Box(
-                modifier = Modifier
-                    .size(132.dp)
-                    .pointerInput(onDoubleTap, holdHelp) {
-                        detectTapGestures(
-                            onTap = { onClick() },
-                            onDoubleTap = { onDoubleTap?.invoke() },
-                            onLongPress = { helper?.speak(holdHelp) },
-                        )
-                    }
-                    .semantics {
-                        contentDescription = "Micrófono. Toca dos veces para hablar con el asistente."
-                        onClick(label = "Hablar") { onClick(); true }
-                        onDoubleTap?.let { silence ->
-                            customActions = listOf(
-                                CustomAccessibilityAction("Silenciar al asistente") { silence(); true },
-                            )
-                        }
-                    },
-                contentAlignment = Alignment.Center,
-            ) {
+            Box(modifier = Modifier.size(circulo), contentAlignment = Alignment.Center) {
                 if (listening) {
                     Box(
                         modifier = Modifier
-                            .size(158.dp)
+                            .size(circulo * 1.2f)
                             .graphicsLayer {
                                 scaleX = ringScale
                                 scaleY = ringScale
@@ -160,7 +231,7 @@ fun MicPad(
                 }
                 Box(
                     modifier = Modifier
-                        .size(132.dp)
+                        .size(circulo)
                         .clip(CircleShape)
                         .background(CecapiBackground)
                         .border(if (listening) 3.dp else 2.dp, if (listening) CecapiAccent else CecapiBorder, CircleShape),
@@ -170,7 +241,7 @@ fun MicPad(
                         imageVector = if (listening) Icons.Filled.MicOff else Icons.Filled.Mic,
                         contentDescription = null,
                         tint = if (listening) CecapiAccent else CecapiTextPrimary,
-                        modifier = Modifier.size(58.dp),
+                        modifier = Modifier.size(circulo * 0.44f),
                     )
                 }
             }
@@ -182,11 +253,7 @@ fun MicPad(
                 textAlign = TextAlign.Center,
                 maxLines = 2,
                 overflow = TextOverflow.Ellipsis,
-                modifier = Modifier
-                    .padding(top = 14.dp)
-                    .height(64.dp)
-                    .fillMaxWidth()
-                    .clickable(onClick = onClick),
+                modifier = Modifier.padding(top = 14.dp).height(64.dp).fillMaxWidth(),
             )
             Text(
                 text = "Di lista de comandos",
@@ -197,17 +264,7 @@ fun MicPad(
             )
         }
     }
-    }
 }
-
-// Medidas fijas del panel del micrófono (dp): 1 divisor + 18 de aire + 132 del círculo + 14 + 64 de la
-// leyenda + 4 + 24 de "Di lista de comandos" + 22 de aire abajo.
-private val MIC_PADDING_ARRIBA = 18.dp
-private val MIC_PANEL_ALTO = 279.dp
-private val MIC_CENTER_DESDE_ARRIBA = 1.dp + MIC_PADDING_ARRIBA + 66.dp
-
-// Un poco por debajo de la mitad exacta (unos 10 px en un teléfono de 2x), para que caiga donde la mano lo espera.
-private val MIC_BAJADA = 5.dp
 
 /** Qué apariencia toma un [BigBtn] cuando no tiene [section]. */
 enum class BigBtnVariant { Neutral, Accent, Danger, Success, Locked }

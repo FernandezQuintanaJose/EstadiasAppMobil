@@ -64,6 +64,7 @@ import com.cecapi.app.core.theme.CecapiTextMuted
 import com.cecapi.app.core.ui.BigBtn
 import com.cecapi.app.core.ui.BigBtnVariant
 import com.cecapi.app.core.ui.MicPad
+import com.cecapi.app.core.ui.PantallaConMicrofono
 import com.cecapi.app.core.ui.ScreenTopBar
 import com.cecapi.app.core.ui.voiceHint
 import com.cecapi.app.core.voice.VoiceState
@@ -125,13 +126,12 @@ fun LoginScreen(
 
     // El micrófono grande y fijo abajo es siempre el mismo control, en el mismo lugar, en toda la
     // app — para alguien invidente eso importa más que el espacio que ocupa.
-    Box(modifier = Modifier.fillMaxSize()) {
+    PantallaConMicrofono {
     Column(
         modifier = Modifier
             .fillMaxSize()
             .verticalScroll(rememberScrollState())
-            .padding(horizontal = 24.dp, vertical = 16.dp)
-            .padding(bottom = 250.dp),
+            .padding(horizontal = 24.dp, vertical = 16.dp),
     ) {
         ScreenTopBar(
             eyebrow = "CUENTA",
@@ -253,7 +253,6 @@ fun LoginScreen(
                 ) == PackageManager.PERMISSION_GRANTED
                 if (granted) viewModel.onMicTapped() else permissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
             },
-            modifier = Modifier.align(Alignment.BottomCenter),
         )
     }
 }

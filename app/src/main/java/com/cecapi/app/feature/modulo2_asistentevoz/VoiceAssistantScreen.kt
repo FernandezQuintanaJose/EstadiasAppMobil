@@ -27,6 +27,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import com.cecapi.app.core.theme.CecapiEyebrowStyle
 import com.cecapi.app.core.theme.CecapiTextMuted
 import com.cecapi.app.core.ui.MicPad
+import com.cecapi.app.core.ui.PantallaConMicrofono
 import com.cecapi.app.core.ui.ScreenTopBar
 import com.cecapi.app.core.ui.VoiceCaptionBubble
 import com.cecapi.app.core.voice.VoiceState
@@ -54,8 +55,8 @@ fun VoiceAssistantScreen(
 
     val listening = voiceState is VoiceState.Listening
 
-    Box(modifier = Modifier.fillMaxSize()) {
-    Column(modifier = Modifier.fillMaxSize().padding(24.dp).padding(bottom = 230.dp)) {
+    PantallaConMicrofono {
+    Column(modifier = Modifier.fillMaxSize().padding(24.dp)) {
         ScreenTopBar(
             eyebrow = "ASISTENTE DE VOZ",
             title = "Comando por voz",
@@ -111,7 +112,6 @@ fun VoiceAssistantScreen(
                 ) == PackageManager.PERMISSION_GRANTED
                 if (granted) viewModel.onMicTapped() else permissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
             },
-            modifier = Modifier.align(Alignment.BottomCenter),
         )
     }
 }
