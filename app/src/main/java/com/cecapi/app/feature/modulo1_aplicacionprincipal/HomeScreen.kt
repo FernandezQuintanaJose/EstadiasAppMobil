@@ -50,6 +50,7 @@ import com.cecapi.app.core.ui.BigBtn
 import com.cecapi.app.core.ui.BigBtnVariant
 import com.cecapi.app.core.ui.MenuItem
 import com.cecapi.app.core.ui.MicPad
+import com.cecapi.app.core.ui.PantallaConMicrofono
 import com.cecapi.app.core.ui.NoticeBanner
 import com.cecapi.app.core.ui.OfflineBanner
 import com.cecapi.app.core.util.openTtsSettings
@@ -126,13 +127,12 @@ fun HomeScreen(
     // La barra del micrófono queda fija sobre el contenido que se desplaza (como en el prototipo de
     // Figma), no en línea dentro del flujo de scroll, para que siempre sea alcanzable sin importar
     // cuánto haya desplazado la persona.
-    Box(modifier = Modifier.fillMaxSize()) {
+    PantallaConMicrofono {
     Column(
         modifier = Modifier
             .fillMaxSize()
             .verticalScroll(rememberScrollState())
-            .padding(vertical = 16.dp)
-            .padding(bottom = 250.dp),
+            .padding(vertical = 16.dp),
     ) {
         Column(
             modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp),
@@ -265,7 +265,6 @@ fun HomeScreen(
                     permissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
                 }
             },
-            modifier = Modifier.align(Alignment.BottomCenter),
         )
     }
 }

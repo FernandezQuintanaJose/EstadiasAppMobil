@@ -4,6 +4,12 @@ import com.cecapi.app.core.theme.CecapiBorder
 import androidx.compose.foundation.border
 import android.Manifest
 import android.os.Build
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.material.icons.filled.Accessibility
+import android.provider.Settings
+import android.content.Intent
+import android.content.Context
+import android.content.ActivityNotFoundException
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
@@ -79,6 +85,7 @@ import com.cecapi.app.core.theme.Sections
 import com.cecapi.app.core.ui.BigBtn
 import com.cecapi.app.core.ui.BigBtnVariant
 import com.cecapi.app.core.ui.MicPad
+import com.cecapi.app.core.ui.PantallaConMicrofono
 import com.cecapi.app.core.ui.NoticeBanner
 import com.cecapi.app.core.ui.ScreenTopBar
 import com.cecapi.app.core.ui.SuggestionChip
@@ -113,6 +120,7 @@ fun SettingsScreen(
     var deletePassword by remember { mutableStateOf("") }
     var deletePasswordVisible by remember { mutableStateOf(false) }
     var sub by remember { mutableStateOf<SettingsSub?>(null) }
+    val contexto = LocalContext.current
 
     var volume by remember { mutableFloatStateOf(viewModel.currentVolumePercent().toFloat()) }
     val voiceState by viewModel.voiceState.collectAsState()
@@ -147,13 +155,12 @@ fun SettingsScreen(
     LaunchedEffect(Unit) { viewModel.listenOutsideRequests.collect { changeListenOutside(it) } }
     LaunchedEffect(Unit) { viewModel.back.collect { onBack() } }
 
-    Box(modifier = Modifier.fillMaxSize()) {
+    PantallaConMicrofono {
     Column(
         modifier = Modifier
             .fillMaxSize()
             .verticalScroll(rememberScrollState())
-            .padding(horizontal = 24.dp, vertical = 16.dp)
-            .padding(bottom = 230.dp),
+            .padding(horizontal = 24.dp, vertical = 16.dp),
         verticalArrangement = Arrangement.spacedBy(20.dp),
     ) {
         when (sub) {
@@ -195,6 +202,15 @@ fun SettingsScreen(
                         modifier = Modifier.weight(1f),
                     )
                 }
+                // TalkBack es el lector de pantalla de Android. Se activa o se apaga en los ajustes del teléfono;
+                // con él encendido, la app sigue iluminando las tarjetas y leyendo en voz alta por su cuenta.
+                BigBtn(
+                    icon = Icons.Filled.Accessibility,
+                    label = "Lector de pantalla de Android",
+                    sub = "Abre los ajustes de Android para activar o apagar TalkBack",
+                    section = Sections.Settings,
+                    onClick = { abrirAjustesDeAccesibilidad(contexto) },
+                )
                 if (user != null) {
                     BigBtn(
                         icon = Icons.Filled.Person,
@@ -417,7 +433,6 @@ fun SettingsScreen(
             onDoubleTap = viewModel::onMicDoubleTap,
             hint = if (listening) "Escuchando…" else "Di cuánto espacio tengo, o toca aquí",
             onClick = viewModel::onMicTapped,
-            modifier = Modifier.align(Alignment.BottomCenter),
         )
     }
 }
@@ -502,3 +517,12 @@ internal fun ActionButton(text: String, help: String, onClick: () -> Unit) {
 /** Tamaño corto para la pantalla: GB o MB. */
 private fun espacio(bytes: Long): String =
     if (bytes >= 1_000_000_000L) "%.1f GB".format(bytes / 1_000_000_000.0) else "%d MB".format(bytes / 1_000_000)
+
+/** Abre los ajustes de accesibilidad de Android, donde se enciende o se apaga TalkBack. */
+private fun abrirAjustesDeAccesibilidad(contexto: Context) {
+    try {
+        contexto.startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+    } catch (e: ActivityNotFoundException) {
+        // Teléfonos sin esa pantalla: no hay nada más que abrir.
+    }
+}
