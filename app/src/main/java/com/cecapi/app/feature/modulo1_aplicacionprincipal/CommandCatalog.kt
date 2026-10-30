@@ -99,7 +99,7 @@ object CommandCatalog {
             "Otra voz, para probar la siguiente voz, o voz anterior. " +
             "Más rápido, más lento, más grave o más agudo, para cambiar cómo hablo. " +
             "Activa o desactiva los sonidos y las vibraciones. Vibración suave, normal o fuerte. " +
-            "Perfil de niño, perfil normal o perfil de persona mayor, para ajustar mi voz a tu edad. " +
+            "Perfil normal o perfil de persona mayor, para ajustar mi voz. " +
             "Pantalla negra, o brillo mínimo. Prueba de voz, para escucharme. Atrás, para volver al menú. " + MORE
 
     const val SETTINGS =
