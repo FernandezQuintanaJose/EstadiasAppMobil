@@ -22,13 +22,14 @@ val LocalVoiceHelp = staticCompositionLocalOf<VoiceHelp?> { null }
 /**
  * Makes a control explain itself out loud, for people who cannot see it:
  * - [focusLabel]: said when the control is selected (a text field gets focus), to say where they are;
- * - [help]: said when the finger stays pressed on it, to say what it is and what it does.
+ * - [help]: said when the finger stays pressed on it, to say what it is and what it does;
+ * - [onHold]: also called when the finger stays pressed (used to light up the card that was held).
  * The press is only observed, never consumed, so a tap still does exactly what it did before.
  */
 @Composable
-fun Modifier.voiceHint(help: String, focusLabel: String? = null): Modifier {
+fun Modifier.voiceHint(help: String, focusLabel: String? = null, onHold: (() -> Unit)? = null): Modifier {
     val helper = LocalVoiceHelp.current
-    val withHold = pointerInput(help) {
+    val withHold = pointerInput(help, onHold) {
         awaitEachGesture {
             awaitFirstDown(requireUnconsumed = false, pass = PointerEventPass.Initial)
             var held = true
@@ -36,7 +37,10 @@ fun Modifier.voiceHint(help: String, focusLabel: String? = null): Modifier {
                 waitForUpOrCancellation(PointerEventPass.Initial)
                 held = false
             }
-            if (held) helper?.speak(help)
+            if (held) {
+                helper?.speak(help)
+                onHold?.invoke()
+            }
         }
     }
     return if (focusLabel == null) {

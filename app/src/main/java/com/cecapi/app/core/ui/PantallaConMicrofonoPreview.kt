@@ -13,6 +13,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.cecapi.app.core.theme.CecapiTheme
+import com.cecapi.app.core.theme.Sections
 
 /**
  * Vistas previas de la pantalla dividida (contenido que se desplaza + micrófono) en celular y
@@ -28,7 +29,7 @@ private fun PantallaDeMuestra() {
                 verticalArrangement = Arrangement.spacedBy(12.dp),
             ) {
                 repeat(10) { n ->
-                    BigBtn(icon = Icons.Filled.Settings, label = "Módulo ${n + 1}", onClick = {})
+                    BigBtn(icon = Icons.Filled.Settings, label = "Módulo ${n + 1}", section = Sections.Camera, onClick = {})
                 }
             }
             MicPad(listening = false, hint = "Di el nombre o toca aquí", onClick = {})

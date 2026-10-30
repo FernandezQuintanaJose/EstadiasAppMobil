@@ -64,6 +64,25 @@ import androidx.compose.ui.layout.layoutId
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.unit.Constraints
 import kotlin.math.roundToInt
+import android.content.Context
+import android.view.accessibility.AccessibilityManager
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
+import androidx.compose.foundation.gestures.detectHorizontalDragGestures
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.focus.FocusDirection
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.input.pointer.PointerEventPass
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalFocusManager
+import kotlin.math.abs
+import kotlinx.coroutines.withTimeoutOrNull
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.cecapi.app.core.theme.CecapiAccent
@@ -80,6 +99,25 @@ import com.cecapi.app.core.theme.CecapiWarning
 
 /** Si la pantalla está en horizontal el micrófono va a la derecha; la fija [PantallaConMicrofono]. */
 private val LocalMicAlLado = compositionLocalOf { false }
+
+/**
+ * Qué tarjeta está "seleccionada" (iluminada) en la pantalla. Se comparte con todos los [BigBtn]
+ * de la [PantallaConMicrofono]: solo una se ilumina a la vez, con el color de su módulo, y las demás
+ * quedan neutras. Cambia cuando una tarjeta recibe el foco, cuando se toca y se mantiene oprimida
+ * o al deslizar un dedo a la derecha (siguiente) o a la izquierda (anterior).
+ */
+class SeleccionTarjeta {
+    var actual: Any? by mutableStateOf(null)
+
+    /** La próxima vez que una tarjeta reciba el foco no se lee en voz alta (foco inicial automático). */
+    var silenciar: Boolean = false
+}
+
+val LocalSeleccionTarjeta = compositionLocalOf<SeleccionTarjeta?> { null }
+
+/** Si TalkBack (el lector de pantalla de Android) está encendido, él lee y dibuja su propio foco. */
+private fun lectorDePantallaActivo(contexto: Context): Boolean =
+    (contexto.getSystemService(Context.ACCESSIBILITY_SERVICE) as? AccessibilityManager)?.isTouchExplorationEnabled == true
 
 /** Marca el hijo de [PantallaConMicrofono] que es el micrófono. */
 private const val MIC_ID = "zona-microfono"
@@ -112,8 +150,31 @@ fun PantallaConMicrofono(
     content: @Composable () -> Unit,
 ) {
     val alLado = LocalConfiguration.current.orientation == Configuration.ORIENTATION_LANDSCAPE
-    CompositionLocalProvider(LocalMicAlLado provides alLado) {
-        Layout(content = content, modifier = modifier.fillMaxSize()) { medibles, restricciones ->
+    val seleccion = remember { SeleccionTarjeta() }
+    val focusManager = LocalFocusManager.current
+    val contexto = LocalContext.current
+    CompositionLocalProvider(LocalMicAlLado provides alLado, LocalSeleccionTarjeta provides seleccion) {
+        Layout(
+            content = content,
+            modifier = modifier
+                .fillMaxSize()
+                // Deslizar un dedo a la derecha pasa a la tarjeta siguiente; a la izquierda, a la anterior (como
+                // el lector de pantalla). Solo si TalkBack está apagado: con TalkBack, él maneja los gestos.
+                // Los deslizamientos que ya usa otro elemento (campos de texto, carruseles) no llegan aquí.
+                .pointerInput(Unit) {
+                    var acumulado = 0f
+                    detectHorizontalDragGestures(
+                        onDragStart = { acumulado = 0f },
+                        onDragCancel = { acumulado = 0f },
+                        onDragEnd = {
+                            if (!lectorDePantallaActivo(contexto) && abs(acumulado) > 72.dp.toPx()) {
+                                focusManager.moveFocus(if (acumulado > 0) FocusDirection.Next else FocusDirection.Previous)
+                            }
+                        },
+                        onHorizontalDrag = { _, delta -> acumulado += delta },
+                    )
+                },
+        ) { medibles, restricciones ->
             val ancho = restricciones.maxWidth
             val alto = restricciones.maxHeight
             val anchoMic = if (alLado) (ancho * MIC_FRACCION).roundToInt() else ancho
@@ -173,16 +234,40 @@ fun MicPad(
     val helper = LocalVoiceHelp.current
     val alLado = LocalMicAlLado.current
     val holdHelp = "Este es el micrófono. Tócalo una vez para hablarme y dime lo que necesitas, " +
-        "por ejemplo: módulos disponibles, o estado del teléfono. Tócalo dos veces seguidas para que se calle."
+        "por ejemplo: módulos disponibles, o estado del teléfono. Tócalo dos veces seguidas, o una vez con " +
+        "dos dedos, para que se calle."
+    // true mientras un toque lleva dos dedos: ese toque calla al asistente y no debe activar el micrófono.
+    val dosDedos = remember { BooleanArray(1) }
 
     BoxWithConstraints(
         modifier = modifier
             .layoutId(MIC_ID)
             .fillMaxSize()
             .background(CecapiSurface)
+            .pointerInput(onDoubleTap) {
+                // Un toque breve con dos dedos calla al asistente. Solo se observa; no consume el toque.
+                awaitEachGesture {
+                    awaitFirstDown(requireUnconsumed = false, pass = PointerEventPass.Initial)
+                    dosDedos[0] = false
+                    var maximo = 1
+                    var terminado = false
+                    withTimeoutOrNull(400) {
+                        while (!terminado) {
+                            val evento = awaitPointerEvent(PointerEventPass.Initial)
+                            val abajo = evento.changes.count { it.pressed }
+                            if (abajo > maximo) {
+                                maximo = abajo
+                                if (maximo >= 2) dosDedos[0] = true
+                            }
+                            if (abajo == 0) terminado = true
+                        }
+                    }
+                    if (terminado && maximo >= 2) onDoubleTap?.invoke()
+                }
+            }
             .pointerInput(onDoubleTap, holdHelp) {
                 detectTapGestures(
-                    onTap = { onClick() },
+                    onTap = { if (!dosDedos[0]) onClick() },
                     onDoubleTap = { onDoubleTap?.invoke() },
                     onLongPress = { helper?.speak(holdHelp) },
                 )
@@ -304,35 +389,91 @@ fun BigBtn(
     half: Boolean = false,
     size: BigBtnSize = BigBtnSize.Standard,
 ) {
-    val tint = section?.color ?: when (variant) {
+    val seleccion = LocalSeleccionTarjeta.current
+    val contexto = LocalContext.current
+    val helper = LocalVoiceHelp.current
+    val yo = remember { Any() }
+    val foco = remember { FocusRequester() }
+    var enFocoLocal by remember { mutableStateOf(false) }
+    // Iluminada = es la tarjeta seleccionada de la pantalla (o, sin pantalla dividida, la que tiene el foco).
+    val iluminado = if (seleccion != null) seleccion.actual === yo else enFocoLocal
+
+    val colorVariante = when (variant) {
         BigBtnVariant.Danger -> CecapiError
         BigBtnVariant.Success -> CecapiSuccess
         BigBtnVariant.Accent -> CecapiAccent
         BigBtnVariant.Locked -> CecapiTextMuted
         BigBtnVariant.Neutral -> CecapiTextPrimary
     }
-    val borderColor = section?.color ?: when (variant) {
-        BigBtnVariant.Danger -> CecapiError
-        BigBtnVariant.Success -> CecapiSuccess
-        BigBtnVariant.Accent -> CecapiAccent
-        else -> CecapiBorder
+    // Con el color de su módulo, o el de su tipo, o el de acento si es un botón neutro.
+    val colorIluminado = section?.color ?: if (variant == BigBtnVariant.Neutral) CecapiAccent else colorVariante
+    // Las tarjetas de módulo son neutras y solo se iluminan con su color cuando están seleccionadas.
+    val tint = if (section != null) (if (iluminado) section.color else CecapiTextPrimary) else colorVariante
+    val borderColor = when {
+        iluminado -> colorIluminado
+        section != null -> CecapiBorder
+        else -> when (variant) {
+            BigBtnVariant.Danger -> CecapiError
+            BigBtnVariant.Success -> CecapiSuccess
+            BigBtnVariant.Accent -> CecapiAccent
+            else -> CecapiBorder
+        }
     }
-    val borderWidth = if (variant == BigBtnVariant.Neutral && section == null) 1.dp else 2.dp
-    val iconBg = section?.bg ?: CecapiSurfaceElevated
+    val borderWidth = when {
+        iluminado -> 4.dp
+        variant == BigBtnVariant.Neutral || section != null -> 1.dp
+        else -> 2.dp
+    }
+    val fondo = if (iluminado) (section?.bg ?: CecapiSurfaceElevated) else CecapiSurface
+    val iconBg = if (iluminado) colorIluminado.copy(alpha = 0.25f) else CecapiSurfaceElevated
     val shape = RoundedCornerShape(20.dp)
     val help = if (sub != null) "$label. $sub" else label
     val locked = variant == BigBtnVariant.Locked
+
+    // La primera tarjeta de módulo de la pantalla nace seleccionada; si la seleccionada deja la
+    // pantalla (cambio de submenú), la siguiente primera toma su lugar.
+    if (seleccion != null) {
+        DisposableEffect(seleccion) {
+            onDispose { if (seleccion.actual === yo) seleccion.actual = null }
+        }
+        if (section != null) {
+            LaunchedEffect(seleccion) {
+                if (seleccion.actual == null) {
+                    seleccion.actual = yo
+                    seleccion.silenciar = true
+                    try {
+                        foco.requestFocus()
+                    } catch (e: Exception) {
+                        seleccion.silenciar = false
+                    }
+                }
+            }
+        }
+    }
 
     Column(
         modifier = modifier
             .fillMaxWidth()
             .clip(shape)
-            .background(CecapiSurface)
+            .background(fondo)
             .border(borderWidth, borderColor, shape)
             .alpha(if (enabled) 1f else 0.4f)
-            .clickable(enabled = enabled && !locked, onClick = onClick)
+            .focusRequester(foco)
+            .onFocusChanged { estado ->
+                if (estado.isFocused) {
+                    if (seleccion != null) seleccion.actual = yo else enFocoLocal = true
+                    if (seleccion?.silenciar == true) {
+                        seleccion.silenciar = false
+                    } else if (!lectorDePantallaActivo(contexto)) {
+                        helper?.speak(help)
+                    }
+                } else if (seleccion == null) {
+                    enFocoLocal = false
+                }
+            }
+            .clickable(enabled = enabled && !locked, onClick = { seleccion?.actual = yo; onClick() })
             .semantics { contentDescription = help }
-            .voiceHint(help)
+            .voiceHint(help, onHold = { seleccion?.actual = yo })
             .padding(
                 top = if (half) 18.dp else 20.dp,
                 start = if (half) 10.dp else 16.dp,
