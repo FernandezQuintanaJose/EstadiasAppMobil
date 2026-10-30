@@ -11,7 +11,8 @@ load_dotenv()
 import db  # noqa: E402
 
 if context.config.config_file_name is not None:
-    fileConfig(context.config.config_file_name)
+    # disable_existing_loggers=False: si no, apaga los logs del servidor (avisos del 80%, errores).
+    fileConfig(context.config.config_file_name, disable_existing_loggers=False)
 
 objetivo = db.metadata
 

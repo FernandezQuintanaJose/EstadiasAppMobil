@@ -45,7 +45,8 @@
   table { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; }
   th, td { text-align: left; padding: 6px 8px; border-bottom: 1px solid var(--borde); }
   td.n, th.n { text-align: right; }
-  td:first-child { white-space: nowrap; }
+  .tabla-ancha td:first-child { white-space: nowrap; }
+  td.n { white-space: nowrap; padding-left: 12px; }
   #estado { min-height: 1.5em; margin: 0 0 16px; }
   #estado.error { color: var(--error); font-weight: 600; }
   .tabla-ancha { overflow-x: auto; }
@@ -55,20 +56,18 @@
 <body>
 <main>
   <h1>Panel de uso del asistente</h1>
-  <p class="sub">Cuántas preguntas recibe el servidor del Módulo 3, qué IA las contesta y cuánto tardan. No guarda textos, fotos ni direcciones IP.</p>
+  <p class="sub">Cuántas peticiones recibe el servidor del Módulo 3, qué IA las contesta y cuánto tardan. Solo números: aquí no se muestran textos, fotos ni direcciones IP.</p>
 
   <form id="forma">
-    <label>Clave de la app
-      <input id="clave" type="password" autocomplete="off" placeholder="Vacía si el servidor no pide clave">
-    </label>
     <label>Periodo
       <select id="dias">
         <option value="1">Hoy</option>
         <option value="7" selected>Últimos 7 días</option>
         <option value="30">Últimos 30 días</option>
+        <option value="90">Últimos 90 días</option>
       </select>
     </label>
-    <button type="submit">Ver</button>
+    <button type="submit">Actualizar</button>
   </form>
 
   <p id="estado" role="status" aria-live="polite"></p>
@@ -84,7 +83,12 @@
     <div class="rejilla" id="desglose"></div>
   </section>
 
-  <section class="tarjeta" aria-labelledby="t-dias">
+  <section class="tarjeta" aria-labelledby="t-actividad">
+    <h2 id="t-actividad">Actividad por día</h2>
+    <div class="tabla-ancha" id="actividad"></div>
+  </section>
+
+  <section class="tarjeta" aria-labelledby="t-dias" style="margin-top:16px">
     <h2 id="t-dias">Peticiones a cada IA por día</h2>
     <div class="tabla-ancha" id="por-dia"></div>
   </section>
@@ -94,23 +98,20 @@
 (() => {
   const $ = (id) => document.getElementById(id);
   const NOMBRES = {
-    groq: "Groq (texto)", groq_vision: "Groq (fotos)", gemini: "Gemini", ninguno: "Sin IA",
-    preguntar: "/preguntar", entender: "/entender", ver: "/ver", documento: "/documento",
-    respuesta: "Contestó la IA", comando: "Abrió un módulo", bloqueado: "Bloqueadas por datos personales",
-    error: "Foto o modo inválido", no_disponible: "Ninguna IA respondió",
+    groq: "Groq (texto)", groq_vision: "Groq (fotos)", gemini: "Gemini",
+    preguntar: "/preguntar", entender: "/entender", ver: "/ver (fotos)", documento: "/documento",
+    preguntas: "Preguntas", comandos: "Abrieron un módulo", bloqueados: "Bloqueadas por datos personales",
+    errores: "Ninguna IA respondió",
   };
   const nombre = (k) => NOMBRES[k] || k;
   const num = (n) => (n ?? 0).toLocaleString("es-MX");
   const esc = (t) => String(t).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
 
-  // La clave solo se recuerda en esta pestaña, nunca en la URL.
-  try { $("clave").value = sessionStorage.getItem("cecapi-clave") || ""; } catch (_) {}
-
-  async function pedir(ruta, clave) {
-    const r = await fetch(ruta, { headers: clave ? { "X-Clave-App": clave } : {}, cache: "no-store" });
-    if (r.status === 401) {
-      throw new Error(clave ? "La clave no coincide con CECAPI_CLAVE_APP del servidor." : "Escribe la clave de la app (CECAPI_CLAVE_APP) y presiona Ver.");
-    }
+  // La clave la pide el navegador (usuario: cualquiera; contraseña: CECAPI_CLAVE_APP) al abrir
+  // /panel, y la reusa en esta petición. Nunca va en la liga.
+  async function pedir(ruta) {
+    const r = await fetch(ruta, { cache: "no-store", credentials: "same-origin" });
+    if (r.status === 401) throw new Error("La clave no coincide con CECAPI_CLAVE_APP. Recarga la página para escribirla de nuevo.");
     if (!r.ok) {
       let detalle = `El servidor respondió ${r.status}.`;
       try { detalle = (await r.json()).detail || detalle; } catch (_) {}
@@ -135,42 +136,48 @@
     return `<div class="tarjeta"><div>${esc(titulo)}</div><div class="cifra">${valor}</div><div class="pie">${esc(pie)}</div></div>`;
   }
 
-  function tarjetaLista(titulo, datos) {
-    const filas = Object.entries(datos).sort((a, b) => b[1] - a[1])
-      .map(([k, v]) => `<tr><td>${esc(nombre(k))}</td><td class="n">${num(v)}</td></tr>`).join("");
-    return `<div class="tarjeta"><h2>${esc(titulo)}</h2>${filas ? `<table><tbody>${filas}</tbody></table>` : '<p class="pie">Sin peticiones.</p>'}</div>`;
+  function tarjetaLista(titulo, filas) {
+    const html = filas.map(([k, v]) => `<tr><td>${esc(k)}</td><td class="n">${esc(v)}</td></tr>`).join("");
+    return `<div class="tarjeta"><h2>${esc(titulo)}</h2>${html ? `<table><tbody>${html}</tbody></table>` : '<p class="pie">Sin datos en este periodo.</p>'}</div>`;
+  }
+
+  function tabla(caption, columnas, filas, vacia) {
+    if (!filas.length) return `<p class="pie">${esc(vacia)}</p>`;
+    return `<table><caption class="oculto">${esc(caption)}</caption><thead><tr>${columnas.map((c, i) => `<th class="${i ? "n" : ""}" scope="col">${esc(c)}</th>`).join("")}</tr></thead>
+      <tbody>${filas.map((f) => `<tr>${f.map((v, i) => `<td class="${i ? "n" : ""}">${esc(v)}</td>`).join("")}</tr>`).join("")}</tbody></table>`;
   }
 
   function tablaPorDia(filas) {
-    if (!filas.length) return '<p class="pie">Sin peticiones en este periodo.</p>';
     const provs = [...new Set(filas.map((f) => f.proveedor))];
-    const fechas = [...new Set(filas.map((f) => f.fecha))].reverse();
+    const fechas = [...new Set(filas.map((f) => f.fecha))];
     const celda = (f, p) => num((filas.find((x) => x.fecha === f && x.proveedor === p) || {}).peticiones);
-    return `<table><caption class="oculto">Peticiones por día y proveedor</caption><thead><tr><th>Día</th>${provs.map((p) => `<th class="n">${esc(nombre(p))}</th>`).join("")}</tr></thead>
-      <tbody>${fechas.map((f) => `<tr><td>${esc(f)}</td>${provs.map((p) => `<td class="n">${celda(f, p)}</td>`).join("")}</tr>`).join("")}</tbody></table>`;
+    return tabla("Peticiones por día y proveedor", ["Día", ...provs.map(nombre)],
+      fechas.map((f) => [f, ...provs.map((p) => celda(f, p))]), "Sin peticiones a la IA en este periodo.");
   }
 
   async function cargar(e) {
     if (e) e.preventDefault();
-    const clave = $("clave").value.trim();
-    const dias = $("dias").value;
-    try { sessionStorage.setItem("cecapi-clave", clave); } catch (_) {}
     $("estado").className = "";
     $("estado").textContent = "Cargando…";
     try {
-      const [uso, est] = await Promise.all([pedir("uso", clave), pedir(`estadisticas?dias=${dias}`, clave)]);
-      $("hoy").innerHTML = Object.entries(uso.proveedores).map(([p, d]) => tarjetaHoy(p, d)).join("");
-      const ms = (v) => (v == null ? "—" : `${num(v)} ms`);
+      const d = await pedir(`panel/datos?dias=${$("dias").value}`);
+      $("hoy").innerHTML = Object.entries(d.hoy.proveedores).map(([p, x]) => tarjetaHoy(p, x)).join("");
+      const respuestas = d.tiempos.reduce((s, t) => s + t.respuestas, 0);
+      const promedio = respuestas ? Math.round(d.tiempos.reduce((s, t) => s + t.promedio_ms * t.respuestas, 0) / respuestas) : null;
+      const peticiones = Object.values(d.por_ruta).reduce((s, n) => s + n, 0);
       $("resumen").innerHTML =
-        tarjetaCifra("Peticiones", num(est.total), est.dias === 1 ? "en las últimas 24 horas" : `en los últimos ${est.dias} días`) +
-        tarjetaCifra("Tiempo con IA", ms(est.promedio_ia_ms), "promedio de las que llamaron a la IA") +
-        tarjetaCifra("Sin respuesta", num(est.por_resultado.no_disponible || 0), "veces que ninguna IA contestó");
+        tarjetaCifra("Peticiones", num(peticiones), `del ${d.desde} al ${d.hasta}`) +
+        tarjetaCifra("Tiempo con IA", promedio == null ? "—" : `${num(promedio)} ms`, "promedio de las respuestas de la IA") +
+        tarjetaCifra("Sin respuesta", num(d.totales.errores), "veces que ninguna IA contestó");
       $("desglose").innerHTML =
-        tarjetaLista("Por ruta", est.por_ruta) +
-        tarjetaLista("Por resultado", est.por_resultado) +
-        tarjetaLista("Por IA", est.por_proveedor);
-      $("por-dia").innerHTML = tablaPorDia(est.uso_por_dia);
-      $("estado").textContent = `Actualizado a las ${new Date().toLocaleTimeString("es-MX")} · día del contador: ${uso.fecha}.`;
+        tarjetaLista("Por ruta", Object.entries(d.por_ruta).map(([k, v]) => [nombre(k), num(v)])) +
+        tarjetaLista("Por resultado", Object.entries(d.totales).map(([k, v]) => [nombre(k), num(v)])) +
+        tarjetaLista("Por IA", d.tiempos.map((t) => [nombre(t.proveedor), `${num(t.respuestas)} · ${num(t.promedio_ms)} ms`]));
+      $("actividad").innerHTML = tabla("Actividad por día", ["Día", "Preguntas", "Comandos", "Bloqueadas", "Sin respuesta"],
+        d.actividad.map((a) => [a.fecha, num(a.preguntas), num(a.comandos), num(a.bloqueados), num(a.errores)]),
+        "Todavía no hay mensajes en este periodo.");
+      $("por-dia").innerHTML = tablaPorDia(d.peticiones);
+      $("estado").textContent = `Actualizado a las ${new Date().toLocaleTimeString("es-MX")} · día del contador: ${d.hoy.fecha}.`;
     } catch (error) {
       $("estado").className = "error";
       $("estado").textContent = error.message;
@@ -178,6 +185,7 @@
   }
 
   $("forma").addEventListener("submit", cargar);
+  $("dias").addEventListener("change", cargar);
   cargar();
 })();
 </script>

@@ -4,7 +4,7 @@ import base64
 import binascii
 import logging
 import time
-from datetime import date, timedelta
+from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import Annotated, Literal
 
@@ -15,15 +15,19 @@ load_dotenv()
 
 from fastapi import Body, Depends, FastAPI, Header, HTTPException, Query, Request  # noqa: E402
 from fastapi.responses import HTMLResponse  # noqa: E402
+from fastapi.security import HTTPBasic, HTTPBasicCredentials  # noqa: E402
 from pydantic import BaseModel, Field, StringConstraints  # noqa: E402
 
 import comandos  # noqa: E402
 import db  # noqa: E402
+import historial  # noqa: E402
 import imagenes  # noqa: E402  (Owen: prepara la foto para /ver)
+import panel  # noqa: E402
 import privacidad  # noqa: E402
 import proveedores  # noqa: E402
 import seguridad  # noqa: E402
 import uso  # noqa: E402
+from historial import Mensaje  # noqa: E402
 from prompts_vision import PROMPT_BILLETE, PROMPT_ESCENA  # noqa: E402
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
@@ -37,6 +41,17 @@ if not proveedores.configurados():
 log.info("Proveedores activos, en orden: %s", [p.nombre for p in proveedores.configurados()])
 if not seguridad.clave_configurada():
     log.warning("CECAPI_CLAVE_APP está vacía: el servidor no pide clave. Ponla antes de publicarlo en internet.")
+
+
+@asynccontextmanager
+async def arranque(_app: FastAPI):
+    """Al prender uvicorn: abre la base (con SQLite crea las tablas) y copia el uso_diario.json de antes."""
+    db.preparar()
+    uso.importar_json()
+    log.info("Base de datos: %s · GUARDAR_TEXTOS=%s",
+             "SQLite local" if db.es_sqlite() else "PostgreSQL", int(historial.guardar_textos()))
+    yield
+    db.reiniciar()
 
 # --- Documentación de /docs ------------------------------------------------------
 # Todo lo que sigue hasta las rutas es lo que FastAPI muestra en /docs y /redoc.
@@ -56,8 +71,15 @@ Por eso todas son cortas, en español de México, sin markdown, y los mensajes d
 - **/preguntar**: responde una pregunta libre con la IA.
 - **/ver**: describe una foto (billete mexicano o lo que hay enfrente).
 - **/documento**: redacta un documento (carta, solicitud...) para la pantalla Consultas.
-- **/uso** y **/estadisticas**: cuántas peticiones lleva cada proveedor y cómo le va al servidor.
-- **/panel**: página para ver lo anterior desde el navegador.
+- **/uso**: cuántas peticiones lleva hoy cada proveedor de IA.
+- **/panel**: página con el uso de los últimos días (solo números); **/panel/datos** lo da en JSON.
+
+### Conversaciones
+Cada respuesta de /preguntar y /entender trae `conversacionId`. Si la app lo manda en la
+siguiente petición, los mensajes se guardan en la misma conversación. Por defecto
+(`GUARDAR_TEXTOS=0`) **no se guarda lo que dijo la persona ni lo que contestó la IA**: solo
+la ruta, el tipo de mensaje, el comando, el proveedor y el tiempo. El `contexto` y las fotos
+nunca se guardan.
 
 ### Proveedores de IA
 Se usan Groq y Gemini, en el orden de `IA_ORDEN`. Si el primero falla o ya gastó su
@@ -71,8 +93,6 @@ límite del día, se prueba el siguiente. El campo `proveedor` de la respuesta d
 - **Privacidad**: si la pregunta trae correo, teléfono, tarjeta, CURP, RFC o contraseña, no
   se manda a la IA y se responde con un aviso. Del `contexto` se quitan las líneas con esos datos.
 - **Fotos**: se enderezan, se reducen y se les quita el EXIF (GPS, modelo del teléfono) antes de mandarlas a la IA.
-- **Registro**: de cada petición solo se guarda la ruta, el resultado, la IA que contestó y cuánto
-  tardó. Nunca el texto, la foto ni la IP.
 """
 
 ETIQUETAS = [
@@ -86,6 +106,7 @@ app = FastAPI(
     description=DESCRIPCION,
     version="1.0.0",
     openapi_tags=ETIQUETAS,
+    lifespan=arranque,
 )
 
 # Cuánto historial se acepta de la app. La IA solo usa las últimas 6 líneas, pero se
@@ -135,6 +156,10 @@ def proteger(
     """Se corre antes de cada ruta protegida: revisa la clave y el límite por minuto."""
     if not seguridad.clave_valida(x_clave_app):
         raise HTTPException(status_code=401, detail="La app no tiene permiso para usar el asistente.")
+    _limitar(request)
+
+
+def _limitar(request: Request) -> None:
     quien = request.client.host if request.client else "desconocido"
     if not seguridad.limitador.permitir(quien):
         log.warning("Límite por minuto alcanzado para %s", quien)
@@ -159,6 +184,11 @@ class Pregunta(BaseModel):
             f"líneas de {MAX_LARGO_LINEA} caracteres). La IA recibe las últimas {LINEAS_QUE_USA_LA_IA}, "
             "sin las que traigan datos personales."
         ),
+    )
+    conversacionId: str | None = Field(
+        default=None, max_length=36,
+        description="El `conversacionId` de la respuesta anterior, para seguir la misma conversación. "
+                    "Si no se manda o no existe, se empieza una nueva.",
     )
 
 
@@ -190,6 +220,12 @@ EJEMPLOS_ENTENDER = {
 }
 
 
+DESCRIPCION_CONVERSACION = (
+    "UUID de la conversación donde se guardó el mensaje. La app lo manda en la siguiente "
+    "petición para seguir la misma. `null` si no se pudo guardar."
+)
+
+
 class Respuesta(BaseModel):
     respuesta: str = Field(description="Texto para decir en voz alta (de una a tres oraciones).")
     proveedor: str | None = Field(
@@ -200,11 +236,13 @@ class Respuesta(BaseModel):
         description="`true` si la IA cree que una explicación más larga le serviría a la persona; "
                     "la app puede ofrecerle escucharla.",
     )
+    conversacionId: str | None = Field(description=DESCRIPCION_CONVERSACION)
 
     model_config = {"json_schema_extra": {"examples": [{
         "respuesta": "Louis Braille fue un francés que inventó el sistema de lectura con puntos en relieve.",
         "proveedor": "groq",
         "hayMas": False,
+        "conversacionId": "3f6c2a1e-8b4d-4c9a-9e2f-5a7b1d0c8e64",
     }]}}
 
 
@@ -219,14 +257,14 @@ class Comando(BaseModel):
                     + ", ".join(f"`{c}`" for c in comandos.MODULOS) + ".",
         examples=["ENVIRONMENT"],
     )
+    conversacionId: str | None = Field(description=DESCRIPCION_CONVERSACION)
 
 
-def _anotar(ruta: str, resultado: str, proveedor: str | None, inicio: float) -> None:
-    """Guarda la petición en la base (sin su contenido). Si la base falla, la persona igual recibe su respuesta."""
-    try:
-        db.anotar_peticion(ruta, resultado, proveedor, round((time.perf_counter() - inicio) * 1000))
-    except Exception:
-        log.exception("No se pudo anotar la petición en la base")
+NO_DISPONIBLE = "El asistente no está disponible en este momento."
+
+
+def _ms(inicio: float) -> int:
+    return round((time.perf_counter() - inicio) * 1000)
 
 
 def _contexto_seguro(body: Pregunta) -> list[str]:
@@ -234,15 +272,31 @@ def _contexto_seguro(body: Pregunta) -> list[str]:
     return privacidad.limpiar_contexto(body.contexto)[-LINEAS_QUE_USA_LA_IA:]
 
 
-def _preguntar(body: Pregunta, ruta: str, inicio: float) -> tuple[str, str, bool]:
+def _bloquear(body: Pregunta, ruta: str) -> dict:
+    """Pregunta con datos personales: no sale a la IA y se guarda sin texto ni título."""
+    conversacion = historial.guardar(ruta, body.conversacionId, [Mensaje("usuario", "bloqueado")])
+    return {"respuesta": privacidad.MENSAJE_BLOQUEO, "proveedor": None, "hayMas": False,
+            "conversacionId": conversacion}
+
+
+def _preguntar(body: Pregunta, ruta: str) -> dict:
+    """Manda la pregunta a la IA y guarda la pregunta y la respuesta (o el error)."""
+    pregunta = Mensaje("usuario", "pregunta", texto=body.pregunta)
+    inicio = time.perf_counter()
     try:
-        resultado = proveedores.preguntar_con_respaldo(body.pregunta, _contexto_seguro(body))
+        respuesta, proveedor, hay_mas = proveedores.preguntar_con_respaldo(body.pregunta, _contexto_seguro(body))
     except proveedores.ProveedorNoDisponible:
-        _anotar(ruta, "no_disponible", None, inicio)
+        historial.guardar(ruta, body.conversacionId, [
+            pregunta, Mensaje("asistente", "error", texto=NO_DISPONIBLE, duracion_ms=_ms(inicio)),
+        ], titulo=body.pregunta)
         # Mensaje genérico hacia la app; el detalle queda solo en el log del servidor.
-        raise HTTPException(status_code=503, detail="El asistente no está disponible en este momento.")
-    _anotar(ruta, "respuesta", resultado[1], inicio)
-    return resultado
+        raise HTTPException(status_code=503, detail=NO_DISPONIBLE)
+    conversacion = historial.guardar(ruta, body.conversacionId, [
+        pregunta,
+        Mensaje("asistente", "respuesta", texto=respuesta, proveedor=proveedor, hay_mas=hay_mas,
+                duracion_ms=_ms(inicio)),
+    ], titulo=body.pregunta)
+    return {"respuesta": respuesta, "proveedor": proveedor, "hayMas": hay_mas, "conversacionId": conversacion}
 
 
 class Estado(BaseModel):
@@ -285,8 +339,7 @@ class Uso(BaseModel):
 )
 def ver_uso():
     """Peticiones de hoy por proveedor (texto y visión); `aviso` se vuelve true al pasar el 80% del límite."""
-    nombres = [n for p in proveedores.PROVEEDORES for n in (p.nombre, p.nombre_vision)]
-    return uso.resumen(list(dict.fromkeys(nombres)))
+    return _uso_hoy()
 
 
 # `def` y no `async def`: los SDK son bloqueantes y así FastAPI los corre en otro hilo
@@ -302,12 +355,9 @@ def responder(body: Annotated[Pregunta, Body(openapi_examples=EJEMPLOS_PREGUNTA)
     Si la pregunta trae datos personales (correo, teléfono, tarjeta, CURP, RFC o
     contraseña) **no se manda a la IA**: se responde con un aviso y `proveedor` es `null`.
     """
-    inicio = time.perf_counter()
     if privacidad.contiene_dato_sensible(body.pregunta):
-        _anotar("preguntar", "bloqueado", None, inicio)
-        return {"respuesta": privacidad.MENSAJE_BLOQUEO, "proveedor": None, "hayMas": False}
-    respuesta, proveedor, hay_mas = _preguntar(body, "preguntar", inicio)
-    return {"respuesta": respuesta, "proveedor": proveedor, "hayMas": hay_mas}
+        return _bloquear(body, "preguntar")
+    return _preguntar(body, "preguntar")
 
 
 @app.post(
@@ -327,18 +377,17 @@ def entender(body: Annotated[Pregunta, Body(openapi_examples=EJEMPLOS_ENTENDER)]
     - `"comando"`: la app abre el módulo de `comando` (ej. `{"tipo": "comando", "comando": "ENVIRONMENT"}`).
     - `"respuesta"`: lo mismo que /preguntar, más `"tipo": "respuesta"`.
     """
-    inicio = time.perf_counter()
     comando = comandos.detectar(body.pregunta)
     if comando:
-        _anotar("entender", "comando", None, inicio)
-        return {"tipo": "comando", "comando": comando}
+        conversacion = historial.guardar("entender", body.conversacionId, [
+            Mensaje("usuario", "comando", texto=body.pregunta, comando=comando),
+        ], titulo=body.pregunta)
+        return {"tipo": "comando", "comando": comando, "conversacionId": conversacion}
 
     if privacidad.contiene_dato_sensible(body.pregunta):
-        _anotar("entender", "bloqueado", None, inicio)
-        return {"tipo": "respuesta", "respuesta": privacidad.MENSAJE_BLOQUEO, "proveedor": None, "hayMas": False}
+        return {"tipo": "respuesta", **_bloquear(body, "entender")}
 
-    respuesta, proveedor, hay_mas = _preguntar(body, "entender", inicio)
-    return {"tipo": "respuesta", "respuesta": respuesta, "proveedor": proveedor, "hayMas": hay_mas}
+    return {"tipo": "respuesta", **_preguntar(body, "entender")}
 
 
 # Largo máximo del texto base64: el mismo límite de imagenes.py (IMAGEN_MAX_MB) pasado a
@@ -411,12 +460,16 @@ def ver(body: Annotated[Imagen, Body(openapi_examples=EJEMPLOS_IMAGEN)]):
     Antes de mandarla, la foto se endereza, se reduce (`IMAGEN_LADO_MAX`) y se le quita el EXIF.
     """
     inicio = time.perf_counter()
+    foto = Mensaje("usuario", "pregunta")  # la foto nunca se guarda
     try:
         respuesta, proveedor = _ver(body)
     except HTTPException as error:
-        _anotar("ver", "no_disponible" if error.status_code == 503 else "error", None, inicio)
+        if error.status_code == 503:
+            historial.guardar("ver", None, [foto, Mensaje("asistente", "error", texto=NO_DISPONIBLE,
+                                                           duracion_ms=_ms(inicio))])
         raise
-    _anotar("ver", "respuesta", proveedor, inicio)
+    historial.guardar("ver", None, [foto, Mensaje("asistente", "respuesta", texto=respuesta, proveedor=proveedor,
+                                                   duracion_ms=_ms(inicio))])
     return {"respuesta": respuesta, "proveedor": proveedor}
 
 
@@ -444,7 +497,7 @@ def _ver(body: Imagen) -> tuple[str, str]:
     try:
         return proveedores.ver_con_respaldo(foto, tipo_mime, prompt)
     except proveedores.ProveedorNoDisponible:
-        raise HTTPException(status_code=503, detail="El asistente no está disponible en este momento.")
+        raise HTTPException(status_code=503, detail=NO_DISPONIBLE)
 
 
 # --- Documentos (pantalla Consultas) ---------------------------------------------
@@ -500,61 +553,138 @@ def documento(body: Annotated[PedidoDocumento, Body(openapi_examples=EJEMPLOS_DO
     privacidad: si el pedido trae CURP, RFC, teléfono, correo, tarjeta o contraseña, no se
     manda a la IA. La persona puede escribir esos datos después, a mano, en el documento.
     """
-    inicio = time.perf_counter()
     if privacidad.contiene_dato_sensible(body.pedido):
-        _anotar("documento", "bloqueado", None, inicio)
+        historial.guardar("documento", None, [Mensaje("usuario", "bloqueado")])
         return {"documento": None, "aviso": privacidad.MENSAJE_BLOQUEO, "proveedor": None}
+    pedido = Mensaje("usuario", "pregunta", texto=body.pedido)
+    inicio = time.perf_counter()
     try:
         texto, proveedor, _ = proveedores.preguntar_con_respaldo(
             body.pedido, [], proveedores.INSTRUCCIONES_DOCUMENTO,
         )
     except proveedores.ProveedorNoDisponible:
-        _anotar("documento", "no_disponible", None, inicio)
-        raise HTTPException(status_code=503, detail="El asistente no está disponible en este momento.")
-    _anotar("documento", "respuesta", proveedor, inicio)
+        historial.guardar("documento", None, [
+            pedido, Mensaje("asistente", "error", texto=NO_DISPONIBLE, duracion_ms=_ms(inicio)),
+        ], titulo=body.pedido)
+        raise HTTPException(status_code=503, detail=NO_DISPONIBLE)
+    historial.guardar("documento", None, [
+        pedido, Mensaje("asistente", "respuesta", texto=texto, proveedor=proveedor, duracion_ms=_ms(inicio)),
+    ], titulo=body.pedido)
     return {"documento": texto, "aviso": None, "proveedor": proveedor}
 
 
 # --- Panel de uso ------------------------------------------------------------------
+# El navegador no puede mandar X-Clave-App por su cuenta, así que el panel también acepta
+# usuario y contraseña del navegador (HTTP Basic): el usuario puede ser cualquiera y la
+# contraseña es CECAPI_CLAVE_APP. La clave nunca va en la liga (quedaría en el historial).
 
-class UsoDelDia(BaseModel):
+class _BasicOpcional(HTTPBasic):
+    """HTTPBasic responde su propio 401 en inglés si el encabezado viene mal formado;
+    así llega como "sin credenciales" y proteger_panel da el mensaje de siempre."""
+
+    async def __call__(self, request: Request) -> HTTPBasicCredentials | None:
+        try:
+            return await super().__call__(request)
+        except HTTPException:
+            return None
+
+
+_basic = _BasicOpcional(auto_error=False, description="Usuario: cualquiera. Contraseña: `CECAPI_CLAVE_APP`.")
+
+
+def proteger_panel(
+    request: Request,
+    credenciales: HTTPBasicCredentials | None = Depends(_basic),
+    x_clave_app: str | None = Header(
+        default=None,
+        description="Clave de la app. También se puede entrar con usuario y contraseña del navegador.",
+    ),
+) -> None:
+    if seguridad.clave_configurada():
+        por_navegador = credenciales is not None and seguridad.clave_valida(credenciales.password)
+        if not (por_navegador or (x_clave_app is not None and seguridad.clave_valida(x_clave_app))):
+            raise HTTPException(
+                status_code=401, detail="La app no tiene permiso para usar el asistente.",
+                headers={"WWW-Authenticate": 'Basic realm="Panel CECAPI", charset="UTF-8"'},
+            )
+    _limitar(request)
+
+
+class TotalesPanel(BaseModel):
+    preguntas: int = Field(description="Preguntas libres, fotos y pedidos de documento (fueron o iban a ir a la IA).")
+    comandos: int = Field(description="Frases que abrieron un módulo de la app.")
+    bloqueados: int = Field(description="Peticiones que no salieron a la IA por traer datos personales.")
+    errores: int = Field(description="Veces que ninguna IA respondió (503).")
+
+
+class ActividadDia(TotalesPanel):
+    fecha: str = Field(description="Día (AAAA-MM-DD).")
+
+
+class PeticionesDia(BaseModel):
     fecha: str
+    proveedor: str = Field(description="`groq`, `groq_vision` o `gemini`.")
+    peticiones: int = Field(description="Peticiones a esa IA ese día, incluidas las que fallaron.")
+
+
+class TiempoProveedor(BaseModel):
     proveedor: str
-    peticiones: int
+    respuestas: int = Field(description="Respuestas que dio esa IA en el periodo.")
+    promedio_ms: int = Field(description="Tiempo promedio de respuesta, en milisegundos.")
 
 
-class Estadisticas(BaseModel):
-    dias: int = Field(description="Cuántos días hacia atrás se contaron (incluye hoy).")
-    total: int = Field(description="Peticiones a /preguntar, /entender, /ver y /documento.")
-    por_ruta: dict[str, int]
-    por_resultado: dict[str, int] = Field(
-        description="`respuesta`, `comando`, `bloqueado` (datos personales), `error` (foto o modo "
-                    "inválido) y `no_disponible` (ninguna IA respondió).",
-    )
-    por_proveedor: dict[str, int] = Field(description="`ninguno` = no se llamó a la IA.")
-    promedio_ms: int | None = Field(description="Tiempo promedio de todas las peticiones.")
-    promedio_ia_ms: int | None = Field(description="Tiempo promedio solo de las que llamaron a la IA.")
-    uso_por_dia: list[UsoDelDia] = Field(description="Peticiones a cada proveedor por día.")
+class Panel(BaseModel):
+    dias: int
+    desde: str = Field(description="Primer día del periodo (AAAA-MM-DD).")
+    hasta: str = Field(description="Último día del periodo: hoy.")
+    hoy: Uso = Field(description="Lo mismo que /uso: peticiones de hoy contra el límite diario.")
+    totales: TotalesPanel
+    por_ruta: dict[str, int] = Field(description="Peticiones de la persona por ruta: preguntar, entender, ver, documento.")
+    actividad: list[ActividadDia] = Field(description="Un renglón por día con mensajes, del más nuevo al más viejo.")
+    peticiones: list[PeticionesDia]
+    tiempos: list[TiempoProveedor]
 
 
-@app.get(
-    "/estadisticas", dependencies=Protegida, tags=["Servidor"], summary="Cómo le va al servidor",
-    response_model=Estadisticas, responses=ERRORES_PROTEGIDA,
-)
-def ver_estadisticas(dias: int = Query(7, ge=1, le=90, description="Días hacia atrás, incluido hoy.")):
-    """Totales de los últimos `dias` días. No incluye textos ni IP: no se guardan."""
-    desde = db.ahora() - timedelta(days=dias)
-    desde_fecha = (date.today() - timedelta(days=dias - 1)).isoformat()
-    return {"dias": dias, **db.estadisticas(desde), "uso_por_dia": db.uso_por_dia(desde_fecha)}
-
-
+Dias = Annotated[int, Query(
+    ge=1, le=panel.DIAS_MAXIMO,
+    description=f"Cuántos días hacia atrás, contando hoy (1 a {panel.DIAS_MAXIMO}).",
+)]
+ERRORES_PANEL = {**ERRORES_PROTEGIDA, 401: _error(
+    "Falta la clave: encabezado `X-Clave-App`, o usuario y contraseña del navegador con la clave como contraseña.",
+    "La app no tiene permiso para usar el asistente.",
+)}
 PANEL_HTML = Path(__file__).with_name("panel.html")
 
 
-@app.get("/panel", tags=["Servidor"], summary="Panel de uso (página web)", response_class=HTMLResponse)
-def panel():
+def _uso_hoy() -> dict:
+    nombres = [n for p in proveedores.PROVEEDORES for n in (p.nombre, p.nombre_vision)]
+    return uso.resumen(list(dict.fromkeys(nombres)))
+
+
+@app.get(
+    "/panel", dependencies=[Depends(proteger_panel)], tags=["Servidor"], summary="Panel de uso (página)",
+    response_class=HTMLResponse, responses=ERRORES_PANEL,
+)
+def ver_panel():
     """
-    Página para ver /uso y /estadisticas desde el navegador. La página no trae datos: los pide
-    con la clave de la app que escribe quien la abre, en el encabezado `X-Clave-App`.
+    Página para abrir en el navegador: uso de hoy contra el límite, peticiones por día y
+    proveedor, tiempo promedio, comandos contra preguntas y bloqueos por privacidad.
+    Solo números: nunca muestra textos. Si el servidor tiene clave, el navegador la pide
+    (usuario: cualquiera; contraseña: `CECAPI_CLAVE_APP`).
     """
-    return HTMLResponse(PANEL_HTML.read_text(encoding="utf-8"), headers={"Cache-Control": "no-store"})
+    return HTMLResponse(PANEL_HTML.read_text(encoding="utf-8"), headers={
+        "Cache-Control": "no-store",
+        "Content-Security-Policy": (
+            "default-src 'none'; style-src 'unsafe-inline'; script-src 'unsafe-inline'; "
+            "connect-src 'self'; img-src data:"
+        ),
+    })
+
+
+@app.get(
+    "/panel/datos", dependencies=[Depends(proteger_panel)], tags=["Servidor"], summary="Panel de uso (JSON)",
+    response_model=Panel, responses=ERRORES_PANEL,
+)
+def ver_panel_datos(dias: Dias = panel.DIAS_POR_DEFECTO):
+    """Los números de /panel, en JSON."""
+    return panel.datos(dias, _uso_hoy())

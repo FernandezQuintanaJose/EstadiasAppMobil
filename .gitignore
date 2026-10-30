@@ -27,5 +27,8 @@ backend/uso_diario.tmp
 # Claude Code local state (worktrees, etc.)
 .claude/
 .pytest_cache/
-backend/cecapi.db
-backend/cecapi.db-journal
+backend/*.db
+backend/*.db-wal
+backend/*.db-shm
+backend/*.db-journal
+backend/uso_diario.json.migrado
