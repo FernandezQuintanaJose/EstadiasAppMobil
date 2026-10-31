@@ -162,7 +162,10 @@ class HomeViewModel @Inject constructor(
             val offerAccessibility = firstOpen && !screenReaderOn()
             offeringAccessibility = offerAccessibility
             voiceEngine.speak(
-                intro + offlineNotice + style.pick("Di menú para saber qué puedo hacer.", "Diga menú para saber qué puedo hacer.") +
+                intro + offlineNotice + style.pick(
+                    "Di menú para saber qué puedo hacer, o guía rápida para aprender a usarme.",
+                    "Diga menú para saber qué puedo hacer, o guía rápida para aprender a usarme.",
+                ) +
                     if (offerAccessibility) " " + style.pick(ACCESSIBILITY_OFFER, ACCESSIBILITY_OFFER_FORMAL) else "",
                 listenAfter = offerAccessibility,
             )
@@ -281,6 +284,12 @@ class HomeViewModel @Inject constructor(
         }
     }
 
+    /** La guía rápida: los puntos del manual de uso, uno tras otro, en voz alta. */
+    private fun guiaRapida() {
+        val guia = ManualDeUso.take(GUIA_RAPIDA_PUNTOS).joinToString(" ") { (titulo, texto) -> "$titulo. $texto" }
+        voiceEngine.speak("Guía rápida. $guia El manual completo está en Ayuda y soporte.", listenAfter = true)
+    }
+
     private fun interpretCommand(text: String) {
         if (offeringAccessibility && answerAccessibilityOffer(text)) return
         if (handlePendingConfirm(text)) return
@@ -343,6 +352,8 @@ class HomeViewModel @Inject constructor(
             }
             VoiceText.hasAny(VoiceText.normalize(text), "crear cuenta", "crea una cuenta", "registrarme", "registrame", "nueva cuenta", "darme de alta") ->
                 onCrearCuentaSelected()
+            VoiceText.hasAny(VoiceText.normalize(text), "guia rapida", "manual", "como se usa", "como te uso", "tutorial", "ensename a usar") ->
+                guiaRapida()
             "ayuda" in text -> voiceEngine.speak(
                 "Soy un asistente para personas invidentes. Puedo abrir la cámara para leer texto o describir lo que hay enfrente, " +
                     "y decirte cómo está tu teléfono. Di menú, estado del teléfono, " +
@@ -474,6 +485,9 @@ class HomeViewModel @Inject constructor(
         const val MAX_NAME_LENGTH = 30
         const val OFFLINE_NOTICE =
             "Ahora no tienes conexión a internet, así que mis respuestas pueden ser menos precisas."
+
+        /** Cuántos puntos del manual dice la guía rápida: lo básico para empezar, sin hacerla larga. */
+        const val GUIA_RAPIDA_PUNTOS = 7
 
         const val ACCESSIBILITY_OFFER =
             "Te recomiendo activar el lector de pantalla de Android, que te va leyendo cada botón que toques. " +

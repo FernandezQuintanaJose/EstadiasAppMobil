@@ -287,7 +287,8 @@ private val PreguntasFrecuentes = listOf(
     "¿Cómo reporto un problema?" to "En Ayuda y soporte, toca Reportar un problema técnico o Reportar con mi voz. Necesitas iniciar sesión.",
 )
 
-private val ManualDeUso = listOf(
+/** También lo lee la guía rápida del inicio ("guía rápida"). */
+internal val ManualDeUso = listOf(
     "La pantalla" to "Arriba está el contenido y abajo, en casi la mitad de la pantalla, el micrófono. Toda esa parte de abajo es el botón: no tienes que atinarle a un círculo.",
     "Micrófono" to "Toca una vez para hablar. Dos toques seguidos, o un toque con dos dedos, me callan. Mantén presionado para escuchar esta ayuda.",
     "Moverte entre botones" to "Desliza un dedo a la derecha para pasar al siguiente botón y a la izquierda para regresar. El botón donde estás se ilumina y te digo su nombre.",

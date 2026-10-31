@@ -40,6 +40,8 @@ import androidx.compose.material3.Switch
 import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material.icons.Icons
+import com.cecapi.app.core.ui.TarjetaLectura
+import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.automirrored.filled.Logout
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
@@ -94,7 +96,7 @@ import com.cecapi.app.core.ui.voiceHint
 import com.cecapi.app.core.voice.VoiceState
 import kotlin.math.roundToInt
 
-private enum class SettingsSub { VOLUMEN, NOTIFICACIONES, ALMACENAMIENTO, PRIVACIDAD }
+private enum class SettingsSub { VOLUMEN, NOTIFICACIONES, ALMACENAMIENTO, PRIVACIDAD, ACERCA }
 
 /**
  * Configuración, como un vestíbulo con una tarjeta por tema en vez de una sola columna larga:
@@ -218,6 +220,30 @@ fun SettingsScreen(
                         onClick = onOpenAccount,
                     )
                 }
+                BigBtn(
+                    icon = Icons.Filled.Info,
+                    label = "Acerca de",
+                    sub = "Versión de la aplicación",
+                    section = Sections.Settings,
+                    onClick = { sub = SettingsSub.ACERCA },
+                )
+            }
+
+            SettingsSub.ACERCA -> {
+                ScreenTopBar(eyebrow = "CONFIGURACIÓN", title = "Acerca de", onBack = { sub = null }, onCommands = viewModel::onCommandsRequested)
+                val version = remember { versionDeLaApp(contexto) }
+                TarjetaLectura(
+                    titulo = "VozAcceso",
+                    cuerpo = "Versión $version. Asistente por voz para personas ciegas o con baja visión, en colaboración con CECAPI.",
+                    icono = Icons.Filled.Info,
+                    section = Sections.Settings,
+                )
+                TarjetaLectura(
+                    titulo = "Ayuda",
+                    cuerpo = "Para dudas o problemas, abre Ayuda y soporte desde el menú: ahí está el manual de uso y puedes reportar un problema.",
+                    icono = Icons.Filled.Accessibility,
+                    section = Sections.Settings,
+                )
             }
 
             SettingsSub.VOLUMEN -> {
@@ -455,4 +481,11 @@ internal fun abrirAjustesDeAccesibilidad(contexto: Context) {
     } catch (e: ActivityNotFoundException) {
         // Teléfonos sin esa pantalla: no hay nada más que abrir.
     }
+}
+
+/** La versión instalada ("1.0"), tal como la ve Android. */
+private fun versionDeLaApp(contexto: Context): String = try {
+    contexto.packageManager.getPackageInfo(contexto.packageName, 0).versionName ?: "desconocida"
+} catch (e: Exception) {
+    "desconocida"
 }
