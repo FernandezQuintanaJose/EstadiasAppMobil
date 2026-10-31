@@ -96,8 +96,8 @@ class JuegoCamaraViewModel @Inject constructor(
             }
             has("siguiente", "otro", "otro reto", "nuevo", "sigue") -> siguienteReto()
             has("repite", "repetir", "otra vez", "cual era", "que busco") -> repetirReto()
-            adivina && _estado.value.fase == FaseJuego.BUSCANDO && texto.isNotBlank() &&
-                !has("siguiente", "repite", "comandos", "ayuda") -> adivinar(hablado)
+            adivina && _estado.value.fase == FaseJuego.BUSCANDO && frasePropuesta(texto) != null ->
+                adivinar(frasePropuesta(texto).orEmpty())
             has("lista de comandos", "comandos", "ayuda") -> voiceEngine.speak(
                 "Di ya lo tengo para tomar la foto, repite para oír el reto otra vez, siguiente para cambiar de reto, o atrás para salir.",
                 listenAfter = true,
@@ -245,8 +245,16 @@ class JuegoCamaraViewModel @Inject constructor(
     }
 
     companion object {
+        private val FRASE_DE_ADIVINANZA = Regex("^(?:creo que (?:es|son)|yo digo(?: que (?:es|son))?|me parece que (?:es|son)|parece(?:n)?|es|son) (.{3,})$")
+
+        /**
+         * Lo que la persona cree que es, solo si lo dijo como una frase ("creo que es una taza", "es una llave").
+         * El ruido o la voz del propio asistente que el micrófono recoja no cuentan como respuesta.
+         */
+        fun frasePropuesta(normalizado: String): String? = FRASE_DE_ADIVINANZA.find(normalizado.trim())?.groupValues?.get(1)?.trim()
+
         const val RETO_ADIVINA =
-            "Toca una cosa sin verla, dime qué crees que es, y luego enséñala a la cámara y di ya lo tengo."
+            "Toca una cosa sin verla y dime qué crees que es, por ejemplo: creo que es una taza. Luego enséñala a la cámara y di ya lo tengo."
 
         /** Adivinó si alguna palabra de lo que dijo (sin artículos) aparece en lo que reconoció la cámara. */
         fun veredictoDeAdivinanza(dicho: String, escena: String): Veredicto {

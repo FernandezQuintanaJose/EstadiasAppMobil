@@ -68,6 +68,9 @@ data class UsuarioEntity(
     /** Opcional: solo sirve para recuperar la contraseña. Nunca se muestra a otras personas. */
     @ColumnInfo(name = "email")
     val email: String? = null,
+    /** Cuándo (epoch millis) confirmó al registrarse que tiene 18 años o más. Nula en cuentas de antes de este campo. */
+    @ColumnInfo(name = "acepto_adulto_en")
+    val aceptoAdultoEn: Long? = null,
     @ColumnInfo(name = "solicita_validacion")
     val solicitaValidacion: Boolean = false,
     /** Un aviso que se le dice a la persona al abrir la app, por ejemplo un cambio de contraseña hecho por un administrador. */

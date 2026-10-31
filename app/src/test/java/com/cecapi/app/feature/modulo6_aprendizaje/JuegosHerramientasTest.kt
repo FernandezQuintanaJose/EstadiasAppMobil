@@ -50,4 +50,13 @@ class JuegosHerramientasTest {
     @Test fun todosLosTiposTienenSuId() {
         JuegoTipo.entries.forEach { assertEquals(it, JuegoTipo.desdeId(it.id)) }
     }
+
+    @Test fun laCajaSoloAceptaUnaFraseExplicita() {
+        assertEquals("una taza", JuegoCamaraViewModel.frasePropuesta("creo que es una taza"))
+        assertEquals("unas llaves", JuegoCamaraViewModel.frasePropuesta("son unas llaves"))
+        assertEquals("un libro", JuegoCamaraViewModel.frasePropuesta("yo digo que es un libro"))
+        assertNull(JuegoCamaraViewModel.frasePropuesta("de ahi empece"))
+        assertNull(JuegoCamaraViewModel.frasePropuesta("ya lo tengo"))
+        assertNull(JuegoCamaraViewModel.frasePropuesta(""))
+    }
 }

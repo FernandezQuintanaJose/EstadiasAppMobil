@@ -103,6 +103,7 @@ class SessionRepository @Inject constructor(
             contrasenaHash = PasswordHasher.hash(PasswordRules.normalize(contrasena)),
             nombreCompleto = nombreCompleto.trim(),
             email = email?.trim()?.ifBlank { null },
+            aceptoAdultoEn = System.currentTimeMillis(),
             institucionSolicitada = institucion.ifBlank { null },
             solicitaValidacion = institucion.isNotBlank(),
             revisionCuenta = "nueva",

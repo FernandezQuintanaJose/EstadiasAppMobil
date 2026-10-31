@@ -434,7 +434,7 @@ class JuegoViewModel @Inject constructor(
     }
 
     private fun generadorDeTonos(): ToneGenerator? = tono ?: try {
-        ToneGenerator(AudioManager.STREAM_MUSIC, 100).also { tono = it }
+        ToneGenerator(AudioManager.STREAM_MUSIC, 55).also { tono = it }
     } catch (e: RuntimeException) {
         null
     }

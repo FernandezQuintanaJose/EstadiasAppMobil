@@ -225,3 +225,10 @@ val MIGRATION_17_18 = object : Migration(17, 18) {
         )
     }
 }
+
+/** v19: se guarda cuándo la persona confirmó, al crear su cuenta, que tiene 18 años o más (las cuentas anteriores quedan en nulo). */
+val MIGRATION_18_19 = object : Migration(18, 19) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL("ALTER TABLE usuarios ADD COLUMN acepto_adulto_en INTEGER")
+    }
+}

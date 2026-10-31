@@ -23,3 +23,4 @@ Una decisión por archivo, numerada, con el formato de [MADR](https://adr.github
 | [0015](0015-lo-no-terminado-se-acumula-con-tope.md) | Lo que no se termina se acumula, con tope de tiempo | 9 oct 2026 | Aceptada |
 | [0016](0016-los-equipos-no-dependen-unos-de-otros.md) | Los equipos no dependen unos de otros; lo de IA es de Neurona | 9 oct 2026 | Aceptada |
 | [0017](0017-base-en-neon-detras-del-servidor.md) | La base va en Neon detrás del servidor propio | 28 oct 2026 | Aceptada |
+| [0018](0018-ubicacion-evaluacion.md) | Ubicación para orientarse: evaluación | 31 oct 2026 | Propuesta, no implementada |

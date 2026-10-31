@@ -22,7 +22,7 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
-private enum class RegisterVoiceTarget { NOMBRE_COMPLETO, USUARIO, CONTRASENA, NONE }
+private enum class RegisterVoiceTarget { NOMBRE_COMPLETO, USUARIO, CONTRASENA, ADULTO, NONE }
 
 /** Por ahora solo hay una institución real; el resto entra como independiente. */
 enum class InstitucionRegistro(val origen: String, val etiqueta: String) {
@@ -38,6 +38,8 @@ data class RegisterUiState(
     /** Opcional: sirve para recuperar la cuenta y, cuando el servidor lo permita, para verificarla con un código. */
     val email: String = "",
     val institucion: InstitucionRegistro = InstitucionRegistro.NINGUNA,
+    /** Confirmó que tiene 18 años o más: sin esto no se crea la cuenta (la aplicación es solo para personas adultas). */
+    val esAdulto: Boolean = false,
     val errorMessage: String? = null,
     val isSubmitting: Boolean = false,
 )
@@ -110,6 +112,18 @@ class RegisterViewModel @Inject constructor(
                 voiceTarget = RegisterVoiceTarget.NONE
                 submit()
             }
+            RegisterVoiceTarget.ADULTO -> when {
+                VoiceText.isNo(texto) -> {
+                    voiceTarget = RegisterVoiceTarget.NONE
+                    voiceEngine.speak("Esta aplicación es solo para personas de 18 años o más, así que no puedo crear la cuenta.")
+                }
+                VoiceText.hasAny(VoiceText.normalize(texto), "si", "claro", "confirmo", "correcto", "tengo", "soy mayor", "mayor de edad") -> {
+                    voiceTarget = RegisterVoiceTarget.NONE
+                    onEsAdultoChange(true)
+                    submit()
+                }
+                else -> voiceEngine.speak("Di sí si tienes 18 años o más, o no.", listenAfter = true)
+            }
             RegisterVoiceTarget.NONE -> voiceEngine.speak(
                 "Ya tengo tus datos. Si algo está mal, corrígelo escribiendo en la pantalla.",
             )
@@ -133,6 +147,7 @@ class RegisterViewModel @Inject constructor(
                 RegisterVoiceTarget.NOMBRE_COMPLETO -> "Di tu nombre completo."
                 RegisterVoiceTarget.USUARIO -> "Di el nombre de usuario que quieres usar."
                 RegisterVoiceTarget.CONTRASENA -> "Di tu contraseña, una frase de al menos quince letras."
+                RegisterVoiceTarget.ADULTO -> "¿Tienes 18 años o más? Di sí o no."
                 RegisterVoiceTarget.NONE -> "Ya tengo tus datos. Si algo está mal, corrígelo escribiendo en la pantalla."
             },
             listenAfter = voiceTarget != RegisterVoiceTarget.NONE,
@@ -171,6 +186,10 @@ class RegisterViewModel @Inject constructor(
         _uiState.value = _uiState.value.copy(confirmarContrasena = value, errorMessage = null)
     }
 
+    fun onEsAdultoChange(value: Boolean) {
+        _uiState.value = _uiState.value.copy(esAdulto = value, errorMessage = null)
+    }
+
     fun onInstitucionChange(value: InstitucionRegistro) {
         _uiState.value = _uiState.value.copy(institucion = value)
     }
@@ -202,6 +221,15 @@ class RegisterViewModel @Inject constructor(
             val message = "El correo no parece válido. Revísalo o déjalo vacío."
             _uiState.value = state.copy(errorMessage = message)
             voiceEngine.speak(message)
+            return
+        }
+
+        if (!state.esAdulto) {
+            // Por voz se pregunta y se espera el sí; por pantalla basta con tocar la confirmación.
+            voiceTarget = RegisterVoiceTarget.ADULTO
+            val message = "Para crear la cuenta confirma que tienes 18 años o más. Di sí, o toca la confirmación."
+            _uiState.value = state.copy(errorMessage = message)
+            voiceEngine.speak(message, listenAfter = true)
             return
         }
 

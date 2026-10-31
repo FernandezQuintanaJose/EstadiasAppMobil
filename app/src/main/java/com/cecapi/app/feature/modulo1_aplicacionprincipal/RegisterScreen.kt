@@ -192,6 +192,16 @@ fun RegisterScreen(
             )
         }
 
+        // La confirmación de edad es un botón grande, no una casilla pequeña: se oye y se toca fácil.
+        BigBtn(
+            icon = if (uiState.esAdulto) Icons.Filled.Check else Icons.Filled.Person,
+            label = if (uiState.esAdulto) "Tengo 18 años o más" else "Confirmo que tengo 18 años o más",
+            sub = if (uiState.esAdulto) "Toca otra vez para quitarlo" else "La aplicación es solo para personas adultas",
+            variant = if (uiState.esAdulto) BigBtnVariant.Success else BigBtnVariant.Neutral,
+            onClick = { viewModel.onEsAdultoChange(!uiState.esAdulto) },
+            modifier = Modifier.padding(top = 24.dp),
+        )
+
         BigBtn(
             icon = Icons.Filled.Check,
             label = if (uiState.isSubmitting) "Creando…" else "Crear mi cuenta",
