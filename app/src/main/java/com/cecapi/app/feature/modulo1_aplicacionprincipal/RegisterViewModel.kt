@@ -162,7 +162,6 @@ class RegisterViewModel @Inject constructor(
     private companion object {
         // Solo frases completas: el nombre o la contraseña de una persona podría contener estas palabras.
         val CANCEL_PHRASES = setOf("cancelar", "cancela", "volver", "vuelve", "atras", "regresar", "regresa", "salir")
-        val EMAIL_REGEX = Regex("""^[^@\s]+@[^@\s]+\.[^@\s]+$""")
         val REPEAT_PHRASES = setOf("repite", "repetir", "otra vez", "de nuevo", "repite la pregunta", "ayuda")
     }
 
@@ -188,6 +187,14 @@ class RegisterViewModel @Inject constructor(
 
     fun onEsAdultoChange(value: Boolean) {
         _uiState.value = _uiState.value.copy(esAdulto = value, errorMessage = null)
+    }
+
+    /** Quien dice ser menor no crea cuenta: se avisa y no se guarda nada. */
+    fun onEsMenor() {
+        voiceTarget = RegisterVoiceTarget.NONE
+        val message = "Esta aplicación es solo para personas de 18 años o más, así que no puedo crear la cuenta."
+        _uiState.value = _uiState.value.copy(esAdulto = false, errorMessage = message)
+        voiceEngine.speak(message)
     }
 
     fun onInstitucionChange(value: InstitucionRegistro) {
@@ -217,8 +224,9 @@ class RegisterViewModel @Inject constructor(
             voiceEngine.speak(message)
             return
         }
-        if (state.email.isNotEmpty() && !EMAIL_REGEX.matches(state.email)) {
-            val message = "El correo no parece válido. Revísalo o déjalo vacío."
+        val problemaCorreo = if (state.email.isNotEmpty()) EmailRules.problem(state.email) else null
+        if (problemaCorreo != null) {
+            val message = "$problemaCorreo O déjalo vacío."
             _uiState.value = state.copy(errorMessage = message)
             voiceEngine.speak(message)
             return

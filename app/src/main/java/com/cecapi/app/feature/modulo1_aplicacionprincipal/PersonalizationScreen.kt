@@ -11,6 +11,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -62,7 +63,7 @@ import androidx.compose.material.icons.filled.Badge
 import androidx.compose.material.icons.filled.RecordVoiceOver
 import com.cecapi.app.core.ui.TarjetaLectura
 import com.cecapi.app.core.ui.CampoTexto
-import com.cecapi.app.core.ui.desplazableConBarra
+import com.cecapi.app.core.ui.ColumnaDesplazable
 import com.cecapi.app.core.ui.BigBtnSize
 import com.cecapi.app.core.ui.BigBtnVariant
 import com.cecapi.app.core.ui.MicPad
@@ -123,13 +124,11 @@ fun PersonalizationScreen(
     }
 
     PantallaConMicrofono {
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .desplazableConBarra()
-                .padding(horizontal = 16.dp, vertical = 16.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp),
-        ) {
+        ColumnaDesplazable(
+        contentPadding = PaddingValues(horizontal = 16.dp, vertical = 16.dp),
+        espacio = Arrangement.spacedBy(12.dp),
+        descripcionBarra = "Barra de desplazamiento",
+    ) {
             when (sub) {
                 null -> {
                     ScreenTopBar(eyebrow = "PERSONALIZACIÓN", title = "Mi experiencia", onBack = onBack, onCommands = viewModel::onCommandsRequested)

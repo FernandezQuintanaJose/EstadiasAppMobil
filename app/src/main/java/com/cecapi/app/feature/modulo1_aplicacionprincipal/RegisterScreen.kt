@@ -8,6 +8,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -62,7 +63,7 @@ import com.cecapi.app.core.theme.CecapiEyebrowStyle
 import com.cecapi.app.core.theme.CecapiSurfaceElevated
 import com.cecapi.app.core.theme.CecapiTextMuted
 import com.cecapi.app.core.ui.BigBtn
-import com.cecapi.app.core.ui.desplazableConBarra
+import com.cecapi.app.core.ui.ColumnaDesplazable
 import com.cecapi.app.core.ui.CampoTexto
 import com.cecapi.app.core.ui.BigBtnVariant
 import com.cecapi.app.core.ui.MicPad
@@ -99,11 +100,10 @@ fun RegisterScreen(
     // Mismo micrófono grande y fijo que en el resto de la app — un solo control, siempre en el
     // mismo lugar, para alguien que no ve dónde está un botón chico.
     PantallaConMicrofono {
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .desplazableConBarra()
-            .padding(horizontal = 24.dp, vertical = 16.dp),
+    ColumnaDesplazable(
+        contentPadding = PaddingValues(horizontal = 24.dp, vertical = 16.dp),
+        espacio = Arrangement.Top,
+        descripcionBarra = "Barra de desplazamiento",
     ) {
         ScreenTopBar(
             eyebrow = "CREAR CUENTA",
@@ -201,6 +201,15 @@ fun RegisterScreen(
             onClick = { viewModel.onEsAdultoChange(!uiState.esAdulto) },
             modifier = Modifier.padding(top = 24.dp),
         )
+        if (!uiState.esAdulto) {
+            BigBtn(
+                icon = Icons.Filled.Person,
+                label = "Tengo menos de 18 años",
+                sub = "No se puede crear la cuenta",
+                onClick = viewModel::onEsMenor,
+                modifier = Modifier.padding(top = 12.dp),
+            )
+        }
 
         BigBtn(
             icon = Icons.Filled.Check,

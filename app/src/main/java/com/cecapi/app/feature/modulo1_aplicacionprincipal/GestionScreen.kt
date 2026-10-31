@@ -19,6 +19,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -55,7 +56,7 @@ import com.cecapi.app.core.theme.CecapiTextMuted
 import com.cecapi.app.core.theme.CecapiBorder
 import com.cecapi.app.core.theme.CecapiWarning
 import com.cecapi.app.core.ui.BigBtn
-import com.cecapi.app.core.ui.desplazableConBarra
+import com.cecapi.app.core.ui.ColumnaDesplazable
 import com.cecapi.app.core.ui.BigBtnSize
 import com.cecapi.app.core.ui.BigBtnVariant
 import com.cecapi.app.core.ui.MicPad
@@ -101,12 +102,10 @@ fun GestionScreen(
     }
 
     PantallaConMicrofono {
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .desplazableConBarra()
-            .padding(horizontal = 16.dp, vertical = 16.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp),
+    ColumnaDesplazable(
+        contentPadding = PaddingValues(horizontal = 16.dp, vertical = 16.dp),
+        espacio = Arrangement.spacedBy(12.dp),
+        descripcionBarra = "Barra de desplazamiento",
     ) {
         if (personaEnEdicion != null) {
             FichaPersona(

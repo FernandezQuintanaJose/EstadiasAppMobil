@@ -17,6 +17,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -85,7 +86,7 @@ import com.cecapi.app.core.theme.CecapiSurfaceElevated
 import com.cecapi.app.core.theme.CecapiTextMuted
 import com.cecapi.app.core.theme.Sections
 import com.cecapi.app.core.ui.BigBtn
-import com.cecapi.app.core.ui.desplazableConBarra
+import com.cecapi.app.core.ui.ColumnaDesplazable
 import com.cecapi.app.core.ui.BigBtnVariant
 import com.cecapi.app.core.ui.MicPad
 import com.cecapi.app.core.ui.PantallaConMicrofono
@@ -157,12 +158,10 @@ fun SettingsScreen(
     LaunchedEffect(Unit) { viewModel.back.collect { onBack() } }
 
     PantallaConMicrofono {
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .desplazableConBarra()
-            .padding(horizontal = 24.dp, vertical = 16.dp),
-        verticalArrangement = Arrangement.spacedBy(20.dp),
+    ColumnaDesplazable(
+        contentPadding = PaddingValues(horizontal = 24.dp, vertical = 16.dp),
+        espacio = Arrangement.spacedBy(20.dp),
+        descripcionBarra = "Barra de desplazamiento",
     ) {
         when (sub) {
             null -> {

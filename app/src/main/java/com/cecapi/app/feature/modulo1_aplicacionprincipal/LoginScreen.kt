@@ -7,6 +7,7 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -62,7 +63,7 @@ import com.cecapi.app.core.theme.CecapiEyebrowStyle
 import com.cecapi.app.core.theme.CecapiSurface
 import com.cecapi.app.core.theme.CecapiTextMuted
 import com.cecapi.app.core.ui.BigBtn
-import com.cecapi.app.core.ui.desplazableConBarra
+import com.cecapi.app.core.ui.ColumnaDesplazable
 import com.cecapi.app.core.ui.BigBtnVariant
 import com.cecapi.app.core.ui.MicPad
 import com.cecapi.app.core.ui.PantallaConMicrofono
@@ -128,11 +129,10 @@ fun LoginScreen(
     // El micrófono grande y fijo abajo es siempre el mismo control, en el mismo lugar, en toda la
     // app — para alguien invidente eso importa más que el espacio que ocupa.
     PantallaConMicrofono {
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .desplazableConBarra()
-            .padding(horizontal = 24.dp, vertical = 16.dp),
+    ColumnaDesplazable(
+        contentPadding = PaddingValues(horizontal = 24.dp, vertical = 16.dp),
+        espacio = Arrangement.Top,
+        descripcionBarra = "Barra de desplazamiento",
     ) {
         ScreenTopBar(
             eyebrow = "CUENTA",

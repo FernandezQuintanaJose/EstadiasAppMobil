@@ -4,12 +4,13 @@ import com.cecapi.app.core.theme.CecapiBorder
 import androidx.compose.foundation.border
 import androidx.compose.material.icons.filled.Close
 import com.cecapi.app.core.ui.BigBtnSize
-import com.cecapi.app.core.ui.desplazableConBarra
+import com.cecapi.app.core.ui.ColumnaDesplazable
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
@@ -67,13 +68,11 @@ fun SoporteScreen(
     LaunchedEffect(Unit) { viewModel.back.collect { onBack() } }
 
     PantallaConMicrofono {
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .desplazableConBarra()
-                .padding(horizontal = 16.dp, vertical = 16.dp),
-            verticalArrangement = Arrangement.spacedBy(14.dp),
-        ) {
+        ColumnaDesplazable(
+        contentPadding = PaddingValues(horizontal = 16.dp, vertical = 16.dp),
+        espacio = Arrangement.spacedBy(14.dp),
+        descripcionBarra = "Barra de desplazamiento",
+    ) {
             ScreenTopBar(
                 eyebrow = "AYUDA",
                 title = "Ayuda y soporte",
