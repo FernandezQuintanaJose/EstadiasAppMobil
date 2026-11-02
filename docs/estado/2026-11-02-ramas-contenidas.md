@@ -1,6 +1,6 @@
 # Ramas que ya están dentro de `main` (2 nov 2026)
 
-> Estado de las ramas al 2 nov 2026, cuando `main` y `desarrollo` van en `8e92f97`. Revisado comparando archivo por archivo y función por función. **Antes de empezar una tarea, parte de `main` actual**; no de una de las ramas viejas de esta lista.
+> Estado de las ramas al 2 nov 2026, cuando `main` y `desarrollo` van en `45f4cb1`. Revisado comparando archivo por archivo y función por función. **Antes de empezar una tarea, parte de `main` actual**; no de una de las ramas viejas de esta lista.
 
 ## Qué hacer si programas sobre una de estas ramas
 
