@@ -21,6 +21,8 @@ abstract class AccesoWidgetProvider(
     @DrawableRes private val icono: Int,
     @StringRes private val descripcion: Int,
     private val requestCode: Int,
+    @DrawableRes private val fondo: Int = R.drawable.widget_mic_background,
+    private val colorTexto: Int = 0xFF0B0B12.toInt(),
 ) : AppWidgetProvider() {
 
     /** Lo que se abre al tocar el botón. */
@@ -34,6 +36,8 @@ abstract class AccesoWidgetProvider(
         val views = RemoteViews(context.packageName, R.layout.widget_single)
         views.setTextViewText(R.id.widget_single_label, context.getString(etiqueta))
         views.setImageViewResource(R.id.widget_single_icon, icono)
+        views.setInt(R.id.widget_single_root, "setBackgroundResource", fondo)
+        views.setTextColor(R.id.widget_single_label, colorTexto)
         views.setContentDescription(R.id.widget_single_root, context.getString(descripcion))
         val flags = PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         views.setOnClickPendingIntent(R.id.widget_single_root, PendingIntent.getActivity(context, requestCode, intencion(context), flags))
@@ -48,7 +52,8 @@ abstract class AccesoWidgetProvider(
 
 /** Un solo botón: abre el asistente ya escuchando. */
 class MicrofonoWidgetProvider : AccesoWidgetProvider(
-    R.string.widget_talk, R.drawable.ic_widget_mic, R.string.widget_talk_description, requestCode = 10,
+    R.string.widget_talk, R.drawable.ic_logo_marca, R.string.widget_talk_description, requestCode = 10,
+    fondo = R.drawable.widget_background, colorTexto = 0xFFF5F5FA.toInt(),
 ) {
     override fun intencion(context: Context): Intent = abrir(context, MainActivity.ACTION_LISTEN)
 }

@@ -4,8 +4,8 @@
 
 ## Por pedido de Pp (después de las cuentas)
 
-- **Widgets:** cambiar y agregar más opciones. Hoy hay uno con Hablar, Estado y Avisos. Falta, por ejemplo, uno solo con el micrófono y otro que vaya directo a Actividades.
-- **Logo de la app:** el actual no convence del todo; hay que proponer otro.
+- ~~Widgets~~ Hecho el 2 nov: solo micrófono, Actividades y Cámara.
+- ~~Logo~~ Hecho el 2 nov: la propuesta A (micrófono con ondas) es el ícono de la app, de los widgets y está en el inicio. El nombre que sale bajo el ícono sigue siendo «CECAPI» hasta decidir el nombre final.
 
 ## Pruebas pendientes en el teléfono
 

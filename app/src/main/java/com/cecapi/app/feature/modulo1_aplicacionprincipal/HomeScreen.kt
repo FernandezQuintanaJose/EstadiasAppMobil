@@ -6,6 +6,10 @@ import android.content.pm.PackageManager
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.Image
+import androidx.compose.ui.res.painterResource
+import com.cecapi.app.R
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -140,6 +144,12 @@ fun HomeScreen(
             modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
+            // La marca de la app: decorativa, el asistente ya dice su nombre en voz alta.
+            Image(
+                painter = painterResource(R.drawable.ic_logo_marca),
+                contentDescription = null,
+                modifier = Modifier.size(84.dp).padding(bottom = 8.dp),
+            )
             Text(
                 text = "VOZACCESO",
                 style = CecapiEyebrowStyle,
