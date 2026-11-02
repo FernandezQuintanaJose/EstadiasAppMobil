@@ -77,6 +77,7 @@ import com.cecapi.app.core.ui.TarjetaLectura
 import com.cecapi.app.core.ui.ScreenTopBar
 import com.cecapi.app.core.ui.PantallaConMicrofono
 import com.cecapi.app.core.ui.MicPad
+import com.cecapi.app.core.ui.CargandoConMensaje
 import com.cecapi.app.core.ui.ColumnaDesplazable
 import com.cecapi.app.core.ui.CapturedPhotoPreview
 import com.cecapi.app.core.ui.BigBtnVariant
@@ -714,7 +715,7 @@ private fun PanelAccionesFoto(
                     CapturedPhotoPreview(path = ruta, modifier = Modifier.fillMaxSize())
                 }
             }
-            uiState.trabajando?.let { TarjetaLectura(titulo = it, cuerpo = "", icono = Icons.Filled.HourglassTop, section = Sections.Camera) }
+            uiState.trabajando?.let { CargandoConMensaje(titulo = it, detalle = "Un momento, estoy trabajando con tu foto.", section = Sections.Camera) }
             uiState.resultado?.let { TarjetaLectura(titulo = it.titulo, cuerpo = it.texto, icono = Icons.Filled.CheckCircle, section = Sections.Camera) }
             BigBtn(icon = Icons.Filled.TextSnippet, label = "Leer texto", section = Sections.Camera, enabled = !ocupado, onClick = onLeerTexto)
             BigBtn(icon = Icons.Filled.Visibility, label = "Qué hay enfrente", section = Sections.Camera, enabled = !ocupado, onClick = onEnfrente)

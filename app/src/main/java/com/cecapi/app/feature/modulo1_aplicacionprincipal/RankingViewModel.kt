@@ -29,6 +29,8 @@ data class RankingUiState(
     /** Un usuario independiente no tiene institución: no tiene sentido ofrecerle "mi institución". */
     val tieneInstitucion: Boolean = false,
     val miId: Long? = null,
+    /** Hasta que llega la primera lista, la pantalla muestra "cargando" en vez de parecer vacía. */
+    val cargando: Boolean = true,
 )
 
 /**
@@ -75,7 +77,7 @@ class RankingViewModel @Inject constructor(
         _uiState.value = _uiState.value.copy(miId = usuario?.id)
 
         viewModelScope.launch {
-            individualFlow.collect { lista -> _uiState.value = _uiState.value.copy(individual = lista) }
+            individualFlow.collect { lista -> _uiState.value = _uiState.value.copy(individual = lista, cargando = false) }
         }
         viewModelScope.launch {
             voiceEngine.speechFor(CecapiDestinations.RANKING).collect { speech -> onSpeech(speech.text) }
@@ -95,7 +97,7 @@ class RankingViewModel @Inject constructor(
     fun cambiarAlcance(nuevo: AlcanceRanking) {
         if (nuevo == _alcance.value) return
         _alcance.value = nuevo
-        _uiState.value = _uiState.value.copy(alcance = nuevo)
+        _uiState.value = _uiState.value.copy(alcance = nuevo, cargando = true)
     }
 
     private fun onSpeech(spoken: String) {

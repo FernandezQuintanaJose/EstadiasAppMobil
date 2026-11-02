@@ -42,7 +42,9 @@ object ProductoPorCodigo {
         return buildString {
             append(if (producto.isNotEmpty()) producto else "Producto")
             if (marca.isNotEmpty() && !producto.contains(marca, ignoreCase = true)) append(", de la marca ").append(marca)
-            if (cantidad.isNotBlank()) append(", ").append(cantidad.trim())
+            // La base marca con una "e" (℮) las cantidades estimadas: "400 g e". No se dice.
+            val medida = cantidad.trim().replace(Regex("""\s+[eE℮]$"""), "")
+            if (medida.isNotEmpty()) append(", ").append(medida)
             append(".")
         }
     }

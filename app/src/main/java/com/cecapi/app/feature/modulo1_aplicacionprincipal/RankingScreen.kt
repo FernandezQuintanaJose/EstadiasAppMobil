@@ -53,6 +53,7 @@ import com.cecapi.app.core.theme.CecapiTextMuted
 import com.cecapi.app.core.theme.Sections
 import com.cecapi.app.core.ui.BigBtn
 import com.cecapi.app.core.ui.TarjetaLectura
+import com.cecapi.app.core.ui.CargandoConMensaje
 import com.cecapi.app.core.ui.ColumnaDesplazable
 import com.cecapi.app.core.ui.BigBtnVariant
 import com.cecapi.app.core.ui.MicPad
@@ -163,7 +164,9 @@ fun RankingScreen(
                 // Semana y Mes (competencias por tiempo) se quitaron hasta que haya eventos reales que mostrar.
                 Text("TABLA", style = MaterialTheme.typography.labelLarge, color = CecapiTextMuted)
 
-                if (state.individual.isEmpty()) {
+                if (state.cargando) {
+                    CargandoConMensaje(titulo = "Cargando la clasificación…", detalle = "Un momento.", section = Sections.Ranking)
+                } else if (state.individual.isEmpty()) {
                     val mensaje = if (state.alcance == AlcanceRanking.MI_INSTITUCION) {
                         "Todavía nadie de tu institución tiene puntos aquí. Practica en Actividades, en los sonidos, para aparecer."
                     } else {

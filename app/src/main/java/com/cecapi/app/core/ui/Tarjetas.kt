@@ -35,6 +35,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.TextSnippet
 import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material.icons.filled.VisibilityOff
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -59,7 +60,9 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
@@ -145,6 +148,43 @@ private val ANCHO_BARRA = 20.dp
 
 private fun lectorActivo(contexto: Context): Boolean =
     (contexto.getSystemService(Context.ACCESSIBILITY_SERVICE) as? AccessibilityManager)?.isTouchExplorationEnabled == true
+
+/**
+ * Un recuadro de "cargando": una rueda que gira y un mensaje de qué está pasando. Quien ve sabe que la app no se
+ * trabó; quien usa TalkBack lo oye porque la zona se anuncia sola (región en vivo) cuando aparece o cambia.
+ */
+@Composable
+fun CargandoConMensaje(
+    titulo: String,
+    detalle: String = "",
+    modifier: Modifier = Modifier,
+    section: ModuleSection? = null,
+) {
+    val color = section?.color ?: CecapiAccent
+    val forma = RoundedCornerShape(20.dp)
+    val lectura = if (detalle.isBlank()) titulo else "$titulo. $detalle"
+    Row(
+        modifier = modifier
+            .fillMaxWidth()
+            .heightIn(min = 76.dp)
+            .clip(forma)
+            .background(section?.bg ?: CecapiSurfaceElevated)
+            .border(2.dp, color, forma)
+            .semantics {
+                contentDescription = lectura
+                liveRegion = LiveRegionMode.Polite
+            }
+            .padding(16.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        CircularProgressIndicator(color = color, strokeWidth = 4.dp, modifier = Modifier.size(40.dp))
+        Box(modifier = Modifier.width(16.dp))
+        Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            Text(titulo, style = MaterialTheme.typography.titleLarge, color = color)
+            if (detalle.isNotBlank()) Text(detalle, style = MaterialTheme.typography.bodyLarge, color = CecapiTextMuted)
+        }
+    }
+}
 
 /**
  * Una tarjeta de información que se lee en voz alta al tocarla (preguntas frecuentes, manual, juegos,

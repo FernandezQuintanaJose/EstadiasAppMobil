@@ -16,4 +16,8 @@ class ProductoPorCodigoTest {
     @Test fun sinNombreNiMarcaNoDiceNada() {
         assertNull(ProductoPorCodigo.frase(" ", "", "500 ml"))
     }
+
+    @Test fun quitaLaEDeCantidadEstimada() {
+        assertEquals("Nutella, de la marca Ferrero, 400 g.", ProductoPorCodigo.frase("Nutella", "Ferrero", "400 g e"))
+    }
 }

@@ -26,6 +26,7 @@ import androidx.compose.material.icons.filled.HourglassTop
 import androidx.compose.material.icons.filled.QuestionAnswer
 import androidx.compose.ui.unit.sp
 import com.cecapi.app.core.ui.CampoTexto
+import com.cecapi.app.core.ui.CargandoConMensaje
 import com.cecapi.app.core.ui.ColumnaDesplazable
 import com.cecapi.app.core.ui.TarjetaLectura
 import androidx.compose.material.icons.filled.Refresh
@@ -128,10 +129,9 @@ fun ConsultasScreen(
                         onClick = viewModel::escribirPropio,
                     )
                 }
-                ConsultaPaso.GENERANDO -> TarjetaLectura(
+                ConsultaPaso.GENERANDO -> CargandoConMensaje(
                     titulo = "Pensando tu respuesta…",
-                    cuerpo = estado.consulta,
-                    icono = Icons.Filled.HourglassTop,
+                    detalle = "Puede tardar unos segundos. Tu consulta: ${estado.consulta}",
                     section = Sections.Documents,
                 )
                 ConsultaPaso.LISTO -> {
