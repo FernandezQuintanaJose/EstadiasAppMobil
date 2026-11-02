@@ -15,6 +15,8 @@ import androidx.compose.material3.Surface
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
@@ -63,6 +65,7 @@ class MainActivity : ComponentActivity() {
     // Inyectarlo es lo que hace que la velocidad de voz y los avisos guardados se apliquen al iniciar.
     @Inject lateinit var deviceSettings: DeviceSettings
     @Inject lateinit var launchRequests: LaunchRequests
+    @Inject lateinit var saludDelDispositivo: com.cecapi.app.core.util.SaludDelDispositivo
 
     // Inyectar estos es lo que registra los comandos de voz globales y la escucha opcional en segundo plano.
     @Inject lateinit var globalVoiceCommands: GlobalVoiceCommands
@@ -79,7 +82,8 @@ class MainActivity : ComponentActivity() {
     private fun handleLaunchIntent(intent: Intent?, alreadyRunning: Boolean) {
         if (intent?.action == ACTION_OPEN) {
             intent.action = null
-            intent.getStringExtra(EXTRA_ROUTE)?.let { launchRequests.requestOpen(it) }
+            // Cualquier otra aplicación puede mandar este intento: solo se abren las pantallas que los widgets ofrecen.
+            intent.getStringExtra(EXTRA_ROUTE)?.takeIf { it in RUTAS_DE_WIDGET }?.let { launchRequests.requestOpen(it) }
             return
         }
         if (intent?.action != ACTION_LISTEN) return
@@ -103,6 +107,7 @@ class MainActivity : ComponentActivity() {
         super.onStart()
         wakeWordController.setForeground(true)
         voiceEngine.appVisible = true
+        saludDelDispositivo.iniciar()
         voiceEngine.activate() // abrir la app termina cualquier "silencio" o "para"
         lifecycleScope.launch { backgroundListening.syncWithSetting() }
     }
@@ -111,6 +116,7 @@ class MainActivity : ComponentActivity() {
     // para que el teléfono quede completamente usable. Todo se reanuda cuando se abre CECAPI de nuevo.
     override fun onStop() {
         wakeWordController.setForeground(false)
+        saludDelDispositivo.detener()
         voiceEngine.appVisible = false
         voiceEngine.stopSpeaking()
         voiceEngine.stopListening()
@@ -150,6 +156,14 @@ class MainActivity : ComponentActivity() {
                     // Las pantallas de cámara conservan su imagen: es para lo que sirven.
                     val showBlack = blackScreen &&
                         route != CecapiDestinations.DOCUMENT_READER && route != CecapiDestinations.ENVIRONMENT
+                    // Teléfono muy cargado: se avisa en voz alta y se ofrece esperar o cerrar; no se cierra solo.
+                    val carga by saludDelDispositivo.nivel.collectAsState()
+                    var esperarHasta by remember { mutableLongStateOf(0L) }
+                    val mostrarEspera = carga == com.cecapi.app.core.util.NivelCarga.CRITICA &&
+                        System.currentTimeMillis() >= esperarHasta
+                    LaunchedEffect(mostrarEspera) {
+                        if (mostrarEspera) voiceEngine.speak(com.cecapi.app.core.ui.MENSAJE_TELEFONO_CARGADO)
+                    }
                     Box(modifier = Modifier.fillMaxSize()) {
                         // Edge-to-edge dibuja debajo de las barras de estado/navegación; el contenido debe quedar libre de ellas.
                         Box(modifier = Modifier.fillMaxSize().safeDrawingPadding()) {
@@ -157,6 +171,12 @@ class MainActivity : ComponentActivity() {
                             CompositionLocalProvider(LocalVoiceHelp provides voiceHelp) {
                                 CecapiNavGraph(navController = navController)
                             }
+                        }
+                        if (mostrarEspera) {
+                            com.cecapi.app.core.ui.PantallaDeEspera(
+                                onEsperar = { esperarHasta = System.currentTimeMillis() + ESPERA_MS },
+                                onCerrar = { finishAffinity() },
+                            )
                         }
                         if (showBlack) {
                             BlackScreen(
@@ -180,5 +200,11 @@ class MainActivity : ComponentActivity() {
         /** Un widget pide abrir una pantalla; la ruta va en [EXTRA_ROUTE]. */
         const val ACTION_OPEN = "com.cecapi.app.action.OPEN"
         const val EXTRA_ROUTE = "com.cecapi.app.extra.ROUTE"
+
+        /** Lo único que un widget puede pedir abrir. */
+        val RUTAS_DE_WIDGET = setOf(CecapiDestinations.LEARNING, CecapiDestinations.DOCUMENT_READER)
+
+        /** Cuánto se oculta el aviso de teléfono cargado cuando la persona elige esperar. */
+        const val ESPERA_MS = 30_000L
     }
 }

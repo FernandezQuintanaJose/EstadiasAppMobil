@@ -20,12 +20,19 @@ android {
         // Placeholder: point this at YOUR backend proxy, never at api.anthropic.com
         // directly — an Anthropic API key must never ship inside a mobile client.
         // See feature/aiassistant/AiAssistantApi.kt for the expected request/response shape.
+        // Tráfico sin cifrar (http) solo en depuración, para probar contra un servidor local.
+        manifestPlaceholders["permiteHttp"] = "false"
         buildConfigField("String", "AI_PROXY_BASE_URL", "\"http://TU-IP-LOCAL:8000/preguntar\"")
     }
 
     buildTypes {
+        debug {
+            manifestPlaceholders["permiteHttp"] = "true"
+        }
         release {
-            isMinifyEnabled = false
+            // Código optimizado y con nombres ocultos: más difícil de descompilar y más ligero.
+            isMinifyEnabled = true
+            isShrinkResources = true
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
         }
     }
