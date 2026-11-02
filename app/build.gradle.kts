@@ -90,4 +90,5 @@ dependencies {
     implementation(libs.kotlinx.coroutines.android)
     implementation(libs.kotlinx.coroutines.play.services)
     implementation(libs.datastore.preferences)
+    implementation(libs.argon2kt)
 }

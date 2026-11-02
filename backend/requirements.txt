@@ -4,3 +4,4 @@ python-dotenv
 google-genai
 groq
 pillow
+argon2-cffi

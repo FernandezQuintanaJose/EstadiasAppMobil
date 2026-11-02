@@ -36,7 +36,7 @@ data class SoporteUiState(
 @HiltViewModel
 class SoporteViewModel @Inject constructor(
     private val voiceEngine: VoiceEngine,
-    private val sessionRepository: SessionRepository,
+    private val sessionRepository: ServicioDeCuentas,
     private val usuarioDao: UsuarioDao,
     private val incidenciaDao: IncidenciaDao,
     private val cues: FeedbackCues,

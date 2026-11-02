@@ -48,7 +48,7 @@ data class RegisterUiState(
 class RegisterViewModel @Inject constructor(
     private val voiceEngine: VoiceEngine,
     private val cues: FeedbackCues,
-    private val sessionRepository: SessionRepository,
+    private val sessionRepository: ServicioDeCuentas,
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(RegisterUiState())

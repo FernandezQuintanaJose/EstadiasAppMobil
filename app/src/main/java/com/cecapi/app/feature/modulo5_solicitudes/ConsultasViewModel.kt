@@ -11,7 +11,7 @@ import com.cecapi.app.core.voice.VoiceMessages
 import com.cecapi.app.core.voice.VoiceState
 import com.cecapi.app.core.voice.VoiceText
 import com.cecapi.app.feature.modulo1_aplicacionprincipal.CommandCatalog
-import com.cecapi.app.feature.modulo1_aplicacionprincipal.SessionRepository
+import com.cecapi.app.feature.modulo1_aplicacionprincipal.ServicioDeCuentas
 import com.cecapi.app.feature.modulo3_asistenteinteligente.AiAssistantRepository
 import com.cecapi.app.feature.modulo3_asistenteinteligente.AiMessages
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -50,7 +50,7 @@ data class ConsultasUiState(
 @HiltViewModel
 class ConsultasViewModel @Inject constructor(
     private val voiceEngine: VoiceEngine,
-    private val sessionRepository: SessionRepository,
+    private val sessionRepository: ServicioDeCuentas,
     private val repository: AiAssistantRepository,
     private val cues: FeedbackCues,
     private val intentFallback: com.cecapi.app.core.voice.IntentFallback,

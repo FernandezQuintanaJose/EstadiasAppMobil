@@ -11,7 +11,7 @@ import com.cecapi.app.core.voice.VoiceEngine
 import com.cecapi.app.core.voice.VoiceState
 import com.cecapi.app.core.voice.VoiceText
 import com.cecapi.app.feature.modulo1_aplicacionprincipal.CommandCatalog
-import com.cecapi.app.feature.modulo1_aplicacionprincipal.SessionRepository
+import com.cecapi.app.feature.modulo1_aplicacionprincipal.ServicioDeCuentas
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -34,7 +34,7 @@ data class EnvironmentUiState(
 @HiltViewModel
 class EnvironmentViewModel @Inject constructor(
     private val voiceEngine: VoiceEngine,
-    private val sessionRepository: SessionRepository,
+    private val sessionRepository: ServicioDeCuentas,
     private val repository: EnvironmentRepository,
     private val cues: FeedbackCues,
     private val storageReport: StorageReport,

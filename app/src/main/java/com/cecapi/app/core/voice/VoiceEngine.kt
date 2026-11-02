@@ -113,7 +113,7 @@ class VoiceEngine @Inject constructor(
     // diciendo, para que una instrucción hablada ("Dime tu usuario") fluya directo hacia la respuesta del usuario.
     @Volatile private var listenAfterSpeech = false
 
-    // Respaldado por la tabla `configuracion_usuario` del Módulo 1 (ver SessionRepository.aplicarConfiguracion).
+    // Respaldado por la tabla `configuracion_usuario` del Módulo 1 (ver ServicioDeCuentas.aplicarConfiguracion).
     private var currentRate = 1.0f
     private var currentVolume = 1.0f
 

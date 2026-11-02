@@ -81,25 +81,16 @@ object DatabaseModule {
             // otherwise the very first "Ingresar" on a fresh install can fail for no visible reason.
             override fun onOpen(db: SupportSQLiteDatabase) {
                 super.onOpen(db)
-                ensureDemoUsers(db)
-                ensureDemoPendingUser(db)
-                resetAllPasswordsOnce(context, db)
+                // Las cuentas de demostración (administradores con contraseña 1234) solo existen en una versión
+                // de depuración. Una versión para publicar no debe traer cuentas con contraseñas conocidas.
+                val depuracion = context.applicationInfo.flags and android.content.pm.ApplicationInfo.FLAG_DEBUGGABLE != 0
+                if (depuracion) {
+                    ensureDemoUsers(db)
+                    ensureDemoPendingUser(db)
+                }
             }
         })
         .build()
-
-    /**
-     * One-time testing convenience, asked for directly: every account's password becomes "1234", once.
-     * Guarded by a SharedPreferences flag so it runs exactly once and never again — otherwise it would
-     * silently undo anyone's real password change forever, every time the app opens.
-     */
-    private fun resetAllPasswordsOnce(context: Context, db: SupportSQLiteDatabase) {
-        if (db.isReadOnly) return
-        val prefs = context.getSharedPreferences("mantenimiento_bd", Context.MODE_PRIVATE)
-        if (prefs.getBoolean("contrasenas_reiniciadas_1234", false)) return
-        db.execSQL("UPDATE usuarios SET contrasena_hash = ?", arrayOf<Any?>(PasswordHasher.hash("1234")))
-        prefs.edit().putBoolean("contrasenas_reiniciadas_1234", true).apply()
-    }
 
     private class DemoUser(
         val nombreUsuario: String,

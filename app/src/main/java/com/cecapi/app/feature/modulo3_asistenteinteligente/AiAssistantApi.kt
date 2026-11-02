@@ -20,7 +20,32 @@ data class AiUnderstanding(
 )
 
 /** Por qué la IA no respondió, para decirle a la persona algo útil en vez de un error genérico. */
-enum class AiFailure { DISABLED, RATE_LIMITED, UNAVAILABLE, UNREACHABLE }
+enum class AiFailure {
+    DISABLED, RATE_LIMITED, UNAVAILABLE, UNREACHABLE,
+
+    /** El servidor entendió la petición pero la rechazó por mal formada (400, 422). */
+    REJECTED,
+
+    /** El servidor no reconoce a la app o no le da permiso (401, 403). */
+    NOT_AUTHORIZED,
+    ;
+
+    companion object {
+        /**
+         * Qué falla corresponde a un código HTTP que no es de éxito. 404 devuelve null porque `understand` lo trata
+         * aparte (un servidor viejo sin esa ruta). Cualquier otro código raro (3xx sin seguir, 4xx desconocidos)
+         * se dice como "no pude conectar", que es lo más cercano a la verdad.
+         */
+        fun deEstado(codigo: Int): AiFailure? = when (codigo) {
+            404 -> null
+            429 -> RATE_LIMITED
+            400, 422 -> REJECTED
+            401, 403 -> NOT_AUTHORIZED
+            in 500..599 -> UNAVAILABLE
+            else -> UNREACHABLE
+        }
+    }
+}
 
 class AiException(val failure: AiFailure, message: String) : IllegalStateException(message)
 
@@ -30,6 +55,8 @@ object AiMessages {
     const val UNAVAILABLE = "El asistente no está disponible en este momento. Intenta más tarde."
     const val UNREACHABLE = "No pude conectar con el asistente inteligente. Intenta de nuevo en un momento."
     const val DISABLED = "La inteligencia artificial está desactivada. Actívala en Configuración."
+    const val REJECTED = "El asistente no entendió esa solicitud. Prueba decirlo de otra forma."
+    const val NOT_AUTHORIZED = "La app no tiene permiso para usar el asistente. Avisa a quien la administra."
 
     /** Se dice si la respuesta tarda: el servidor gratuito se duerme y tarda cerca de un minuto en despertar. */
     const val WAKING = "El servidor estaba dormido y está despertando. Puede tardar hasta un minuto. Sigo aquí."
@@ -38,6 +65,8 @@ object AiMessages {
         AiFailure.RATE_LIMITED -> RATE_LIMITED
         AiFailure.UNAVAILABLE -> UNAVAILABLE
         AiFailure.DISABLED -> DISABLED
+        AiFailure.REJECTED -> REJECTED
+        AiFailure.NOT_AUTHORIZED -> NOT_AUTHORIZED
         else -> UNREACHABLE
     }
 }
@@ -96,9 +125,7 @@ class ProxyAiAssistantApi @Inject constructor(
 
     /** Traduce un código HTTP o un fallo de red a [AiException]; 404 se deja como [HttpError] porque `understand` lo maneja. */
     private fun classify(error: Throwable): Throwable = when {
-        error is HttpError && error.code == 429 -> AiException(AiFailure.RATE_LIMITED, error.message.orEmpty())
-        error is HttpError && error.code in 500..599 -> AiException(AiFailure.UNAVAILABLE, error.message.orEmpty())
-        error is HttpError -> error
+        error is HttpError -> AiFailure.deEstado(error.code)?.let { AiException(it, error.message.orEmpty()) } ?: error
         error is AiException -> error
         else -> AiException(AiFailure.UNREACHABLE, error.message.orEmpty())
     }

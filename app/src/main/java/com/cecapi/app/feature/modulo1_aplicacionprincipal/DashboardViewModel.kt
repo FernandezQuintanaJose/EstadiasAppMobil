@@ -40,7 +40,7 @@ import javax.inject.Inject
 @HiltViewModel
 class DashboardViewModel @Inject constructor(
     private val voiceEngine: VoiceEngine,
-    private val sessionRepository: SessionRepository,
+    private val sessionRepository: ServicioDeCuentas,
     private val permisosModuloDao: PermisosModuloDao,
     private val phoneStatusReader: PhoneStatusReader,
     private val wakeWordController: WakeWordController,

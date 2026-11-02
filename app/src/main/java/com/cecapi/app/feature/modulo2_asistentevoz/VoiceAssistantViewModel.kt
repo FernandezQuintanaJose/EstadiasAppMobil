@@ -6,7 +6,7 @@ import androidx.lifecycle.viewModelScope
 import com.cecapi.app.core.model.ModuloCecapi
 import com.cecapi.app.core.voice.VoiceEngine
 import com.cecapi.app.core.voice.VoiceState
-import com.cecapi.app.feature.modulo1_aplicacionprincipal.SessionRepository
+import com.cecapi.app.feature.modulo1_aplicacionprincipal.ServicioDeCuentas
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.SharedFlow
@@ -21,7 +21,7 @@ import javax.inject.Inject
 @HiltViewModel
 class VoiceAssistantViewModel @Inject constructor(
     private val voiceEngine: VoiceEngine,
-    private val sessionRepository: SessionRepository,
+    private val sessionRepository: ServicioDeCuentas,
     private val repository: VoiceAssistantRepository,
 ) : ViewModel() {
 

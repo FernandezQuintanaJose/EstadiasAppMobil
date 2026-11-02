@@ -27,7 +27,7 @@ class AssistCommands @Inject constructor(
     private val voiceEngine: VoiceEngine,
     private val deviceSettings: DeviceSettings,
     private val screenContext: ScreenContext,
-    private val sessionRepository: SessionRepository,
+    private val sessionRepository: ServicioDeCuentas,
     private val learningRepository: LearningRepository,
 ) {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)

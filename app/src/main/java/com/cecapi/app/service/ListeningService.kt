@@ -20,7 +20,7 @@ import com.cecapi.app.core.voice.AssistantMode
 import com.cecapi.app.core.voice.DeviceSettings
 import com.cecapi.app.core.voice.VoiceEngine
 import com.cecapi.app.core.voice.WakeWordController
-import com.cecapi.app.feature.modulo1_aplicacionprincipal.SessionRepository
+import com.cecapi.app.feature.modulo1_aplicacionprincipal.ServicioDeCuentas
 import dagger.hilt.android.AndroidEntryPoint
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.CoroutineScope
@@ -129,7 +129,7 @@ class ListeningService : Service() {
 class BackgroundListening @Inject constructor(
     @ApplicationContext private val context: Context,
     private val deviceSettings: DeviceSettings,
-    private val sessionRepository: SessionRepository,
+    private val sessionRepository: ServicioDeCuentas,
     private val voiceEngine: VoiceEngine,
 ) {
     private var wasRunning = false

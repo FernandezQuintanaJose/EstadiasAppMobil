@@ -28,7 +28,7 @@ enum class PasoBorrado { NINGUNO, CONTRASENA, CONFIRMAR }
  */
 @HiltViewModel
 class EditAccountViewModel @Inject constructor(
-    private val sessionRepository: SessionRepository,
+    private val sessionRepository: ServicioDeCuentas,
     private val voiceEngine: VoiceEngine,
     private val cues: FeedbackCues,
 ) : ViewModel() {
@@ -154,18 +154,20 @@ class EditAccountViewModel @Inject constructor(
     /** Paso 2: con la contraseña correcta se pide una confirmación explícita; no se borra nada todavía. */
     fun onContrasenaBorrado(contrasena: String) {
         val user = currentUser.value ?: return
-        if (!sessionRepository.passwordMatches(user.contrasenaHash, contrasena)) {
-            cues.play(FeedbackCues.Cue.ERROR)
-            _errorMensaje.tryEmit("Esa no es tu contraseña.")
-            voiceEngine.speak("Esa no es tu contraseña. No borré nada. Inténtalo otra vez o di cancelar.", listenAfter = true)
-            return
+        viewModelScope.launch {
+            if (!sessionRepository.passwordMatches(user.contrasenaHash, contrasena)) {
+                cues.play(FeedbackCues.Cue.ERROR)
+                _errorMensaje.tryEmit("Esa no es tu contraseña.")
+                voiceEngine.speak("Esa no es tu contraseña. No borré nada. Inténtalo otra vez o di cancelar.", listenAfter = true)
+                return@launch
+            }
+            _pasoBorrado.value = PasoBorrado.CONFIRMAR
+            cues.play(FeedbackCues.Cue.WARNING)
+            voiceEngine.speak(
+                "¿Seguro que borro tu cuenta y todo lo que guardaste? No se puede deshacer. Di sí, borrar, o no.",
+                listenAfter = true,
+            )
         }
-        _pasoBorrado.value = PasoBorrado.CONFIRMAR
-        cues.play(FeedbackCues.Cue.WARNING)
-        voiceEngine.speak(
-            "¿Seguro que borro tu cuenta y todo lo que guardaste? No se puede deshacer. Di sí, borrar, o no.",
-            listenAfter = true,
-        )
     }
 
     fun onConfirmarBorrado() {
@@ -204,17 +206,17 @@ class EditAccountViewModel @Inject constructor(
                     email = correo,
                 )
             ) {
-                SessionRepository.EditarPerfilResult.Exito -> {
+                ServicioDeCuentas.EditarPerfilResult.Exito -> {
                     cues.play(FeedbackCues.Cue.SUCCESS)
                     voiceEngine.speak("Listo, guardé los cambios de tu cuenta.")
                     _guardado.tryEmit(Unit)
                 }
-                SessionRepository.EditarPerfilResult.ContrasenaActualIncorrecta -> {
+                ServicioDeCuentas.EditarPerfilResult.ContrasenaActualIncorrecta -> {
                     cues.play(FeedbackCues.Cue.ERROR)
                     voiceEngine.speak("Esa no es tu contraseña actual. No guardé nada.")
                     _errorMensaje.tryEmit("Esa no es tu contraseña actual.")
                 }
-                SessionRepository.EditarPerfilResult.SinSesion -> {
+                ServicioDeCuentas.EditarPerfilResult.SinSesion -> {
                     voiceEngine.speak("No hay una sesión iniciada.")
                     _errorMensaje.tryEmit("No hay una sesión iniciada.")
                 }

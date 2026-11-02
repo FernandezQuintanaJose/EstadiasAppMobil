@@ -27,13 +27,14 @@ Clase `SessionRepository` y tabla `usuarios` de Room (versión 19).
 
 ## 3. Hallazgos antes de migrar
 
-1. **Hash de contraseña débil.** Se usa SHA-256 sin sal (`PasswordHasher`). El servidor debe usar argon2id (o bcrypt) con sal. Las cuentas locales de prueba no se migran: no hay datos reales.
+1. **Hash de contraseña débil. Resuelto el 2 nov.** Se usaba SHA-256 sin sal. Ahora `PasswordHasher` usa Argon2id con sal por cuenta, y las cuentas viejas se actualizan al entrar (comprobado en el teléfono). El servidor tiene `backend/contrasenas.py` con el mismo algoritmo. Ver [0019](decisiones/0019-un-servidor-modular-y-argon2id.md).
 2. **La sesión recordada es solo un número.** Con servidor hace falta un token de sesión con vencimiento, guardado cifrado (Keystore), que el servidor pueda revocar al cerrar sesión o borrar la cuenta.
 3. **El usuario no es único en la base.** Hoy la unicidad se revisa en código; en Neon debe ser un índice único (`lower(nombre_usuario)`), porque dos registros a la vez podrían crear el mismo.
 4. **El bloqueo por intentos vive en la pantalla.** En el servidor debe ser por cuenta y por dirección, con espera creciente, no en la app.
 5. **El rol no debe poder escribirlo la propia persona.** Solo el servidor lo cambia (regla vigente de la 0014/0017).
 6. **Cambiar el correo sin verificarlo** permitiría recibir códigos de otra persona. Debe pedir un código al correo nuevo.
-7. **Borrar una cuenta** debe borrar también lo que guarda el servidor: chats, uso, reportes, aceptaciones de políticas. Hoy `AccountEraser` solo limpia el teléfono.
+7. **Cuentas de demostración en la versión de tienda. Resuelto el 2 nov.** Cada versión creaba administradores con contraseña 1234 y reiniciaba todas las contraseñas a 1234 una vez. Ahora solo existen en versiones de depuración y el reinicio se quitó.
+8. **Borrar una cuenta** debe borrar también lo que guarda el servidor: chats, uso, reportes, aceptaciones de políticas. Hoy `AccountEraser` solo limpia el teléfono.
 
 ## 4. Rutas propuestas
 
@@ -56,7 +57,7 @@ Cualquier ruta que no esté en la tabla queda prohibida. Cada una se prueba con 
 
 ## 5. Cómo migrar sin romper la app
 
-1. Extraer de `SessionRepository` una interfaz `ServicioDeCuentas` con las operaciones de la sección 1. Hoy la implementa Room (`CuentasLocales`).
+1. ~~Extraer una interfaz~~ **Hecho el 2 nov:** las pantallas usan `ServicioDeCuentas`; hoy la implementa Room (`CuentasLocales`) y se elige en `CuentasModule`.
 2. Escribir `CuentasRemotas` que llama a las rutas de la sección 4 y guarda solo el token (cifrado) y el perfil en caché.
 3. Elegir una u otra con un interruptor de compilación, para probar con el servidor sin perder la versión local.
 4. Antes de subir cualquier dato real: aviso de privacidad, consentimiento y revisión de seguridad (decisión 0005), y el proveedor de correo elegido.

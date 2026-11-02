@@ -7,6 +7,7 @@ import androidx.datastore.preferences.preferencesDataStore
 import com.cecapi.app.core.data.AccountEraser
 import com.cecapi.app.core.model.ModuloCecapi
 import com.cecapi.app.core.util.PasswordHasher
+import com.cecapi.app.feature.modulo1_aplicacionprincipal.ServicioDeCuentas.EditarPerfilResult
 import com.cecapi.app.core.util.PasswordRules
 import com.cecapi.app.core.voice.VoiceEngine
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -18,6 +19,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -34,16 +36,16 @@ sealed interface RegisterResult {
 private val Context.sessionStore by preferencesDataStore(name = "remembered_session")
 
 @Singleton
-class SessionRepository @Inject constructor(
+class CuentasLocales @Inject constructor(
     @ApplicationContext private val context: Context,
     private val usuarioDao: UsuarioDao,
     private val permisosModuloDao: PermisosModuloDao,
     private val configuracionUsuarioDao: ConfiguracionUsuarioDao,
     private val accountEraser: AccountEraser,
     private val voiceEngine: VoiceEngine,
-) {
+) : ServicioDeCuentas {
     private val _currentUser = MutableStateFlow<UsuarioEntity?>(null)
-    val currentUser: StateFlow<UsuarioEntity?> = _currentUser.asStateFlow()
+    override val currentUser: StateFlow<UsuarioEntity?> = _currentUser.asStateFlow()
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
 
@@ -60,11 +62,19 @@ class SessionRepository @Inject constructor(
         _currentUser.value = usuario
     }
 
-    suspend fun login(nombreUsuario: String, contrasena: String): LoginResult {
-        val usuario = usuarioDao.findByUsername(nombreUsuario.trim())
+    override suspend fun login(nombreUsuario: String, contrasena: String): LoginResult {
+        val encontrado = usuarioDao.findByUsername(nombreUsuario.trim())
             ?: return LoginResult.InvalidCredentials
-        if (!passwordMatches(usuario.contrasenaHash, contrasena)) {
+        if (!passwordMatches(encontrado.contrasenaHash, contrasena)) {
             return LoginResult.InvalidCredentials
+        }
+        // Una cuenta con el SHA-256 de antes se vuelve a guardar con Argon2id ahora que se conoce la contraseña.
+        val usuario = if (PasswordHasher.necesitaActualizar(encontrado.contrasenaHash)) {
+            val nuevoHash = conArgon2(PasswordRules.normalize(contrasena))
+            usuarioDao.actualizarContrasena(encontrado.id, nuevoHash)
+            encontrado.copy(contrasenaHash = nuevoHash)
+        } else {
+            encontrado
         }
         completeLogin(usuario)
         return LoginResult.Success(usuario)
@@ -75,9 +85,14 @@ class SessionRepository @Inject constructor(
      * de 15 letras guardaron el hash de lo que se escribió tal cual, así que también se acepta ese hash para
      * que sigan entrando; al cambiar su contraseña quedan con la forma nueva.
      */
-    fun passwordMatches(storedHash: String, entered: String): Boolean =
-        storedHash == PasswordHasher.hash(PasswordRules.normalize(entered)) ||
-            storedHash == PasswordHasher.hash(entered.trim())
+    override suspend fun passwordMatches(storedHash: String, entered: String): Boolean = withContext(Dispatchers.Default) {
+        PasswordHasher.verify(storedHash, PasswordRules.normalize(entered)) ||
+            PasswordHasher.verify(storedHash, entered.trim())
+    }
+
+    /** Argon2id gasta memoria y tiempo a propósito, así que nunca corre en el hilo de la pantalla. */
+    private suspend fun conArgon2(contrasenaNormalizada: String): String =
+        withContext(Dispatchers.Default) { PasswordHasher.hash(contrasenaNormalizada) }
 
     /**
      * Crea una cuenta nueva de CECAPI. Cualquiera puede autorregistrarse e iniciar sesión de inmediato — "por default se
@@ -85,12 +100,12 @@ class SessionRepository @Inject constructor(
      * quien esté por encima en Gestión (administrador > directivo > educador > alumno, o
      * administrador > usuario) para confirmarlo después. Nada aquí bloquea por eso.
      */
-    suspend fun register(
+    override suspend fun register(
         nombreUsuario: String,
         contrasena: String,
         nombreCompleto: String,
-        origen: String = "",
-        email: String? = null,
+        origen: String,
+        email: String?,
     ): RegisterResult {
         val nombreNormalizado = nombreUsuario.trim().uppercase()
         // La tabla no tiene un índice único en el nombre de usuario, así que la verificación de duplicados debe ser explícita.
@@ -100,7 +115,7 @@ class SessionRepository @Inject constructor(
         // la valida después, y solo entonces pasa a ser su institución.
         val usuario = UsuarioEntity(
             nombreUsuario = nombreNormalizado,
-            contrasenaHash = PasswordHasher.hash(PasswordRules.normalize(contrasena)),
+            contrasenaHash = conArgon2(PasswordRules.normalize(contrasena)),
             nombreCompleto = nombreCompleto.trim(),
             email = email?.trim()?.ifBlank { null },
             aceptoAdultoEn = System.currentTimeMillis(),
@@ -118,24 +133,18 @@ class SessionRepository @Inject constructor(
 
     private var logoutNoticePending = false
 
-    fun logout() {
+    override fun logout() {
         _currentUser.value = null
         logoutNoticePending = true
         scope.launch { context.sessionStore.edit { it.remove(KEY_REMEMBERED_USER_ID) } }
     }
 
     /** Borra la cuenta de la persona con sesión iniciada y todos sus datos, y luego cierra sesión. False cuando nadie tiene sesión iniciada. */
-    suspend fun deleteCurrentAccount(): Boolean {
+    override suspend fun deleteCurrentAccount(): Boolean {
         val user = _currentUser.value ?: return false
         accountEraser.erase(user.id)
         logout()
         return true
-    }
-
-    sealed interface EditarPerfilResult {
-        data object Exito : EditarPerfilResult
-        data object ContrasenaActualIncorrecta : EditarPerfilResult
-        data object SinSesion : EditarPerfilResult
     }
 
     /**
@@ -143,13 +152,13 @@ class SessionRepository @Inject constructor(
      * (Gestión solo cambia un rol, no esto). Confirma primero con la contraseña ACTUAL, igual que al borrar
      * la cuenta, para que un "cambia mi nombre" suelto de otra persona en la habitación no lo haga en silencio.
      */
-    suspend fun actualizarPerfil(
+    override suspend fun actualizarPerfil(
         nombreCompleto: String,
         contrasenaActual: String,
         nuevaContrasena: String?,
-        apodo: String? = null,
-        usarApodoRanking: Boolean = false,
-        email: String? = null,
+        apodo: String?,
+        usarApodoRanking: Boolean,
+        email: String?,
     ): EditarPerfilResult {
         val user = _currentUser.value ?: return EditarPerfilResult.SinSesion
         if (!passwordMatches(user.contrasenaHash, contrasenaActual)) {
@@ -159,7 +168,7 @@ class SessionRepository @Inject constructor(
         usuarioDao.actualizarNombre(user.id, nombreLimpio)
         var nuevoHash = user.contrasenaHash
         if (!nuevaContrasena.isNullOrBlank()) {
-            nuevoHash = PasswordHasher.hash(PasswordRules.normalize(nuevaContrasena))
+            nuevoHash = conArgon2(PasswordRules.normalize(nuevaContrasena))
             usuarioDao.actualizarContrasena(user.id, nuevoHash)
         }
         val apodoLimpio = apodo?.trim()?.ifBlank { null }
@@ -178,7 +187,7 @@ class SessionRepository @Inject constructor(
     }
 
     /** Pide unirse a una institución; mientras no la valide, la persona sigue como usuario. */
-    suspend fun pedirInstitucion(institucion: String) {
+    override suspend fun pedirInstitucion(institucion: String) {
         val user = _currentUser.value ?: return
         // Un espacio de más no debe crear otra institución: se quitan los de las orillas y se junta lo repetido.
         val limpia = institucion.trim().replace(Regex("""\s+"""), " ")
@@ -188,19 +197,19 @@ class SessionRepository @Inject constructor(
     }
 
     /** Borra la cuenta de otra persona con la autorización de quien puede hacerlo (Gestión). */
-    suspend fun borrarCuentaDe(usuarioId: Long) {
+    override suspend fun borrarCuentaDe(usuarioId: Long) {
         accountEraser.erase(usuarioId)
     }
 
     /** Un alumno pide cambiar de educador; lo atiende un directivo, un educador o un administrador. */
-    suspend fun pedirCambioEducador() {
+    override suspend fun pedirCambioEducador() {
         val user = _currentUser.value ?: return
         usuarioDao.actualizarSolicitaCambioEducador(user.id, true)
         _currentUser.value = user.copy(solicitaCambioEducador = true)
     }
 
     /** Lee y borra el aviso pendiente de la cuenta, para decirlo una sola vez al abrir la app. */
-    suspend fun consumirAvisoPendiente(): String? {
+    override suspend fun consumirAvisoPendiente(): String? {
         val user = _currentUser.value ?: return null
         val aviso = user.avisoPendiente ?: return null
         usuarioDao.actualizarAviso(user.id, null)
@@ -209,7 +218,7 @@ class SessionRepository @Inject constructor(
     }
 
     /** True una sola vez después de cerrar sesión, para que la pantalla de inicio pueda decir "Sesión cerrada" al abrir. */
-    fun consumeLogoutNotice(): Boolean = logoutNoticePending.also { logoutNoticePending = false }
+    override fun consumeLogoutNotice(): Boolean = logoutNoticePending.also { logoutNoticePending = false }
 
     /** Compartido por iniciar sesión y registrarse: configura los valores por defecto para una cuenta nueva y es una
      * operación sin efecto para una que regresa, luego aplica los ajustes de voz guardados y abre la sesión. */

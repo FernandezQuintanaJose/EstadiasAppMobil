@@ -2,7 +2,7 @@ package com.cecapi.app.core.navigation
 
 import androidx.lifecycle.ViewModel
 import com.cecapi.app.core.voice.VoiceEngine
-import com.cecapi.app.feature.modulo1_aplicacionprincipal.SessionRepository
+import com.cecapi.app.feature.modulo1_aplicacionprincipal.ServicioDeCuentas
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
 
@@ -10,5 +10,5 @@ import javax.inject.Inject
 @HiltViewModel
 class NavVoiceViewModel @Inject constructor(
     val voiceEngine: VoiceEngine,
-    val sessionRepository: SessionRepository,
+    val sessionRepository: ServicioDeCuentas,
 ) : ViewModel()

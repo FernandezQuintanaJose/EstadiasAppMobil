@@ -43,7 +43,7 @@ data class GestionUiState(
 @HiltViewModel
 class GestionViewModel @Inject constructor(
     private val voiceEngine: VoiceEngine,
-    private val sessionRepository: SessionRepository,
+    private val sessionRepository: ServicioDeCuentas,
     private val usuarioDao: UsuarioDao,
     private val incidenciaDao: IncidenciaDao,
     private val cambioCuentaDao: CambioCuentaDao,
@@ -193,7 +193,7 @@ class GestionViewModel @Inject constructor(
             return
         }
         viewModelScope.launch {
-            usuarioDao.actualizarContrasena(persona.id, PasswordHasher.hash(limpia))
+            usuarioDao.actualizarContrasena(persona.id, kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Default) { PasswordHasher.hash(limpia) })
             cambioCuentaDao.insert(
                 CambioCuentaEntity(objetivoId = persona.id, autorId = autor.id, tipo = "contrasena", detalle = "Cambiada por un administrador"),
             )

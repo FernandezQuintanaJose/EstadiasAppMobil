@@ -96,7 +96,7 @@ data class ChatsUiState(
 class ChatsViewModel @Inject constructor(
     private val voiceEngine: VoiceEngine,
     private val cues: FeedbackCues,
-    private val sessionRepository: SessionRepository,
+    private val sessionRepository: ServicioDeCuentas,
     private val consultaDao: ConsultaIaDao,
     private val respuestaDao: RespuestaIaDao,
 ) : ViewModel() {

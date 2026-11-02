@@ -85,7 +85,7 @@ val MIGRATION_5_6 = object : Migration(5, 6) {
  * v7: quién en la cadena arriba de una cuenta (administrador > directivo > educador > alumno, o
  * administrador > usuario) todavía necesita revisarla. La columna nueva usa true por defecto para que
  * ninguna cuenta que ya existía antes de esta migración quede marcada como pendiente de forma retroactiva;
- * solo las cuentas creadas a partir de aquí usan false por defecto (SessionRepository.register lo fija explícitamente de cualquier forma).
+ * solo las cuentas creadas a partir de aquí usan false por defecto (ServicioDeCuentas.register lo fija explícitamente de cualquier forma).
  */
 val MIGRATION_6_7 = object : Migration(6, 7) {
     override fun migrate(db: SupportSQLiteDatabase) {

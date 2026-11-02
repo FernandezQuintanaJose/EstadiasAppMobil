@@ -63,7 +63,7 @@ class HomeViewModel @Inject constructor(
     private val notificationReader: NotificationReader,
     private val intentFallback: IntentFallback,
     private val deviceSettings: DeviceSettings,
-    private val sessionRepository: SessionRepository,
+    private val sessionRepository: ServicioDeCuentas,
     private val connectivityObserver: ConnectivityObserver,
     private val wikipediaLookup: WikipediaLookup,
     private val wikidataLookup: WikidataLookup,

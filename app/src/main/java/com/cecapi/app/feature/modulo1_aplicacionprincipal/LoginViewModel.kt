@@ -41,7 +41,7 @@ data class LoginUiState(
 @HiltViewModel
 class LoginViewModel @Inject constructor(
     private val voiceEngine: VoiceEngine,
-    private val sessionRepository: SessionRepository,
+    private val sessionRepository: ServicioDeCuentas,
     private val wakeWordController: WakeWordController,
     private val attemptsStore: LoginAttemptsStore,
     private val cues: FeedbackCues,

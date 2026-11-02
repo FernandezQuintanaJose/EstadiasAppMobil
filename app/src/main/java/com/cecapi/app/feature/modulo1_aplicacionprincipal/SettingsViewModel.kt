@@ -38,7 +38,7 @@ class SettingsViewModel @Inject constructor(
     private val cues: FeedbackCues,
     private val notificationAccess: NotificationAccess,
     private val backgroundListening: BackgroundListening,
-    private val sessionRepository: SessionRepository,
+    private val sessionRepository: ServicioDeCuentas,
     private val storageReport: StorageReport,
 ) : ViewModel() {
 
