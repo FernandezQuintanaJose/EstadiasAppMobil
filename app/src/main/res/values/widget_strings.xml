@@ -8,4 +8,12 @@
     <string name="widget_notifications">Avisos</string>
     <string name="widget_notifications_description">Notificaciones. Toca dos veces para escuchar cuántas tienes y de qué aplicaciones.</string>
     <string name="widget_status_description">Estado del teléfono. Toca dos veces para escuchar la hora, la batería y la conexión.</string>
+    <string name="widget_mic_only_label">Solo micrófono</string>
+    <string name="widget_mic_only_description">Un solo botón grande: toca dos veces para abrir el asistente y que te escuche.</string>
+    <string name="widget_activities_label">Actividades</string>
+    <string name="widget_activities_description">Un solo botón que abre Actividades: sonidos, vibración y juegos.</string>
+    <string name="widget_activities_button_description">Actividades. Toca dos veces para abrir los sonidos, la vibración y los juegos.</string>
+    <string name="widget_camera_label">Cámara</string>
+    <string name="widget_camera_description">Un solo botón que abre la cámara para leer texto, códigos y ver qué hay enfrente.</string>
+    <string name="widget_camera_button_description">Cámara. Toca dos veces para abrirla.</string>
 </resources>

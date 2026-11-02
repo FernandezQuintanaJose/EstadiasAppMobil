@@ -84,6 +84,43 @@
                 android:resource="@xml/assistant_widget_info" />
         </receiver>
 
+        <!-- Widgets de un solo botón: solo micrófono, Actividades y Cámara. -->
+        <receiver
+            android:name=".widget.MicrofonoWidgetProvider"
+            android:exported="true"
+            android:label="@string/widget_mic_only_label">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/mic_widget_info" />
+        </receiver>
+
+        <receiver
+            android:name=".widget.ActividadesWidgetProvider"
+            android:exported="true"
+            android:label="@string/widget_activities_label">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/actividades_widget_info" />
+        </receiver>
+
+        <receiver
+            android:name=".widget.CamaraWidgetProvider"
+            android:exported="true"
+            android:label="@string/widget_camera_label">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/camara_widget_info" />
+        </receiver>
+
         <!-- Handles the widget's "Estado" button. Not exported: only our own widget can call it. -->
         <receiver
             android:name=".widget.WidgetActionReceiver"

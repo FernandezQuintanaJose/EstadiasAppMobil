@@ -77,6 +77,11 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun handleLaunchIntent(intent: Intent?, alreadyRunning: Boolean) {
+        if (intent?.action == ACTION_OPEN) {
+            intent.action = null
+            intent.getStringExtra(EXTRA_ROUTE)?.let { launchRequests.requestOpen(it) }
+            return
+        }
         if (intent?.action != ACTION_LISTEN) return
         intent.action = null // ya se atendió: una activity recreada no debe repetirlo
         if (alreadyRunning) {
@@ -171,5 +176,9 @@ class MainActivity : ComponentActivity() {
     companion object {
         /** Lo manda el widget de la pantalla principal: abre el asistente y empieza a escuchar. */
         const val ACTION_LISTEN = "com.cecapi.app.action.LISTEN"
+
+        /** Un widget pide abrir una pantalla; la ruta va en [EXTRA_ROUTE]. */
+        const val ACTION_OPEN = "com.cecapi.app.action.OPEN"
+        const val EXTRA_ROUTE = "com.cecapi.app.extra.ROUTE"
     }
 }

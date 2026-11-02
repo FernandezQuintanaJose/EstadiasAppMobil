@@ -64,6 +64,15 @@ fun CecapiNavGraph(navController: NavHostController = rememberNavController()) {
         navController.addOnDestinationChangedListener(listener)
         onDispose { navController.removeOnDestinationChangedListener(listener) }
     }
+    // Un widget pidió abrir una pantalla (Actividades, Cámara): se navega a ella en cuanto el menú está listo.
+    // Sin sesión, la compuerta de arriba avisa que primero hay que entrar.
+    val pedida by navVoice.launchRequests.openRoute.collectAsState()
+    LaunchedEffect(pedida) {
+        val ruta = pedida ?: return@LaunchedEffect
+        kotlinx.coroutines.delay(600) // deja que el inicio termine de elegir su pantalla
+        navController.navigate(ruta) { launchSingleTop = true }
+        navVoice.launchRequests.consumeOpen()
+    }
     NavHost(navController = navController, startDestination = CecapiDestinations.HOME) {
         composable(CecapiDestinations.HOME) {
             HomeScreen(
