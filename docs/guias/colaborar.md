@@ -2,6 +2,8 @@
 
 > Vigente · Dueño: Pp · Revisado el 28 sep 2026 · Por confirmar con Pp: los pasos 4 y 5
 
+> **Aviso del 2 nov 2026:** varias ramas viejas ya están dentro de `main` y no deben fusionarse (chocan y revertirían trabajo). Antes de empezar, parte de `main` actual: `git switch -c moduloNN/descripcion origin/main`. Lista y detalle en [estado/2026-11-02-ramas-contenidas.md](../estado/2026-11-02-ramas-contenidas.md).
+
 1. **Trabaja en tu carpeta.** Cada equipo edita solo `feature/moduloN_.../`. Si necesitas una tabla nueva o algo de `core/`, pídeselo a Pp; no copies ni muevas archivos de otros.
 2. **Una rama por tarea**, con el nombre `moduloNN/descripcion`. Ejemplo: `modulo06/actividades-audio`.
 3. **No cambies las versiones** de Gradle, AGP, Kotlin ni KSP ([decisión 0001](../decisiones/0001-versiones-congeladas.md)).
