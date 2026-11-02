@@ -5,7 +5,7 @@
 ## Por pedido de Pp (después de las cuentas)
 
 - ~~Widgets~~ Hecho el 2 nov: solo micrófono, Actividades y Cámara.
-- ~~Logo~~ Hecho el 2 nov: la propuesta A (micrófono con ondas) es el ícono de la app, de los widgets y está en el inicio. El nombre que sale bajo el ícono sigue siendo «CECAPI» hasta decidir el nombre final.
+- ~~Logo~~ Hecho el 2 nov: el logo elegido es el monograma VA (azul y blanco, con una onda en la barra de la A): es el ícono de la app, de los widgets y está en el inicio. Si el nombre final deja de ser VozAcceso, hay que rehacerlo; las otras propuestas están en `docs/logo/`. El nombre que sale bajo el ícono sigue siendo «CECAPI» hasta decidir el nombre final.
 
 ## Pruebas pendientes en el teléfono
 
