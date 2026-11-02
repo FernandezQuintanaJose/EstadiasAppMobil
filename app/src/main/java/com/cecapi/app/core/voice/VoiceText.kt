@@ -30,8 +30,25 @@ object VoiceText {
         .replace(LIST_BULLET, "")
         .replace(MARKDOWN_MARKS, " ")
         .replace(EMOJI, "")
+        .replace(LETTER_HYPHEN, "$1 $2")
+        .replace(CAPS_WORD) { palabraEnMayusculas(it.value) }
         .replace(SPACES, " ")
         .trim()
+
+    /**
+     * El motor de voz deletrea las palabras escritas en mayúsculas (NIKE) y las partidas con guion (ele-gate), como
+     * pasa con los nombres de marca de un empaque. Así se dicen como palabra: "Nike", "ele gate". Las siglas sin
+     * vocal o con tres consonantes seguidas (IMSS, SEP) se dejan, porque esas sí se dicen letra por letra.
+     */
+    private fun palabraEnMayusculas(palabra: String): String {
+        val tieneVocal = palabra.any { it in "AEIOUÁÉÍÓÚ" }
+        val sigla = !tieneVocal || CONSONANTES_SEGUIDAS.containsMatchIn(palabra)
+        return if (sigla) palabra else palabra.lowercase().replaceFirstChar { it.uppercase() }
+    }
+
+    private val LETTER_HYPHEN = Regex("""(\p{Ll})-(\p{Ll})""")
+    private val CAPS_WORD = Regex("""\b\p{Lu}{4,}\b""")
+    private val CONSONANTES_SEGUIDAS = Regex("[^AEIOUÁÉÍÓÚ]{3}")
 
     private val MARKDOWN_LINK = Regex("\\[([^\\]]+)]\\([^)]*\\)") // [texto](enlace) -> texto
     private val LIST_BULLET = Regex("^\\s*[-•*]\\s+", RegexOption.MULTILINE)
