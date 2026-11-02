@@ -34,10 +34,20 @@ class AccionesFoto @Inject constructor(
     suspend fun leerCodigos(imagen: Uri): List<String> {
         val escaner = BarcodeScanning.getClient()
         return try {
-            escaner.process(InputImage.fromFilePath(context, imagen)).await().mapNotNull(::describir)
+            escaner.process(InputImage.fromFilePath(context, imagen)).await().mapNotNull { codigo ->
+                val base = describir(codigo)
+                // Un código de producto (el de una caja o botella): se busca qué producto es.
+                val esProducto = codigo.valueType == Barcode.TYPE_PRODUCT || codigo.format in FORMATOS_DE_PRODUCTO
+                val producto = if (esProducto) codigo.displayValue?.let { ProductoPorCodigo.buscar(it) } else null
+                if (producto != null) "$producto Según Open Food Facts. $base" else base
+            }
         } finally {
             escaner.close()
         }
+    }
+
+    private companion object {
+        val FORMATOS_DE_PRODUCTO = setOf(Barcode.FORMAT_EAN_13, Barcode.FORMAT_EAN_8, Barcode.FORMAT_UPC_A, Barcode.FORMAT_UPC_E)
     }
 
     private fun describir(codigo: Barcode): String? {
