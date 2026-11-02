@@ -133,10 +133,14 @@ class EnvironmentRepository @Inject constructor(
                 return Result.success(guardarBillete(usuarioId, rutaImagen, billeteAutomatico, inicio))
             }
 
+            // Una foto casi toda de un solo color (hoja, tela, pared, tarjeta de color): se dice el color; el
+            // detector la tomaría por "cielo" u otra cosa sin haberla.
+            val liso = NombreColor.dominante(pixelesDelCentro(bitmap), 0.92f)
+
             etapa = "detectar objetos"
             // Si el modelo detallado falla en algún teléfono, intenta el etiquetador de respaldo
             // en vez de abandonar el análisis completo de la foto.
-            val detecciones = try {
+            val detecciones = if (liso != null) emptyList() else try {
                 detectorDetallado.detect(TensorImage.fromBitmap(bitmap))
             } catch (e: Exception) {
                 Log.e(TAG, "Falló el detector detallado; probaré el etiquetador de respaldo.", e)
@@ -150,7 +154,7 @@ class EnvironmentRepository @Inject constructor(
             // Si el detector no encontró cajas (por ejemplo, un objeto muy de cerca),
             // se etiqueta la foto completa y se dice lo principal sin posición.
             val principal: ObjetoDescrito? =
-                if (descritos.isEmpty()) {
+                if (descritos.isEmpty() && liso == null) {
                     etapa = "etiquetar la foto completa"
                     describirFotoCompleta(bitmap)
                 } else {
@@ -169,11 +173,15 @@ class EnvironmentRepository @Inject constructor(
             val colorLiso = if (finales.isEmpty()) NombreColor.dominante(pixelesDelCentro(bitmap), 0.6f) else null
 
             val descripcion = when {
+                finales.isEmpty() && liso != null ->
+                    "Veo una superficie lisa de color ${liso.nombre}. Si buscas un objeto, centralo y acércalo."
                 finales.isEmpty() && colorLiso != null ->
                     "No identifico un objeto, pero veo algo de color ${colorLiso.nombre}. " +
                         "Acércate o centra el objeto si quieres que lo describa."
                 finales.isEmpty() ->
                     "No logré identificar objetos claros enfrente. Intenta centrar el objeto, acercarte un poco más o mejorar la iluminación."
+                descritos.isEmpty() && finales.first().dudoso ->
+                    "Posiblemente veo ${finales.first().frase.removePrefix("posiblemente ")}."
                 descritos.isEmpty() ->
                     "Veo principalmente ${finales.first().frase}."
                 else ->

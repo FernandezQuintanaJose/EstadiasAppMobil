@@ -548,12 +548,12 @@ fun BigBtn(
         }
         Text(
             text = label,
-            fontSize = when (size) {
-                BigBtnSize.Hero -> if (half) 20.sp else 24.sp
-                BigBtnSize.Standard -> if (half) 18.sp else 22.sp
-                BigBtnSize.Compact -> if (half) 17.sp else 20.sp
-                BigBtnSize.Secondary -> if (half) 15.sp else 17.sp
-            },
+            fontSize = (when (size) {
+                BigBtnSize.Hero -> if (half) 20f else 24f
+                BigBtnSize.Standard -> if (half) 18f else 22f
+                BigBtnSize.Compact -> if (half) 17f else 20f
+                BigBtnSize.Secondary -> if (half) 15f else 17f
+            } * (if (half) factorPalabraLarga(label) else 1f)).sp,
             fontWeight = FontWeight.Black,
             lineHeight = if (half) 23.sp else 29.sp,
             color = tint,
@@ -664,4 +664,10 @@ fun NoticeBanner(
 @Composable
 fun OfflineBanner(modifier: Modifier = Modifier) {
     NoticeBanner("Sin conexión a internet. Mis respuestas pueden ser menos precisas.", modifier)
+}
+
+/** En un botón de media anchura, una palabra larga ("Almacenamiento") se partiría a la mitad: se achica para que quepa entera. */
+private fun factorPalabraLarga(texto: String): Float {
+    val larga = texto.split(' ').maxOf { it.length }
+    return if (larga > 11) maxOf(0.78f, 11f / larga) else 1f
 }
