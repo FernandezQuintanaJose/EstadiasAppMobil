@@ -209,6 +209,12 @@ class RegisterViewModel @Inject constructor(
             voiceEngine.speak(message)
             return
         }
+        val problemaDatos = AccountRules.nombreProblem(state.nombreCompleto) ?: AccountRules.usuarioProblem(state.nombreUsuario)
+        if (problemaDatos != null) {
+            _uiState.value = state.copy(errorMessage = problemaDatos)
+            voiceEngine.speak(problemaDatos)
+            return
+        }
         val contrasenaNormalizada = PasswordRules.normalize(state.contrasena)
         val problema = PasswordRules.problem(contrasenaNormalizada)
         if (problema != null) {
