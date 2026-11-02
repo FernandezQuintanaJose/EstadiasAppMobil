@@ -63,37 +63,12 @@ class DocumentReaderRepository @Inject constructor(
                 return reject(rutaImagen, OcrOutcome.SinTexto)
             }
 
-            // Agrupamos las líneas por filas horizontales (mismo renglón Y)
-            val filas = ArrayList<MutableList<Text.Line>>()
-
-            for (linea in todasLasLineas.sortedBy { it.boundingBox?.top ?: 0 }) {
-                val rect = linea.boundingBox ?: continue
-                val centerY = rect.centerY()
-
-                val filaExistente = filas.find { fila ->
-                    fila.any { item ->
-                        val r = item.boundingBox ?: return@any false
-                        val avgH = (r.height() + rect.height()) / 2f
-                        abs(r.centerY() - centerY) < (avgH * 0.6f)
-                    }
-                }
-
-                if (filaExistente != null) {
-                    filaExistente.add(linea)
-                } else {
-                    filas.add(mutableListOf(linea))
-                }
+            // Cada línea con su posición; el orden de lectura (columnas de un menú, renglón de un formulario,
+            // texto corrido) lo decide prepararParrafos, que antes no se usaba y mezclaba las columnas.
+            val unidades = todasLasLineas.mapNotNull { linea ->
+                linea.boundingBox?.let { BloqueTexto(juntarPalabrasCortadas(linea.text.trim()), it.left, it.top, it.right, it.bottom) }
             }
-
-            // Para cada fila horizontal, ordenamos de izquierda a derecha y aplicamos formato de voz natural
-            val lineasBrutas = filas.map { fila ->
-                fila.sortedBy { it.boundingBox?.left ?: 0 }
-                    .joinToString(" — ") { juntarPalabrasCortadas(it.text.trim()) }
-                    .trim()
-            }.filter { texto ->
-                val limpio = texto.trim()
-                limpio.length > 2 && limpio.any { it.isLetterOrDigit() }
-            }
+            val lineasBrutas = prepararParrafos(unidades).filter { it.length > 2 }
 
             // Formateamos las líneas para que la lectura de menús y opciones sea clara y natural por voz
             val parrafos = ArrayList<String>()
@@ -107,6 +82,10 @@ class DocumentReaderRepository @Inject constructor(
 
             if (parrafos.isEmpty()) {
                 return reject(rutaImagen, OcrOutcome.SinTexto)
+            }
+
+            if (pareceDiagrama(parrafos)) {
+                parrafos.add(0, "Parece un diagrama o un mapa. Te leo sus textos de arriba hacia abajo; no puedo describir las flechas ni cómo se conectan.")
             }
 
             val documentoId = usuarioId?.let { id ->

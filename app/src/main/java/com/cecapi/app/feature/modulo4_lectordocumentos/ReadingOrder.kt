@@ -22,6 +22,17 @@ internal fun prepararParrafos(bloques: List<BloqueTexto>): List<String> =
         .filter { parrafo -> parrafo.count { it.isLetterOrDigit() } >= MIN_ALFANUMERICOS }
 
 /**
+ * ¿Son textos sueltos de un diagrama, mapa mental o conceptual? Muchas etiquetas de una o dos palabras, sin
+ * números (un menú o un recibo sí los llevan). Solo sirve para avisar que las flechas no se leen.
+ */
+internal fun pareceDiagrama(parrafos: List<String>): Boolean {
+    if (parrafos.size < 5) return false
+    val palabras = parrafos.map { it.trim().split(Regex("""\s+""")).size }
+    val conNumeros = parrafos.count { p -> p.any { it.isDigit() } }
+    return palabras.average() <= 2.5 && conNumeros < parrafos.size * 0.3
+}
+
+/**
  * Ordena los bloques como los leería una persona. Los bloques que ocupan casi todo el ancho
  * (títulos, párrafos de una sola columna) dividen la página en franjas, y cada franja se lee
  * por columnas completas si es texto a varias columnas, o renglón por renglón si es un formulario o recibo.
@@ -57,11 +68,37 @@ private fun ordenarFranja(bloques: List<BloqueTexto>): List<BloqueTexto> {
     // Solo es texto a columnas si al menos dos columnas tienen párrafos de varias líneas.
     // Si no, son etiquetas y valores sueltos ("Nombre:" ... "Juan"), que se leen por renglón.
     val columnasDeTexto = columnas.count { col -> col.any { it.lineas >= LINEAS_MIN_COLUMNA } }
-    return if (columnasDeTexto >= 2) {
-        columnas.flatMap { col -> col.sortedBy { it.arriba } }
+    if (columnasDeTexto >= 2) return columnas.flatMap { col -> col.sortedBy { it.arriba } }
+
+    // Un menú o una lista de precios: cada columna son renglones sueltos (platillo y precio). Si entre dos grupos
+    // hay un hueco vertical en blanco, se lee un grupo completo y luego el otro, no renglón por renglón.
+    val grupos = separarPorHuecos(bloques)
+    return if (grupos.size >= 2 && grupos.count { it.size >= LINEAS_MIN_COLUMNA } >= 2) {
+        grupos.flatMap { ordenarPorRenglones(it) }
     } else {
         ordenarPorRenglones(bloques)
     }
+}
+
+/**
+ * Parte los bloques en grupos de izquierda a derecha donde hay un hueco en blanco que cruza todo lo alto. Los
+ * bloques muy anchos (el título del menú) no cuentan para buscar el hueco y se quedan con el grupo donde empiezan.
+ */
+private fun separarPorHuecos(bloques: List<BloqueTexto>): List<List<BloqueTexto>> {
+    val anchoTotal = bloques.maxOf { it.derecha } - bloques.minOf { it.izquierda }
+    // Los precios y números sueltos (pegados al borde derecho de cada columna) tampoco cuentan: van con su platillo.
+    val angostos = bloques
+        .filter { it.ancho < anchoTotal * FRACCION_BLOQUE_ANCHO && it.texto.any { c -> c.isLetter() } }
+        .sortedBy { it.izquierda }
+    if (angostos.size < 2) return listOf(bloques)
+    val cortes = mutableListOf<Int>()
+    var hasta = angostos.first().derecha
+    for (bloque in angostos.drop(1)) {
+        if (bloque.izquierda - hasta >= anchoTotal * FRACCION_HUECO) cortes += (hasta + bloque.izquierda) / 2
+        hasta = maxOf(hasta, bloque.derecha)
+    }
+    if (cortes.isEmpty()) return listOf(bloques)
+    return bloques.groupBy { b -> cortes.count { b.izquierda > it } }.toSortedMap().values.toList()
 }
 
 /** Agrupa los bloques que están a la misma altura y los une de izquierda a derecha en un solo bloque. */
@@ -140,6 +177,12 @@ private const val FRACCION_ANCHO_COMPLETO = 0.6f
 
 /** Fracción del bloque más angosto que deben encimarse dos bloques para estar en la misma columna. */
 private const val FRACCION_SOLAPE = 0.5f
+
+/** Un bloque más ancho que esto (el título de un menú) no cuenta al buscar el hueco entre columnas. */
+private const val FRACCION_BLOQUE_ANCHO = 0.45f
+
+/** Hueco en blanco mínimo entre dos columnas, como fracción del ancho del texto. */
+private const val FRACCION_HUECO = 0.05f
 
 /** Líneas que necesita un bloque para considerarse un párrafo de columna y no una etiqueta suelta. */
 private const val LINEAS_MIN_COLUMNA = 3
