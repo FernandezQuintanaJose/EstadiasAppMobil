@@ -36,6 +36,10 @@ import androidx.compose.material3.Text
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.SideEffect
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.MutableState
+import androidx.compose.runtime.compositionLocalOf
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -192,6 +196,28 @@ fun ScreenTopBar(
     onBack: () -> Unit,
     onCommands: () -> Unit,
     modifier: Modifier = Modifier,
+) {
+    // Dentro de una ColumnaDesplazable el encabezado no se desplaza con el contenido: se pasa a la zona fija de
+    // arriba, igual que en Actividades, y la barra de desplazamiento queda debajo de "Volver".
+    val destino = LocalCabeceraFija.current
+    if (destino == null) {
+        CabeceraDePantalla(eyebrow, title, onBack, modifier)
+        return
+    }
+    val cuerpo: @Composable () -> Unit = { CabeceraDePantalla(eyebrow, title, onBack, Modifier) }
+    SideEffect { destino.value = cuerpo }
+    DisposableEffect(destino) { onDispose { destino.value = null } }
+}
+
+/** Donde una [ColumnaDesplazable] recibe el encabezado de la pantalla para dejarlo fijo arriba. */
+val LocalCabeceraFija = compositionLocalOf<MutableState<(@Composable () -> Unit)?>?> { null }
+
+@Composable
+private fun CabeceraDePantalla(
+    eyebrow: String,
+    title: String,
+    onBack: () -> Unit,
+    modifier: Modifier,
 ) {
     Column(modifier = modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
         Text(

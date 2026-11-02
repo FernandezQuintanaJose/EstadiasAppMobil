@@ -43,6 +43,7 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -68,6 +69,7 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import com.cecapi.app.core.theme.CecapiAccent
 import com.cecapi.app.core.theme.CecapiBorder
@@ -94,16 +96,37 @@ fun ColumnaDesplazable(
     content: @Composable ColumnScope.() -> Unit,
 ) {
     val scope = rememberCoroutineScope()
-    Box(modifier = modifier.fillMaxSize()) {
+    val cabecera = remember { mutableStateOf<(@Composable () -> Unit)?>(null) }
+    Column(modifier = modifier.fillMaxSize()) {
+        // El encabezado (título y Volver) queda fijo; solo lo de abajo se desplaza, con su barra a la derecha.
+        cabecera.value?.let { fija ->
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(
+                        start = contentPadding.calculateLeftPadding(LayoutDirection.Ltr),
+                        end = contentPadding.calculateRightPadding(LayoutDirection.Ltr),
+                        top = contentPadding.calculateTopPadding(),
+                        bottom = 8.dp,
+                    ),
+            ) { fija() }
+        }
+    Box(modifier = Modifier.weight(1f).fillMaxWidth()) {
         Column(
             modifier = Modifier
                 .fillMaxSize()
                 .verticalScroll(estado)
-                .padding(contentPadding)
+                .padding(
+                    start = contentPadding.calculateLeftPadding(LayoutDirection.Ltr),
+                    end = contentPadding.calculateRightPadding(LayoutDirection.Ltr),
+                    top = if (cabecera.value != null) 0.dp else contentPadding.calculateTopPadding(),
+                    bottom = contentPadding.calculateBottomPadding(),
+                )
                 .padding(end = ANCHO_BARRA),
             verticalArrangement = espacio,
-            content = content,
-        )
+        ) {
+            CompositionLocalProvider(LocalCabeceraFija provides cabecera) { content() }
+        }
         if (estado.maxValue > 0) {
             Canvas(
                 modifier = Modifier
@@ -141,6 +164,7 @@ fun ColumnaDesplazable(
                 )
             }
         }
+    }
     }
 }
 
