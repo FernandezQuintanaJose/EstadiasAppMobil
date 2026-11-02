@@ -5,6 +5,7 @@ import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Check
 import com.cecapi.app.core.ui.BigBtnVariant
 import com.cecapi.app.core.ui.BigBtn
+import com.cecapi.app.core.ui.CargandoConMensaje
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -68,6 +69,7 @@ import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import java.text.DateFormat
@@ -116,7 +118,13 @@ class ChatsViewModel @Inject constructor(
             }
         }
 
+    private val _cargando = MutableStateFlow(true)
+
+    /** True hasta que llega la primera lista de chats, para no mostrar "no hay chats" mientras se leen. */
+    val cargando: StateFlow<Boolean> = _cargando.asStateFlow()
+
     val chats: StateFlow<List<ChatItem>> = chatsFlow
+        .onEach { _cargando.value = false }
         .stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
 
     val voiceState: StateFlow<VoiceState> = voiceEngine.state.stateIn(
@@ -281,6 +289,7 @@ fun ChatsScreen(
     viewModel: ChatsViewModel = hiltViewModel(),
 ) {
     val chats by viewModel.chats.collectAsState()
+    val cargandoChats by viewModel.cargando.collectAsState()
     val state by viewModel.state.collectAsState()
     val voiceState by viewModel.voiceState.collectAsState()
     val listening = voiceState is VoiceState.Listening
@@ -312,7 +321,9 @@ fun ChatsScreen(
             }
         }
 
-        if (chats.isEmpty()) {
+        if (cargandoChats) {
+            CargandoConMensaje(titulo = "Cargando tus chats…", detalle = "Un momento.")
+        } else if (chats.isEmpty()) {
             Text(
                 "Todavía no hay chats guardados. Cuando hables con la inteligencia artificial, aparecerán aquí.",
                 style = MaterialTheme.typography.bodyLarge,

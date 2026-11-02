@@ -39,6 +39,7 @@ import com.cecapi.app.core.theme.CecapiTextMuted
 import com.cecapi.app.core.theme.ModuleSection
 import com.cecapi.app.core.theme.Sections
 import com.cecapi.app.core.ui.BigBtn
+import com.cecapi.app.core.ui.CargandoConMensaje
 import com.cecapi.app.core.ui.BigBtnSize
 import com.cecapi.app.core.ui.BigBtnVariant
 import com.cecapi.app.core.ui.CameraViewfinder
@@ -151,10 +152,9 @@ fun JuegoCamaraScreen(
                 }
                 FaseJuego.ANALIZANDO -> {
                     estado.fotoPath?.let { FotoDelJuego(it) }
-                    TarjetaLectura(
+                    CargandoConMensaje(
                         titulo = "Mirando tu foto…",
-                        cuerpo = "",
-                        icono = Icons.Filled.HourglassTop,
+                        detalle = "Un momento, estoy revisando si lo lograste.",
                         section = Sections.Activities,
                     )
                 }

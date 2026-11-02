@@ -56,6 +56,7 @@ import com.cecapi.app.core.theme.CecapiTextMuted
 import com.cecapi.app.core.theme.CecapiBorder
 import com.cecapi.app.core.theme.CecapiWarning
 import com.cecapi.app.core.ui.BigBtn
+import com.cecapi.app.core.ui.CargandoConMensaje
 import com.cecapi.app.core.ui.ColumnaDesplazable
 import com.cecapi.app.core.ui.BigBtnSize
 import com.cecapi.app.core.ui.BigBtnVariant
@@ -373,7 +374,9 @@ fun GestionScreen(
                 style = MaterialTheme.typography.labelLarge,
                 color = CecapiTextMuted,
             )
-            if (state.personas.isEmpty()) {
+            if (state.cargando) {
+                CargandoConMensaje(titulo = "Cargando las personas…", detalle = "Un momento.")
+            } else if (state.personas.isEmpty()) {
                 Text(
                     if (esEducador) "Todavía no tienes alumnos asignados." else "No hay nadie que mostrar.",
                     style = MaterialTheme.typography.bodyLarge,

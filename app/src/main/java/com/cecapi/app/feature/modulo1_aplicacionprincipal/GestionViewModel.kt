@@ -33,6 +33,8 @@ data class GestionUiState(
     val expandidoId: Long? = null,
     /** Solo administrador (todas) y directivo (las de su institución); vacío para los demás roles. */
     val incidencias: List<IncidenciaEntity> = emptyList(),
+    /** Hasta que llega la primera lista, la pantalla muestra "cargando" en vez de parecer vacía. */
+    val cargando: Boolean = true,
 )
 
 /**
@@ -93,6 +95,7 @@ class GestionViewModel @Inject constructor(
             personas = personas,
             expandidoId = expandidoId,
             incidencias = incidencias,
+            cargando = false,
         )
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), GestionUiState())
 
