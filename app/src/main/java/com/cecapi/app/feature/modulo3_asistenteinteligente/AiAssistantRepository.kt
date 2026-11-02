@@ -35,4 +35,17 @@ class AiAssistantRepository @Inject constructor(
         }
         return resultado
     }
+
+    /**
+     * Pide un documento (pantalla Consultas). Se guarda en las consultas anteriores con lo que pidió la persona,
+     * pero no entra al contexto de la conversación: un documento largo no es parte de la plática con el asistente.
+     */
+    suspend fun documento(usuarioId: Long, pedido: String): Result<String> {
+        val resultado = api.document(pedido)
+        val consultaId = consultaIaDao.insert(ConsultaIaEntity(usuarioId = usuarioId, textoPregunta = pedido))
+        resultado.onSuccess { texto ->
+            respuestaIaDao.insert(RespuestaIaEntity(consultaId = consultaId, textoRespuesta = texto))
+        }
+        return resultado
+    }
 }

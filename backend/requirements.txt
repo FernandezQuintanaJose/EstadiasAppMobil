@@ -5,3 +5,7 @@ google-genai
 groq
 pillow
 argon2-cffi
+# Base de datos (db.py): SQLite en tu PC, PostgreSQL en Neon publicado (decisión 0017).
+sqlalchemy>=2.0
+alembic>=1.13
+psycopg[binary]>=3.1

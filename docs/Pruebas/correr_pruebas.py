@@ -21,9 +21,11 @@ Qué se espera de cada frase:
 """
 
 import argparse
+import atexit
 import os
 import re
 import sys
+import tempfile
 import time
 import unicodedata
 from datetime import datetime
@@ -63,7 +65,15 @@ def leer_sinonimos() -> list[tuple[int, str, list[str]]]:
 
 
 def cargar_servidor(sin_ia: bool):
-    """Importa backend/main.py tal cual. Con --sin-ia, la IA se reemplaza por un aviso."""
+    """Importa backend/main.py tal cual. Con --sin-ia, la IA se reemplaza por un aviso.
+
+    Las pruebas no escriben en backend/cecapi.db ni en Neon: usan una base SQLite temporal que
+    se borra al terminar (DATABASE_URL se pone antes de importar main, y load_dotenv no la
+    reemplaza). Por eso tampoco suman al uso_diario real, aunque con IA sí gastan cuota.
+    """
+    temporal = tempfile.TemporaryDirectory(prefix="cecapi_correr_pruebas_", ignore_cleanup_errors=True)
+    atexit.register(temporal.cleanup)
+    os.environ["DATABASE_URL"] = f"sqlite:///{Path(temporal.name) / 'pruebas.db'}"
     os.chdir(BACKEND)
     sys.path.insert(0, str(BACKEND))
     if sin_ia and not (os.getenv("GEMINI_API_KEY") or os.getenv("GROQ_API_KEY")):
@@ -72,7 +82,7 @@ def cargar_servidor(sin_ia: bool):
     import proveedores
 
     if sin_ia:
-        def sin_llamar(pregunta, contexto):
+        def sin_llamar(pregunta, contexto, instrucciones=None):
             return "(no se llamó a la IA)", None, False
         proveedores.preguntar_con_respaldo = sin_llamar
     return main
@@ -168,7 +178,7 @@ def main_cli() -> None:
     # Los sinónimos nunca van a la IA: solo importa si se reconocen como comando.
     import proveedores
     original = proveedores.preguntar_con_respaldo
-    proveedores.preguntar_con_respaldo = lambda pregunta, contexto: ("(no se llamó a la IA)", None, False)
+    proveedores.preguntar_con_respaldo = lambda pregunta, contexto, instrucciones=None: ("(no se llamó a la IA)", None, False)
     filas_s, cuenta_s, reconocidas = [], {}, 0
     total_frases = 0
     for n, accion, frases in sinonimos:

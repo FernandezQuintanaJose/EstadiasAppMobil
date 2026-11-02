@@ -27,4 +27,10 @@ class AiFailureTest {
         val mensajes = AiFailure.entries.map { AiMessages.forFailure(AiException(it, "")) }
         assertEquals(mensajes.toSet().size, AiFailure.entries.size)
     }
+
+    @Test fun siElServidorExplicaQuePasoConLaFotoSeDiceEsaFrase() {
+        val frase = "La foto es demasiado grande."
+        assertEquals(frase, AiMessages.forFailure(AiException(AiFailure.REJECTED, frase)))
+        assertEquals(AiMessages.REJECTED, AiMessages.forFailure(AiException(AiFailure.REJECTED, "")))
+    }
 }
