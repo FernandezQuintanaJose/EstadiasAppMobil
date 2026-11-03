@@ -40,19 +40,31 @@ CAMBIOS = [
      "(la aplicación ya aplica esta normalización y el servidor deberá repetirla)"),
     ("La aplicación trata datos personales",
      "el correo electrónico y las conversaciones con el asistente. No se solicitan datos de salud ni otros datos sensibles, y se advierte al usuario que no los dicte.",
-     "el nombre de usuario, el nombre, el rol, la fecha en que la persona confirmó tener 18 años o más, el correo electrónico (opcional), el resumen cifrado de la contraseña y las conversaciones con el asistente. La aplicación no solicita datos de salud y se advierte al usuario que no los dicte; sin embargo, saber que una persona usa una aplicación para personas ciegas puede revelar su discapacidad visual, que el proyecto trata como dato sensible (decisión 0018)."),
+     "el nombre de usuario, el nombre, el rol, la fecha en que la persona confirmó tener 18 años o más, el correo electrónico (opcional), el resumen cifrado de la contraseña y las conversaciones con el asistente. La aplicación no solicita datos de salud y se advierte al usuario que no los dicte; sin embargo, saber que una persona usa una aplicación para personas ciegas puede revelar su discapacidad visual, que el proyecto trata como dato sensible (decisión 0018). Además, cuando la aplicación no entiende una frase y hay internet, el texto de la frase se envía directamente desde el teléfono a Wikipedia o a Wikidata, servicios de terceros, aunque la inteligencia artificial esté apagada; la decisión 0002 deja por decidir con qué filtro y con qué aviso se acepta ese envío."),
     ("La aplicación trata datos personales",
      "(art. 18) (Ley Federal de Protección de Datos Personales en Posesión de los Particulares, 2025).",
      "(art. 18) (Ley Federal de Protección de Datos Personales en Posesión de los Particulares, 2025). Para los datos personales sensibles, el responsable debe obtener el consentimiento expreso y por escrito de la persona titular, mediante firma autógrafa, firma electrónica o cualquier mecanismo de autenticación (art. 8) (Ley Federal de Protección de Datos Personales en Posesión de los Particulares, 2025). Por ello, el mecanismo con que se acepte el aviso de privacidad se someterá a la revisión de una persona abogada antes de usar datos reales (decisión 0005)."),
     ("En el proyecto, el aviso de privacidad se presenta",
      "El responsable del tratamiento es el CECAPI, A. C., y se prevé",
-     "Por la decisión 0005, mientras solo haya cuentas de demostración el responsable del tratamiento es el responsable del proyecto, a título personal, y antes de usar datos reales se buscará un convenio con el CECAPI, A. C. Se prevé"),
+     "Mientras la aplicación opere solo con cuentas de demostración no se tratan datos reales; antes de usarlos se buscará un convenio con el CECAPI, A. C., y se definirá quién es el responsable del tratamiento, con la revisión de una persona abogada (decisión 0005). Se prevé"),
     ("En el proyecto, el aviso de privacidad se presenta",
      "(Render, s. f.-b), lo que concuerda con que la aplicación sea solo para mayores de 18 años y no trate datos de salud.",
      "(Render, s. f.-b). Las tablas de usuarios de la aplicación no incluyen la discapacidad visual como campo."),
     ("Desarrollar una aplicación móvil Android de asistente por voz",
      "con cuentas de usuario y distribución mediante APK, mediante",
      "con cuentas de usuario y un APK de instalación directa, mediante"),
+    ("En el proyecto, el aviso de privacidad se presenta",
+     "antes de la primera pregunta a la inteligencia artificial.",
+     "antes de la primera pregunta a la inteligencia artificial, y que informe del envío de frases a Wikipedia y Wikidata."),
+    ("•\tProgramar un asistente de voz",
+     "que envíe al servidor las preguntas del usuario y lea en voz alta la respuesta de la inteligencia artificial",
+     "que deje conectado el envío al servidor de las preguntas del usuario para leer en voz alta la respuesta de la inteligencia artificial"),
+    ("•\tConstruir las pantallas de registro",
+     "para identificar a cada usuario y conservar sus conversaciones.",
+     "para identificar a cada usuario."),
+    ("•\tDistribuir la aplicación como archivo APK",
+     "•\tDistribuir la aplicación como archivo APK de instalación directa en teléfonos Android, para que",
+     "•\tGenerar la aplicación como archivo APK de instalación directa en teléfonos Android y dejar definida su distribución desde la página del proyecto, para que"),
 ]
 hechos = 0
 for inicio, viejo, nuevo in CAMBIOS:
@@ -103,6 +115,20 @@ for f in filas:
     nueva = copy.deepcopy(molde)
     t._tbl.append(nueva)
     poner(nueva, f)
+
+# ---- referencia nueva: Google (s. f.-c)
+for p in d.paragraphs:
+    if p.text.startswith("Google. (s. f.-b)."):
+        nuevo = copy.deepcopy(p._p)
+        p._p.addnext(nuevo)
+        from docx.text.paragraph import Paragraph
+        q = Paragraph(nuevo, p._parent)
+        q.runs[0].text = "Google. (s. f.-c). "
+        q.runs[1].text = "Learn about restricted settings"
+        q.runs[2].text = ". Android Help. Recuperado el 3 de noviembre de 2026, de https://support.google.com/android/answer/12623953"
+        break
+else:
+    raise SystemExit("No se encontró la referencia Google s. f.-b")
 
 # ---- dividir 2.4.2 (Límites) en párrafos por tema
 for p in d.paragraphs:

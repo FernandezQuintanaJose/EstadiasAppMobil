@@ -60,3 +60,14 @@ Partiendo del documento del alumno del 2 de noviembre: Tabla 2 actualizada al 2 
 6. La palabra de activación es el nombre del asistente (personalizable) y, si se activa, «hola».
 
 Versión vigente: `Memoria_App_movil_Android_COMPLETA.docx` (51 págs.): capítulos II, III (3.7 y 3.10 ajustados), IV y V, resumen, abstract, Tabla 2 actualizada y Anexo A (decisiones 0001 a 0019). Word actualiza índices y rótulos al abrir (campos automáticos).
+
+## Cambios del 3 de noviembre de 2026 (segunda revisión crítica)
+
+- **Flujo a terceros:** con la IA apagada, cualquier frase que la app no entiende (de 3 letras en adelante) y hay internet se envía desde el teléfono a Wikipedia (o a Wikidata si pide un dato como capital o fecha de nacimiento), sin pasar por el servidor ni por filtro (`HomeViewModel.notUnderstood`, `DashboardViewModel`). Declarado en 3.10, 4.4.2 y la Tabla 11; la decisión 0002 deja por decidir el filtro y el aviso.
+- **Responsable legal:** el documento ya no afirma quién es; dice que mientras haya cuentas de demostración no se usan datos reales y que antes se buscará convenio con el CECAPI y revisión de una persona abogada (decisión 0005). Artículos de la ley verificados contra el texto oficial (última reforma DOF 14-11-2025): 7, 8, 10, 15 y 18.
+- **Android 13 y ajustes restringidos:** se cita la ayuda oficial de Android (Google, s. f.-c), agregada a las referencias; esa página no menciona APK de forma explícita, por eso el texto dice «una aplicación» y no «un APK descargado».
+- **Pruebas:** solo un teléfono (Oppo CPH2387, Android 12) y sin recorrido con lector de pantalla; el texto lo dice y ya no afirma que se revisó «con su motor de voz y permisos reales». La instalación en API 26 o superior no se probó en otros teléfonos.
+- **Objetivos (Cap. II):** el objetivo 2 dice «dejar conectado» el envío al servidor, el 3 ya no promete conservar conversaciones y el 4 dice «generar el APK y dejar definida su distribución».
+- **Anexo A:** la 0011 queda como propuesta sin aplicar (mínimo real API 26); la 0008 aclara que el único gasto que acepta es el dominio y remite a 2.4.2; la 0005 sin postura legal.
+- **Índices:** se regeneran con las páginas reales (`herramientas/regenerar_indices.py`); Word los vuelve a calcular al abrir.
+- Sigue abierto, solo del alumno: pruebas con lector de pantalla y con Android 14 o superior, y resultados de las pruebas con alumnos.

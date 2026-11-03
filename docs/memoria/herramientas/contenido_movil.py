@@ -239,8 +239,9 @@ p("La escucha fuera de la aplicación es opcional y empieza apagada (decisión 0
 
 p("Las preguntas que la aplicación no entiende pueden pasar a la inteligencia artificial del servidor central mediante un resolvedor registrado al "
   "abrir la aplicación. Por la decisión 0002, la IA empieza apagada y se activa en Configuración, en la sección Privacidad; mientras esté apagada ninguna "
-  "frase sale del teléfono hacia el servidor de IA. Las preguntas de información general, como qué es o quién es, se consultan además en Wikipedia y "
-  "Wikidata, servicios de terceros. El servidor y el módulo de consultas los desarrollan otros equipos y se describen en sus memorias.")
+  "frase sale del teléfono hacia el servidor de IA. Además, cuando la aplicación no entiende una frase y hay internet, el texto de la frase se envía directamente desde el teléfono a "
+  "Wikipedia o, si pide un dato como una capital o una fecha de nacimiento, a Wikidata, servicios de terceros; esa consulta no necesita cuenta y se "
+  "hace aunque la IA esté apagada. El servidor y el módulo de consultas los desarrollan otros equipos y se describen en sus memorias.")
 
 h4("4.4.3. Registro e inicio de sesión (O3)")
 
@@ -277,18 +278,18 @@ p("La decisión 0008 estableció que en Android el APK se distribuirá solo desd
 
 p("Durante el desarrollo, el APK se compila y se instala directamente en el teléfono, que es la modalidad de instalación directa que persigue el "
   "objetivo. La firma digital con una clave propia, que Android exige para instalar o actualizar un APK (Android Developers, 2026k), y la publicación de cada versión como release "
-  "en GitHub con su huella SHA-256 forman la siguiente etapa, que convierte esta compilación en una distribución para los alumnos del CECAPI. La decisión 0008 advierte además que, desde "
-  "Android 13, un APK descargado de una página no puede activar la accesibilidad hasta que la persona permite la configuración restringida, por lo que "
-  "el guion de instalación debe explicarlo.")
+  "en GitHub con su huella SHA-256 forman la siguiente etapa, que convierte esta compilación en una distribución para los alumnos del CECAPI. La ayuda de Android indica además que, en Android 13 o "
+  "superior, algunos ajustes de una aplicación, como los de accesibilidad, pueden quedar restringidos hasta que la persona los permite (Google, s. f.-c), "
+  "por lo que el guion de instalación debe explicarlo.")
 
 # ----------------------------------------------------------------------------------------------------
 h3("4.5. SEGURIDAD Y PRIVACIDAD DE LA APLICACIÓN")
 
-p("La [[tab:seguridad]] reúne los controles aplicados en la aplicación. El principio de trabajo fue que lo que no se necesita no se guarda y que la "
-  "persona decide qué sale de su teléfono. Las dos funciones que más datos pueden mover, la IA y la escucha en segundo plano, empiezan apagadas.")
+p("La [[tab:seguridad]] reúne los controles aplicados en la aplicación y el envío de frases a servicios de terceros. El principio de trabajo fue que lo que no se necesita no se guarda y que la "
+  "persona decide qué sale de su teléfono. Dos de las funciones que más datos pueden mover, la IA y la escucha en segundo plano, empiezan apagadas.")
 
-tab("seguridad", "Controles de seguridad y privacidad aplicados en la aplicación móvil",
-    ["Control", "Qué evita", "Fuente"],
+tab("seguridad", "Controles y envíos de datos de la aplicación móvil",
+    ["Control o envío", "Qué evita o qué sale del teléfono", "Fuente"],
     [["IA apagada por defecto", "Enviar frases al servidor de IA sin que la persona lo decida", "Decisión 0002"],
      ["Escucha fuera de la app apagada por defecto", "Escuchar sin que la persona lo sepa", "Decisión 0007"],
      ["Contraseñas con Argon2id y sal propia", "Que una base filtrada revele las contraseñas", "Código de la aplicación"],
@@ -296,7 +297,8 @@ tab("seguridad", "Controles de seguridad y privacidad aplicados en la aplicació
      ["Sin copias de seguridad de la app", "Que los datos salgan por la copia automática de Android", "Manifiesto (allowBackup apagado)"],
      ["Tráfico sin cifrar solo en la versión de depuración", "Enviar datos por HTTP en la versión de lanzamiento", "Archivo build.gradle.kts"],
      ["Borrar mi cuenta y mis datos", "Conservar datos de quien ya no usa la app", "Código de la aplicación"],
-     ["Confirmación de 18 años o más", "Uso por menores sin declaración", "Registro de cuenta"]],
+     ["Confirmación de 18 años o más", "Uso por menores sin declaración", "Registro de cuenta"],
+     ["Consulta a Wikipedia y Wikidata", "Sale el texto de la frase hacia servicios de terceros, sin pasar por el servidor ni por un filtro", "Por decidir (decisión 0002)"]],
     [5.2, 6.0, 3.9])
 
 p("Sobre el micrófono, la documentación de Android advierte que el reconocimiento de voz probablemente transmite el audio a servidores remotos "
@@ -309,7 +311,7 @@ h3("4.6. PRUEBAS REALIZADAS")
 
 p("Las pruebas se realizaron en un teléfono Oppo CPH2387 con Android 12, con la aplicación com.cecapi.app en su versión 1.0, compilada desde la rama "
   "principal del repositorio (commit b8e39d8). Se combinaron pruebas manuales sobre las pantallas con comandos de adb, la herramienta de Android "
-  "para controlar un dispositivo desde una computadora, de modo que la aplicación se revisó con su motor de voz, su pantalla y sus permisos reales.")
+  "para controlar un dispositivo desde una computadora.")
 
 p("La [[tab:pruebas_tel]] resume lo que se comprobó en el teléfono: la creación de cuenta con sus validaciones y el aviso a las personas menores de "
   "edad, el contador de contraseñas incorrectas, la barra de desplazamiento fija en las pantallas Cuenta, Personalización y Configuración, y la "
@@ -324,8 +326,8 @@ tab("pruebas_tel", "Pruebas realizadas en el teléfono",
     [4.0, 11.1])
 
 p("El reconocimiento de voz depende de que el teléfono tenga descargado el paquete de voz del idioma, y las funciones disponibles dependen de la "
-  "versión de Android de cada aparato. El nivel de API 26 es el mínimo con el que se compila la aplicación, de modo que los teléfonos con Android 8.0 "
-  "o posterior pueden instalarla.")
+  "versión de Android de cada aparato. El nivel de API 26 es el mínimo con el que se compila la aplicación; la instalación y las pruebas se hicieron en un solo teléfono, con Android 12, "
+  "y no incluyeron el recorrido con lector de pantalla.")
 
 # =====================================================================================================
 # CAPÍTULO V
@@ -337,7 +339,7 @@ h2("RESULTADOS Y CONCLUSIONES")
 h3("5.1. RESULTADOS")
 
 p("Los resultados se presentan en el orden de los objetivos específicos del capítulo II. La [[tab:cumplimiento]] y la [[fig:estado]] resumen el alcance "
-  "logrado en cada objetivo al 2 de noviembre de 2026, según el código del repositorio y los recorridos de prueba en el teléfono.")
+  "logrado en cada objetivo al 2 de noviembre de 2026, según el código del repositorio y las pruebas en el teléfono.")
 
 tab("cumplimiento", "Alcance de los objetivos específicos al 2 de noviembre de 2026",
     ["Objetivo", "Alcance logrado", "Siguiente etapa"],
@@ -359,7 +361,8 @@ h4("5.1.2. Asistente de voz (O2)")
 
 p("El asistente reconoce comandos globales y propios de cada pantalla, con tolerancia a acentos, a una letra mal y a palabras partidas, y se detiene o "
   "calla con las órdenes de la decisión 0006. Funciona con un solo motor de reconocimiento y síntesis de voz para toda la aplicación, atiende la palabra "
-  "de activación y ofrece la escucha en segundo plano como opción apagada por defecto, que se activa en Configuración.")
+  "de activación y ofrece la escucha en segundo plano como opción apagada por defecto, que se activa en Configuración. El envío de las preguntas al servidor central "
+  "quedó conectado en el código, y su funcionamiento de punta a punta depende de que el servidor publique sus rutas.")
 
 h4("5.1.3. Registro e inicio de sesión (O3)")
 
@@ -371,8 +374,8 @@ p("El registro y el inicio de sesión funcionan con cuentas guardadas en el tel�
 
 h4("5.1.4. Distribución como APK (O4)")
 
-p("La aplicación se compila como APK de instalación directa, con la versión de lanzamiento reducida y ofuscada, y se instala en teléfonos Android con "
-  "nivel de API 26 o superior. La decisión 0008 fijó el canal de distribución: el APK se entrega desde la página del proyecto con su huella SHA-256 y "
+p("La aplicación se compila como APK de instalación directa, con la versión de lanzamiento reducida y ofuscada, y requiere "
+  "el nivel de API 26 o superior, y se instaló y probó en un teléfono con Android 12. La decisión 0008 fijó el canal de distribución: el APK se entrega desde la página del proyecto con su huella SHA-256 y "
   "un guion de instalación por voz, sin tiendas de aplicaciones y con costo cero. La firma con clave propia y la publicación de cada versión en "
   "GitHub Releases completan esa distribución.")
 
@@ -425,8 +428,8 @@ ANEXO_DECISIONES = [
      "Pantalla negra y brillo mínimo funcionan en cualquier pantalla, con dos salidas: decir pantalla normal y mantener presionada la pantalla.",
      "Los comandos de pantalla se atienden antes que cualquier otro, para que la salida funcione siempre."),
     ("0005", "Responsable legal, menores y datos reales",
-     "El responsable legal es José Fernández Quintana, a título personal, mientras solo haya cuentas de demostración; antes de usar datos reales se buscará un convenio con el CECAPI. El aviso de privacidad y el consentimiento dentro de la app esperan la revisión de una persona abogada.",
-     "Los textos legales son borradores para revisión de abogado. Ya se construyó borrar la cuenta y los datos, la IA apagada por defecto y el inicio de sesión sin nombre de usuario en el registro."),
+     "Mientras solo haya cuentas de demostración no se usan datos reales; antes de usarlos se buscará un convenio con el CECAPI y se definirá el responsable legal. El aviso de privacidad y el consentimiento dentro de la app esperan la revisión de una persona abogada.",
+     "Los textos legales son borradores para revisión de abogado. Ya se construyó borrar la cuenta y los datos, la IA apagada por defecto y el registro interno del inicio de sesión sin el nombre de usuario."),
     ("0006", "Silencio y para solo como frase completa",
      "Las órdenes silencio y para solo valen como frase completa, porque para también aparece en frases comunes.",
      "Se atienden antes que cualquier otro comando y funcionan sin decir la palabra de activación."),
@@ -434,14 +437,14 @@ ANEXO_DECISIONES = [
      "La escucha fuera de la app se activa en Configuración, empieza apagada y funciona como servicio en primer plano con aviso fijo y botón Detener.",
      "Fuera de la app solo responde a los comandos generales."),
     ("0008", "Android: solo el APK desde la página del proyecto, y costo cero",
-     "El APK se distribuye solo desde la página de descargas, con su huella SHA-256 y un guion de instalación por voz. El único gasto aceptado es el dominio.",
-     "Desde Android 13, un APK descargado no puede activar la accesibilidad hasta permitir la configuración restringida; el guion debe explicarlo."),
+     "El APK se distribuye solo desde la página de descargas, con su huella SHA-256 y un guion de instalación por voz. El único gasto que esta decisión acepta es el dominio; los costos del servidor y de la IA se describen en el apartado 2.4.2.",
+     "El guion de instalación por voz debe explicar los permisos que Android pida al instalar y activar la aplicación."),
     ("0009", "El acceso se maneja con roles, no con planes",
      "El acceso y lo que ve cada persona dependen solo de su rol, sin planes ni pagos dentro de la aplicación.",
      "Las funciones se activan por rol, no por pago."),
     ("0011", "Versión mínima de Android",
-     "Mínimo de Android 5 (API 21) y recomendada Android 11 o superior; la aplicación avisa por voz qué funciones no existen en el teléfono.",
-     "El mínimo vigente en Gradle es API 26; bajarlo exige cambiar Gradle, que está congelado."),
+     "Propone un mínimo de Android 5 (API 21) y recomienda Android 11 o superior.",
+     "El cambio en Gradle no se aplicó: el mínimo con el que se compila es API 26, y bajarlo exige cambiar Gradle, que está congelado."),
     ("0012", "Tamaños de botón y micrófono fijo",
      "Seis tamaños de tarjeta en toda la app, cuatro de un componente compartido y dos del podio de la clasificación; el micrófono va anclado abajo, con la misma altura en todas las pantallas.",
      "Ningún equipo hace botones a mano, y se revisan los tamaños y el micrófono en cada panel nuevo."),
