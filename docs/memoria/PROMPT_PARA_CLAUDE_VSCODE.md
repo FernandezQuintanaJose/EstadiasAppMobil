@@ -1,5 +1,7 @@
 # Instrucciones para el Claude de Visual Studio (datos que dependen del teléfono)
 
+> **Actualización del 3 de noviembre de 2026:** los datos del dispositivo (Oppo CPH2387, Android 12, app 1.0 desde main b8e39d8) y las pruebas de cuenta, contraseñas, pantallas y estabilidad ya están integrados en los apartados 4.6 y 5.1 (Tabla 12). Lo único que sigue sin datos es el recorrido con TalkBack; es opcional y, si no se hace, no se agrega nada.
+
 Contexto: la memoria de estadía de José Fernández Quintana (módulos 1 y 2 de la app Android CECAPI) está en `docs/memoria/Memoria_App_movil_Android_COMPLETA.docx`. Una revisión crítica pide **datos reales del teléfono** para el apartado 4.6 (Pruebas realizadas) y el 5.1. Ese es el único punto de la crítica que depende del dispositivo; todo lo demás ya se corrigió en el texto.
 
 **Regla principal: no inventes nada.** Si un dato no se pudo comprobar, escribe «no probado». No modifiques código de la app salvo que el alumno lo pida.

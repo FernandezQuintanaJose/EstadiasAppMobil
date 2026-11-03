@@ -11,7 +11,7 @@ RESUMEN = ("Las personas ciegas o con baja visión que atiende el Centro de Capa
            "cada elemento de la pantalla. Para atender esa necesidad se desarrolló una aplicación móvil Android de asistente por voz, con una interfaz "
            "accesible, un motor de voz único con palabra de activación, comandos globales y propios de cada pantalla, cuentas de usuario y un APK de "
            "instalación directa. El trabajo siguió un desarrollo incremental por módulos, con ramas de trabajo, revisiones de integración periódicas y "
-           "decisiones de diseño documentadas, y las pantallas se recorrieron con el APK instalado en un teléfono Android. Como resultado, la aplicación "
+           "decisiones de diseño documentadas, y se probó en un teléfono Android con el APK instalado. Como resultado, la aplicación "
            "cuenta con 17 destinos de navegación, una pantalla dividida con el micrófono fijo, tamaños de botón unificados, reconocimiento y síntesis de voz con "
            "tolerancia a errores, escucha en segundo plano opcional y cuentas locales con contraseñas de al menos 15 letras protegidas con Argon2id. La "
            "validación del correo con un código y las cuentas del servidor, así como la firma y la publicación del APK, forman la siguiente etapa.")
@@ -19,8 +19,8 @@ ABSTRACT = ("Blind and low-vision people served by the Centro de Capacitación p
             "to use their phones, and general tools such as screen readers require learning gestures and moving through every element on the screen. "
             "To address this need, an Android voice assistant mobile application was developed, with an accessible interface, a single voice engine with "
             "a wake word, global and screen-specific commands, user accounts and a directly installable APK. The work followed an incremental, "
-            "module-based development process, with working branches, periodic integration reviews and documented design decisions, and the screens were "
-            "walked through with the APK installed on an Android phone. As a result, the application has 17 navigation destinations, a split screen with "
+            "module-based development process, with working branches, periodic integration reviews and documented design decisions, and it was "
+            "tested on an Android phone with the APK installed. As a result, the application has 17 navigation destinations, a split screen with "
             "a fixed microphone, unified button sizes, speech recognition and synthesis tolerant to errors, optional background listening and local accounts "
             "with passwords of at least 15 letters protected with Argon2id. Email validation with a code and server accounts, as well as the signing "
             "and publication of the APK, make up the next stage.")

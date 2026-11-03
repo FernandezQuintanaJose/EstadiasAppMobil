@@ -61,14 +61,14 @@ p("Las reglas de colaboración quedaron escritas en una guía del repositorio: c
 h4("4.1.2. Técnicas e instrumentos de recolección de datos")
 
 p("Los datos del proyecto se recolectaron con los instrumentos de la [[tab:instrumentos]]. El historial del repositorio permitió medir el avance por "
-  "semana, las decisiones numeradas, reunidas en el Anexo A, dejaron constancia de cada diseño con su contexto, y los recorridos con el APK instalado en un "
-  "teléfono Android permitieron revisar las pantallas de la aplicación.")
+  "semana, las decisiones numeradas, reunidas en el Anexo A, dejaron constancia de cada diseño con su contexto, y las pruebas en un "
+  "teléfono Android permitieron revisar el funcionamiento de la aplicación.")
 
 tab("instrumentos", "Instrumentos de recolección de datos de la aplicación móvil",
     ["Instrumento", "Qué mide", "Cómo se aplica"],
     [["Historial del repositorio", "Avance por semana y por carpeta", "Conteo de cambios registrados"],
      ["Decisiones numeradas", "Contexto, decisión y consecuencias de cada diseño", "Lectura de la carpeta docs/decisiones (Anexo A)"],
-     ["Recorridos en teléfono", "Pantallas de la aplicación", "Recorrido de cada pantalla con el APK instalado"]],
+     ["Pruebas en teléfono", "Cuenta, contraseñas, pantallas y estabilidad de la aplicación", "Pruebas manuales y con adb en un teléfono Android"]],
     [4.4, 5.6, 5.1])
 
 h4("4.1.3. Recursos utilizados")
@@ -80,7 +80,7 @@ p("En lo humano, el desarrollo de los módulos 1 y 2 y de la carpeta compartida 
 
 p("En lo económico, la decisión 0008 estableció que la aplicación se distribuye solo como APK desde la página del proyecto y que todo lo que cueste "
   "dinero se evita salvo que sea indispensable. Por eso las herramientas de esta parte son gratuitas y de código abierto: Android Studio, Kotlin, "
-  "Jetpack Compose, Room, Hilt, DataStore y GitHub. El teléfono de pruebas y el tiempo de desarrollo son los únicos recursos que no se compraron.")
+  "Jetpack Compose, Room, Hilt, DataStore y GitHub. El teléfono de pruebas, un Oppo CPH2387 con Android 12, y el tiempo de desarrollo son los únicos recursos que no se compraron.")
 
 h4("4.1.4. Cronograma de actividades realizadas")
 
@@ -307,9 +307,21 @@ p("Sobre el micrófono, la documentación de Android advierte que el reconocimie
 # ----------------------------------------------------------------------------------------------------
 h3("4.6. PRUEBAS REALIZADAS")
 
-p("Las pruebas se realizaron de forma manual con el APK instalado en un teléfono Android. Cada versión se compiló, se instaló y se recorrieron sus "
-  "pantallas, y los fallos encontrados se corrigieron en la versión siguiente. Este método permitió revisar la aplicación sobre el dispositivo en el "
-  "que se usa, con su motor de voz, su pantalla y sus permisos reales.")
+p("Las pruebas se realizaron en un teléfono Oppo CPH2387 con Android 12, con la aplicación com.cecapi.app en su versión 1.0, compilada desde la rama "
+  "principal del repositorio (commit b8e39d8). Se combinaron pruebas manuales sobre las pantallas con comandos de adb, la herramienta de Android "
+  "para controlar un dispositivo desde una computadora, de modo que la aplicación se revisó con su motor de voz, su pantalla y sus permisos reales.")
+
+p("La [[tab:pruebas_tel]] resume lo que se comprobó en el teléfono: la creación de cuenta con sus validaciones y el aviso a las personas menores de "
+  "edad, el contador de contraseñas incorrectas, la barra de desplazamiento fija en las pantallas Cuenta, Personalización y Configuración, y la "
+  "estabilidad de la aplicación ante más de 3,700 eventos aleatorios, durante los cuales no se registraron cierres.")
+
+tab("pruebas_tel", "Pruebas realizadas en el teléfono",
+    ["Prueba", "Qué se comprobó"],
+    [["Creación de cuenta", "Validaciones de usuario y contraseña, y aviso a la persona menor de edad"],
+     ["Inicio de sesión", "Contador de contraseñas incorrectas"],
+     ["Pantallas", "Barra de desplazamiento fija en Cuenta, Personalización y Configuración"],
+     ["Estabilidad", "Más de 3,700 eventos aleatorios sin cierres de la aplicación"]],
+    [4.0, 11.1])
 
 p("El reconocimiento de voz depende de que el teléfono tenga descargado el paquete de voz del idioma, y las funciones disponibles dependen de la "
   "versión de Android de cada aparato. El nivel de API 26 es el mínimo con el que se compila la aplicación, de modo que los teléfonos con Android 8.0 "
@@ -341,7 +353,7 @@ h4("5.1.1. Interfaz accesible (O1)")
 
 p("La aplicación tiene 17 destinos de navegación, 11 de ellos del módulo 1, y todos comparten el micrófono fijo en la zona inferior y los tamaños "
   "de botón de la decisión 0012. El código del módulo 1 declara 15 descripciones de contenido y 22 usos de semántica, y los recuadros de carga "
-  "anuncian su mensaje con el lector de pantalla. El APK instalado en un teléfono Android se usó durante el desarrollo para recorrer estas pantallas.")
+  "anuncian su mensaje con el lector de pantalla. En el teléfono de pruebas se comprobó la barra de desplazamiento fija en las pantallas Cuenta, Personalización y Configuración.")
 
 h4("5.1.2. Asistente de voz (O2)")
 
@@ -354,7 +366,8 @@ h4("5.1.3. Registro e inicio de sesión (O3)")
 p("El registro y el inicio de sesión funcionan con cuentas guardadas en el teléfono, con cuatro roles y con la confirmación de 18 años o más. La "
   "contraseña de al menos 15 letras se normaliza antes de validarse, se protege con Argon2id y el acceso se bloquea 15 minutos tras diez intentos "
   "fallidos. La interfaz ServicioDeCuentas deja preparada la conexión con las cuentas del servidor, a las que se sumarán el código por correo y la "
-  "recuperación de la contraseña.")
+  "recuperación de la contraseña. En el teléfono de pruebas se comprobaron las validaciones de la creación de cuenta, el aviso a las personas "
+  "menores de edad y el contador de contraseñas incorrectas.")
 
 h4("5.1.4. Distribución como APK (O4)")
 

@@ -36,7 +36,7 @@ Carta; márgenes izq 3.0, der 2.5, sup 2.5, inf 2.5 cm. Times New Roman 12, inte
 - Interfaz: 17 destinos de navegación (11 del módulo 1); seis tamaños de botón (decisión 0012); micrófono fijo; pantalla dividida 58 % contenido y 42 % micrófono (`PantallaConMicrofono`, `MIC_FRACCION = 0.42`); pantalla negra (decisión 0003); 15 descripciones de contenido y 22 usos de semántica en el módulo 1.
 - APK: compilación de lanzamiento con reducción y ofuscación; versión 1.0; API 26 mínimo y 35 objetivo; decisión 0008 (APK sin tiendas, costo cero). No hay firma con clave propia ni release publicada: se presenta como siguiente etapa.
 - Seguridad: `allowBackup` apagado; tráfico sin cifrar solo en la variante de depuración; borrar cuenta y datos.
-- Pruebas: el alumno prueba de forma manual instalando el APK en su teléfono Android; la mayoría de los paneles funciona. **No hay** pruebas con alumnos ni con lector de pantalla, ni resultados de pruebas unitarias: no escribir cifras de pruebas.
+- Pruebas (datos aportados por el alumno desde adb): teléfono Oppo CPH2387 con Android 12, com.cecapi.app versión 1.0 (código 1) compilada desde main (commit b8e39d8). Se comprobó en el teléfono: creación de cuenta con validaciones y aviso a la persona menor de edad, contador de contraseñas incorrectas, barra de desplazamiento fija en Cuenta, Personalización y Configuración, y más de 3,700 eventos aleatorios sin cierres. **No hay** recorrido con TalkBack, ni pruebas con alumnos, ni resultados de pruebas unitarias: no escribir cifras de eso.
 
 ## Figuras (`figuras/`)
 
