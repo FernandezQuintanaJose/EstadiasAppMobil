@@ -125,7 +125,7 @@ tab("rf", "Requisitos funcionales de la aplicación móvil",
 tab("rnf", "Requisitos no funcionales de la aplicación móvil",
     ["Clave", "Requisito", "Cómo se verifica"],
     [["RNF1", "Accesibilidad: todo operable con voz, con lector de pantalla y sin depender del color", "Revisión del código y recorridos en teléfono"],
-     ["RNF2", "Privacidad: la IA y la escucha en segundo plano empiezan apagadas y la persona puede borrar su cuenta y sus datos", "Revisión de código y decisiones 0002 y 0007"],
+     ["RNF2", "Privacidad: la IA y la escucha en segundo plano empiezan apagadas y la persona puede borrar su cuenta y sus datos; el envío de frases a Wikipedia y Wikidata es un límite declarado", "Revisión de código y decisiones 0002 y 0007"],
      ["RNF3", "Seguridad: contraseñas con Argon2id, bloqueo tras intentos fallidos y sin copias de seguridad de la app", "Revisión de código y recorridos en teléfono"],
      ["RNF4", "Costo directo cero en la aplicación móvil y en sus herramientas de desarrollo", "Decisión 0008"],
      ["RNF5", "Compatibilidad: nivel de API 26 como mínimo y 35 como objetivo", "Archivo build.gradle.kts"],
@@ -286,7 +286,7 @@ p("Durante el desarrollo, el APK se compila y se instala directamente en el tel�
 h3("4.5. SEGURIDAD Y PRIVACIDAD DE LA APLICACIÓN")
 
 p("La [[tab:seguridad]] reúne los controles aplicados en la aplicación y el envío de frases a servicios de terceros. El principio de trabajo fue que lo que no se necesita no se guarda y que la "
-  "persona decide qué sale de su teléfono. Dos de las funciones que más datos pueden mover, la IA y la escucha en segundo plano, empiezan apagadas.")
+  "persona decide qué sale de su teléfono, con una excepción declarada: el envío de frases no entendidas a Wikipedia y Wikidata. Dos de las funciones que más datos pueden mover, la IA y la escucha en segundo plano, empiezan apagadas.")
 
 tab("seguridad", "Controles y envíos de datos de la aplicación móvil",
     ["Control o envío", "Qué evita o qué sale del teléfono", "Fuente"],
@@ -298,7 +298,7 @@ tab("seguridad", "Controles y envíos de datos de la aplicación móvil",
      ["Tráfico sin cifrar solo en la versión de depuración", "Enviar datos por HTTP en la versión de lanzamiento", "Archivo build.gradle.kts"],
      ["Borrar mi cuenta y mis datos", "Conservar datos de quien ya no usa la app", "Código de la aplicación"],
      ["Confirmación de 18 años o más", "Uso por menores sin declaración", "Registro de cuenta"],
-     ["Consulta a Wikipedia y Wikidata", "Sale el texto de la frase hacia servicios de terceros, sin pasar por el servidor ni por un filtro", "Por decidir (decisión 0002)"]],
+     ["Consulta a Wikipedia y Wikidata", "Sale el texto de la frase hacia servicios de terceros, sin pasar por el servidor ni por un filtro", "Límite declarado en 2.4.2 (decisión 0002)"]],
     [5.2, 6.0, 3.9])
 
 p("Sobre el micrófono, la documentación de Android advierte que el reconocimiento de voz probablemente transmite el audio a servidores remotos "
@@ -339,9 +339,9 @@ h2("RESULTADOS Y CONCLUSIONES")
 h3("5.1. RESULTADOS")
 
 p("Los resultados se presentan en el orden de los objetivos específicos del capítulo II. La [[tab:cumplimiento]] y la [[fig:estado]] resumen el alcance "
-  "logrado en cada objetivo al 2 de noviembre de 2026, según el código del repositorio y las pruebas en el teléfono.")
+  "logrado en cada objetivo al 3 de noviembre de 2026, según el código del repositorio y las pruebas en el teléfono.")
 
-tab("cumplimiento", "Alcance de los objetivos específicos al 2 de noviembre de 2026",
+tab("cumplimiento", "Alcance de los objetivos específicos al 3 de noviembre de 2026",
     ["Objetivo", "Alcance logrado", "Siguiente etapa"],
     [["O1. Pantallas accesibles", "17 destinos de navegación, micrófono fijo, tamaños de botón unificados, pantalla dividida y etiquetas descriptivas en el módulo 1", "Extender las etiquetas a todas las pantallas"],
      ["O2. Asistente de voz", "Motor de voz único, palabra de activación, tolerancia a errores, comandos globales y por pantalla, escucha en segundo plano opcional y preguntas a la IA conectadas en el código", "Comprobar la conexión con el servidor central"],
@@ -349,13 +349,14 @@ tab("cumplimiento", "Alcance de los objetivos específicos al 2 de noviembre de 
      ["O4. Distribución como APK", "APK de instalación directa compilado e instalado en teléfono, con versión de lanzamiento optimizada", "Firma digital y publicación en GitHub Releases"]],
     [3.6, 7.2, 4.3])
 
-fig("estado", "m08_estado_objetivos.png", "Alcance de los objetivos específicos al 2 de noviembre de 2026", 13.6)
+fig("estado", "m08_estado_objetivos.png", "Alcance de los objetivos específicos al 3 de noviembre de 2026", 13.6)
 
 h4("5.1.1. Interfaz accesible (O1)")
 
 p("La aplicación tiene 17 destinos de navegación, 11 de ellos del módulo 1, y todos comparten el micrófono fijo en la zona inferior y los tamaños "
   "de botón de la decisión 0012. El código del módulo 1 declara 15 descripciones de contenido y 22 usos de semántica, y los recuadros de carga "
-  "anuncian su mensaje con el lector de pantalla. En el teléfono de pruebas se comprobó la barra de desplazamiento fija en las pantallas Cuenta, Personalización y Configuración.")
+  "anuncian su mensaje con el lector de pantalla. En el teléfono de pruebas se comprobó la barra de desplazamiento fija en las pantallas Cuenta, Personalización y Configuración. El recorrido de las "
+  "pantallas con el lector de pantalla no formó parte de las pruebas realizadas.")
 
 h4("5.1.2. Asistente de voz (O2)")
 
@@ -386,8 +387,9 @@ p("El proyecto produjo una aplicación Android de asistencia por voz con una int
   "objetivo específico y distinguen lo cumplido de lo que queda como siguiente etapa.")
 
 p("El primer objetivo se cumplió en parte. Se diseñaron las pantallas con navegación consistente, micrófono fijo, tamaños de botón unificados, pantalla dividida "
-  "y tarjeta iluminada por módulo, y con etiquetas descriptivas para el lector de pantalla en las pantallas del módulo 1. Extender esas etiquetas a "
-  "las demás pantallas es el trabajo siguiente.")
+  "y tarjeta iluminada por módulo, y con etiquetas descriptivas para el lector de pantalla en las pantallas del módulo 1. Como el recorrido con el "
+  "lector de pantalla no formó parte de las pruebas, el diseño para ese lector no se comprobó con él; extender las etiquetas a las demás pantallas es el "
+  "trabajo siguiente.")
 
 p("El segundo objetivo se cumplió en parte: se programó en el teléfono un asistente que usa un solo motor de reconocimiento y síntesis de voz, atiende una palabra de "
   "activación, tolera errores del reconocimiento y reconoce comandos globales y propios de cada pantalla. La función de enviar preguntas a la inteligencia "
@@ -411,7 +413,7 @@ p("Las recomendaciones se dirigen a quien continúe el proyecto y siguen el orde
 bul(["**Firmar y publicar el APK.** Crear una clave de firma propia, guardarla fuera del repositorio, automatizar la compilación y la publicación en GitHub Releases con su huella SHA-256 y escribir el guion de instalación por voz.",
      "**Conectar las cuentas al servidor.** Implementar una segunda versión de ServicioDeCuentas que llame a las rutas del servidor, con el código por correo para registro y recuperación de la contraseña.",
      "**Agregar el aviso de privacidad y los términos a la aplicación.** Leerlos por partes y por audio, con aceptación registrada.",
-     "**Evaluar el uso con alumnos del CECAPI.** Medir el tiempo y los pasos de tareas cotidianas con el lector de pantalla y con la aplicación, para valorar con datos cuánto reduce el asistente de voz."])
+     "**Evaluar el uso con alumnos del CECAPI.** Medir el tiempo y los pasos de tareas cotidianas con el lector de pantalla y con la aplicación, para valorar con datos cuánto reduce el asistente de voz, con cuentas de demostración mientras no se resuelvan el convenio y el aviso de privacidad (decisión 0005)."])
 
 p("Estas acciones llevarían la aplicación de un desarrollo funcional a una herramienta instalada y evaluada por las personas que la van a usar, que es la "
   "condición necesaria para recomendar su adopción por el CECAPI y para que el asistente de voz se convierta en una ayuda cotidiana de sus alumnos.")

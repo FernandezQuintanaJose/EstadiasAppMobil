@@ -186,7 +186,7 @@ def m07_avance():
 
 def m08_objetivos():
     fig, ax = lienzo(4.4)
-    ax.text(50, 97, "Alcance de los objetivos específicos al 2 de noviembre de 2026", ha="center", fontsize=7.8, color=GRIS)
+    ax.text(50, 97, "Alcance de los objetivos específicos al 3 de noviembre de 2026", ha="center", fontsize=7.8, color=GRIS)
     filas = [
         ("O1  Pantallas accesibles\n(etiquetas y señales\ndistintas del color)", "Construido: micrófono fijo,\npantalla dividida y etiquetas", VERDE, VERDE_CLARO),
         ("O2  Asistente de voz\n(wake word, comandos,\nrespuesta hablada)", "Construido: motor de voz único;\nIA conectada y apagada por defecto", VERDE, VERDE_CLARO),

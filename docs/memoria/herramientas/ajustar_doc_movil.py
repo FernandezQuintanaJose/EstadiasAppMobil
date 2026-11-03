@@ -27,7 +27,7 @@ CAMBIOS = [
      "el aviso de privacidad se presentará en la aplicación, se leerá en pantalla y por audio, y se aceptará con un botón."),
     ("Las herramientas utilizadas en el desarrollo",
      "al 27 de octubre de 2026, y las herramientas que aún no se incorporan se señalan como tales.",
-     "al 2 de noviembre de 2026."),
+     "al 3 de noviembre de 2026."),
     ("Se plantea también", "Se parte de la hipótesis de que", "Se considera, además, que"),
     ("Como consecuencia, se espera", "; este beneficio se comprueba con los resultados del capítulo V.", ", que es el propósito que orienta el diseño de la aplicación."),
     ("En los meses previos a la estadía", "se realizan revisiones de integración cada fin de semana, cuyo resultado", "se realizan revisiones de integración periódicas, cuyo resultado"),
@@ -65,6 +65,12 @@ CAMBIOS = [
     ("•\tDistribuir la aplicación como archivo APK",
      "•\tDistribuir la aplicación como archivo APK de instalación directa en teléfonos Android, para que",
      "•\tGenerar la aplicación como archivo APK de instalación directa en teléfonos Android y dejar definida su distribución desde la página del proyecto, para que"),
+    ("La aplicación incluye interfaz accesible",
+     "y distribución en APK para teléfonos Android",
+     "y un APK de instalación directa para teléfonos Android"),
+    ("Se plantea la hipótesis de que muchas personas",
+     "Se plantea la hipótesis de que muchas personas",
+     "Se plantea como punto de partida que muchas personas"),
 ]
 hechos = 0
 for inicio, viejo, nuevo in CAMBIOS:
@@ -141,6 +147,7 @@ for p in d.paragraphs:
             trozos.append(resto[:pos].strip())
             resto = resto[pos:]
         trozos.append(resto.strip())
+        trozos.append("Cuando la aplicación no entiende una frase y hay internet, el texto de la frase se envía a Wikipedia o a Wikidata, servicios de terceros, aunque la inteligencia artificial esté apagada. Esta consulta no depende del interruptor de la inteligencia artificial ni pasa por el filtro de privacidad del servidor, y solo existe en las pantallas de inicio y de panel: las pantallas de inicio de sesión y de registro, donde se dictan el usuario y la contraseña, no la usan. Su funcionamiento depende de la disponibilidad de ambos servicios, y a lo que se envía le aplican las condiciones de uso de cada uno.")
         p.runs[0].text = trozos[0]
         ref = p._p
         for trozo in trozos[1:]:

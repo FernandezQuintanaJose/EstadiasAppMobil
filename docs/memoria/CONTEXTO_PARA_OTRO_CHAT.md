@@ -71,3 +71,12 @@ Versión vigente: `Memoria_App_movil_Android_COMPLETA.docx` (51 págs.): capítu
 - **Anexo A:** la 0011 queda como propuesta sin aplicar (mínimo real API 26); la 0008 aclara que el único gasto que acepta es el dominio y remite a 2.4.2; la 0005 sin postura legal.
 - **Índices:** se regeneran con las páginas reales (`herramientas/regenerar_indices.py`); Word los vuelve a calcular al abrir.
 - Sigue abierto, solo del alumno: pruebas con lector de pantalla y con Android 14 o superior, y resultados de las pruebas con alumnos.
+
+## Tercera revisión (3 de noviembre de 2026, versión de 54 páginas)
+
+- **Wikipedia (Q-01):** sin cambiar el código de la app, el flujo queda declarado como límite explícito en 2.4.2 (nuevo párrafo), en 4.5 (excepción al principio «la persona decide qué sale de su teléfono»), en RNF2 y en la Tabla 11. Verificado en el código que la consulta solo existe en `HomeViewModel` y `DashboardViewModel` (inicio y panel); el inicio de sesión y el registro, que usan `voiceEngine.rawInput` para dictar usuario y contraseña, no la usan. Si el alumno decide condicionarla al interruptor de la IA, es un cambio pequeño en esos dos ViewModels y habría que reescribir esos cuatro textos.
+- **Lector de pantalla (Q-02):** no hay recorrido con TalkBack; 4.6, 5.1.1 y la conclusión del objetivo 1 lo dicen. Si el alumno lo hace, reemplazar esas frases por una tabla pantalla / ¿se anuncia? / observación, con modelo y versión de TalkBack.
+- **Pruebas con alumnos (Q-03):** la recomendación de 5.3 dice que se hagan con cuentas de demostración mientras no se resuelvan el convenio y el aviso (decisión 0005).
+- **Fechas (Q-06):** estado del documento al 3 de noviembre de 2026; la actividad del repositorio llega hasta el 2 de noviembre (último commit).
+- **Objetivo general y alcances (Q-05):** hablan de «un APK de instalación directa». 2.1 plantea la dependencia de otras personas como punto de partida, sin llamarla hipótesis.
+- Abiertos solo del alumno: recorrido con TalkBack, datos propios del CECAPI para 2.1 y motivo del hueco de actividad del 5 al 25 de octubre.
