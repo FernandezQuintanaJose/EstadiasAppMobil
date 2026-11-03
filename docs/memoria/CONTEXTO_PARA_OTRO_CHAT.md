@@ -80,3 +80,10 @@ Versión vigente: `Memoria_App_movil_Android_COMPLETA.docx` (51 págs.): capítu
 - **Fechas (Q-06):** estado del documento al 3 de noviembre de 2026; la actividad del repositorio llega hasta el 2 de noviembre (último commit).
 - **Objetivo general y alcances (Q-05):** hablan de «un APK de instalación directa». 2.1 plantea la dependencia de otras personas como punto de partida, sin llamarla hipótesis.
 - Abiertos solo del alumno: recorrido con TalkBack, datos propios del CECAPI para 2.1 y motivo del hueco de actividad del 5 al 25 de octubre.
+
+## Cuarta revisión (3 de noviembre de 2026, 54 páginas)
+
+- Figura 8 rehecha con tres columnas (objetivo, estado y alcance, siguiente etapa) coherente con la Tabla 13 y con 5.2: O1, O2 y O3 «en parte», O4 «en proceso». Corte unificado al 3 de noviembre en texto, tablas y figuras 1 y 8 (el último commit de las carpetas es del 2 de noviembre).
+- Sin recorrido con TalkBack ni prueba de voz registrada: RNF1 dice «el recorrido con lector de pantalla es la siguiente etapa», 4.6 y 5.1.2 dicen que no se probó el reconocimiento de voz de forma sistemática, y 2.4.2 lo declara como límite. Si el alumno hace las pruebas, reemplazar esas frases por tablas pantalla / resultado.
+- Fusionados los dos párrafos de menos de 40 palabras (2.1 y 2.4.2). La Tabla 5 separa la decisión 0011 (propuesta sin aplicar) de la 0012.
+- Abiertos solo del alumno: motivo del hueco de octubre (Figura 1), dictamen y agradecimientos (se entregan firmados o aparte), y revisar que las otras memorias coincidan en Wikipedia, cuentas, Argon2id y costos.

@@ -39,7 +39,7 @@ p("La aplicación se divide en siete módulos, cada uno en su propia carpeta den
   "otros estudiantes y se describen en las memorias correspondientes; aquí solo se citan como dependencias.")
 
 p("La [[tab:alcance]] resume el tamaño del código descrito en esta memoria, contado en líneas no vacías con los comentarios incluidos, y la "
-  "[[fig:avance]] muestra los cambios registrados por semana en esas carpetas hasta el 2 de noviembre de 2026. La mayor actividad se registró en la "
+  "[[fig:avance]] muestra los cambios registrados por semana en esas carpetas hasta el 3 de noviembre de 2026. La mayor actividad se registró en la "
   "semana del 28 de septiembre al 4 de octubre, con 30 cambios, y en la del 26 de octubre al 1 de noviembre, con 21.")
 
 tab("alcance", "Código de los módulos 1 y 2 y su apoyo en core",
@@ -97,7 +97,7 @@ tab("cronograma", "Actividades centrales del desarrollo de la aplicación móvil
      ["28 de septiembre", "IA apagada por defecto, borrar la cuenta y los datos, y correcciones de privacidad y accesibilidad táctil", "Historial y decisión 0002"],
      ["30 de septiembre", "Roles (administrador, directivo, educador, alumno), primer panel de Gestión y sesión recordada", "Historial"],
      ["1 al 3 de octubre", "Validación de cuentas, editar cuenta, soporte y tamaños de tarjeta unificados", "Historial"],
-     ["8 de octubre", "Decisiones 0008 (APK sin tiendas y costo cero), 0011 y 0012 (tamaños y micrófono fijo)", "Decisiones"],
+     ["8 de octubre", "Decisiones 0008 (APK sin tiendas y costo cero), 0011 (propuesta de versión mínima de Android) y 0012 (tamaños de botón y micrófono fijo)", "Decisiones"],
      ["27 de octubre", "Contraseña de 15 letras normalizada, correo opcional y avisos de servidor dormido, límite y falla", "Historial"],
      ["30 de octubre", "Pantalla dividida con micrófono al 42 %, tarjeta iluminada, confirmación de 18 años o más y base de datos versión 19", "Historial"],
      ["2 de noviembre", "Interfaz ServicioDeCuentas, contraseñas con Argon2id, widgets de un solo botón e ícono de la aplicación", "Historial"]],
@@ -124,7 +124,7 @@ tab("rf", "Requisitos funcionales de la aplicación móvil",
 
 tab("rnf", "Requisitos no funcionales de la aplicación móvil",
     ["Clave", "Requisito", "Cómo se verifica"],
-    [["RNF1", "Accesibilidad: todo operable con voz, con lector de pantalla y sin depender del color", "Revisión del código y recorridos en teléfono"],
+    [["RNF1", "Accesibilidad: todo operable con voz, con lector de pantalla y sin depender del color", "Revisión del código; el recorrido con lector de pantalla es la siguiente etapa"],
      ["RNF2", "Privacidad: la IA y la escucha en segundo plano empiezan apagadas y la persona puede borrar su cuenta y sus datos; el envío de frases a Wikipedia y Wikidata es un límite declarado", "Revisión de código y decisiones 0002 y 0007"],
      ["RNF3", "Seguridad: contraseñas con Argon2id, bloqueo tras intentos fallidos y sin copias de seguridad de la app", "Revisión de código y recorridos en teléfono"],
      ["RNF4", "Costo directo cero en la aplicación móvil y en sus herramientas de desarrollo", "Decisión 0008"],
@@ -327,7 +327,7 @@ tab("pruebas_tel", "Pruebas realizadas en el teléfono",
 
 p("El reconocimiento de voz depende de que el teléfono tenga descargado el paquete de voz del idioma, y las funciones disponibles dependen de la "
   "versión de Android de cada aparato. El nivel de API 26 es el mínimo con el que se compila la aplicación; la instalación y las pruebas se hicieron en un solo teléfono, con Android 12, "
-  "y no incluyeron el recorrido con lector de pantalla.")
+  "y no incluyeron el recorrido con lector de pantalla ni una prueba sistemática del reconocimiento de voz.")
 
 # =====================================================================================================
 # CAPÍTULO V
@@ -363,7 +363,7 @@ h4("5.1.2. Asistente de voz (O2)")
 p("El asistente reconoce comandos globales y propios de cada pantalla, con tolerancia a acentos, a una letra mal y a palabras partidas, y se detiene o "
   "calla con las órdenes de la decisión 0006. Funciona con un solo motor de reconocimiento y síntesis de voz para toda la aplicación, atiende la palabra "
   "de activación y ofrece la escucha en segundo plano como opción apagada por defecto, que se activa en Configuración. El envío de las preguntas al servidor central "
-  "quedó conectado en el código, y su funcionamiento de punta a punta depende de que el servidor publique sus rutas.")
+  "quedó conectado en el código, y su funcionamiento de punta a punta depende de que el servidor publique sus rutas. El reconocimiento de voz no se probó de forma sistemática en el teléfono.")
 
 h4("5.1.3. Registro e inicio de sesión (O3)")
 

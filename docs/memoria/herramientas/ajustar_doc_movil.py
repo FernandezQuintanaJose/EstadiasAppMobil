@@ -122,6 +122,17 @@ for f in filas:
     t._tbl.append(nueva)
     poner(nueva, f)
 
+# ---- fusionar el párrafo corto de destinatarios con el siguiente (2.1)
+ps_ = d.paragraphs
+for k, p in enumerate(ps_):
+    if p.text.startswith("Los destinatarios de la aplicación son las personas adultas") and ps_[k + 1].text.startswith("Por ello se requiere"):
+        p.runs[0].text = p.runs[0].text.rstrip() + " " + ps_[k + 1].text.strip()
+        ps_[k + 1]._p.getparent().remove(ps_[k + 1]._p)
+        print("2.1 fusionado")
+        break
+else:
+    raise SystemExit("No se encontró el párrafo de destinatarios")
+
 # ---- referencia nueva: Google (s. f.-c)
 for p in d.paragraphs:
     if p.text.startswith("Google. (s. f.-b)."):
@@ -140,13 +151,16 @@ else:
 for p in d.paragraphs:
     if p.text.strip().startswith("Los términos de uso de la API"):
         texto = p.runs[0].text
-        cortes = ["No se desarrolla una versión para iPhone", "El reconocimiento de voz depende", "El proyecto se desarrolla de septiembre", "La validación del correo con un código depende"]
+        cortes = ["No se desarrolla una versión para iPhone", "El proyecto se desarrolla de septiembre", "La validación del correo con un código depende"]
         trozos, resto = [], texto
         for c in cortes:
             pos = resto.index(c)
             trozos.append(resto[:pos].strip())
             resto = resto[pos:]
         trozos.append(resto.strip())
+        trozos.append("Las pruebas realizadas en el teléfono no incluyeron el recorrido de las pantallas con lector de pantalla ni una prueba sistemática del reconocimiento de voz; ambas quedan como siguiente etapa.")
+        trozos[-2] = trozos[-2] + " " + trozos[-1]
+        trozos.pop()
         trozos.append("Cuando la aplicación no entiende una frase y hay internet, el texto de la frase se envía a Wikipedia o a Wikidata, servicios de terceros, aunque la inteligencia artificial esté apagada. Esta consulta no depende del interruptor de la inteligencia artificial ni pasa por el filtro de privacidad del servidor, y solo existe en las pantallas de inicio y de panel: las pantallas de inicio de sesión y de registro, donde se dictan el usuario y la contraseña, no la usan. Su funcionamiento depende de la disponibilidad de ambos servicios, y a lo que se envía le aplican las condiciones de uso de cada uno.")
         p.runs[0].text = trozos[0]
         ref = p._p

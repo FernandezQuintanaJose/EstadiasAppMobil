@@ -3,6 +3,7 @@
 Uso: python figuras_movil.py   ->  /home/user/memoria/paquete_movil/figuras/
 """
 from pathlib import Path
+import textwrap
 
 import matplotlib
 matplotlib.use("Agg")
@@ -165,7 +166,7 @@ def m06_datos():
 
 
 def m07_avance():
-    semanas = ["14-20\nsep", "21-27\nsep", "28 sep-\n4 oct", "5-11\noct", "12-18\noct", "19-25\noct", "26 oct-\n1 nov", "2-8 nov\n(parcial)"]
+    semanas = ["14-20\nsep", "21-27\nsep", "28 sep-\n4 oct", "5-11\noct", "12-18\noct", "19-25\noct", "26 oct-\n1 nov", "2-3 nov\n(corte)"]
     commits = [2, 6, 30, 1, 0, 0, 21, 8]
     fig, ax = plt.subplots(figsize=(ANCHO, 3.0))
     barras = ax.bar(range(len(semanas)), commits, color=VERDE, width=0.62)
@@ -185,19 +186,24 @@ def m07_avance():
 
 
 def m08_objetivos():
-    fig, ax = lienzo(4.4)
+    fig, ax = lienzo(4.6)
     ax.text(50, 97, "Alcance de los objetivos específicos al 3 de noviembre de 2026", ha="center", fontsize=7.8, color=GRIS)
     filas = [
-        ("O1  Pantallas accesibles\n(etiquetas y señales\ndistintas del color)", "Construido: micrófono fijo,\npantalla dividida y etiquetas", VERDE, VERDE_CLARO),
-        ("O2  Asistente de voz\n(wake word, comandos,\nrespuesta hablada)", "Construido: motor de voz único;\nIA conectada y apagada por defecto", VERDE, VERDE_CLARO),
-        ("O3  Registro e inicio de sesión", "Cuenta local con Argon2id;\ncódigo por correo: siguiente etapa", AMBAR, AMBAR_CLARO),
-        ("O4  Distribución como APK", "APK de instalación directa;\nfirma y GitHub Releases: siguiente etapa", AMBAR, AMBAR_CLARO),
+        ("O1  Pantallas accesibles", "En parte", "Micrófono fijo, pantalla dividida y etiquetas en el módulo 1", "Extender las etiquetas a todas las pantallas", AMBAR, AMBAR_CLARO),
+        ("O2  Asistente de voz", "En parte", "Motor de voz único, palabra de activación y comandos; IA conectada en el código", "Comprobar la conexión con el servidor central", AMBAR, AMBAR_CLARO),
+        ("O3  Registro e inicio de sesión", "En parte", "Cuenta local con Argon2id, bloqueo y confirmación de 18 años", "Código por correo y cuentas en el servidor", AMBAR, AMBAR_CLARO),
+        ("O4  Distribución como APK", "En proceso", "APK de instalación directa con versión de lanzamiento optimizada", "Firma digital y publicación en GitHub Releases", ROJO, "#f8e1e1"),
     ]
-    for i, (obj, est, ec, fc) in enumerate(filas):
-        y = 78 - i * 22
-        caja(ax, 3, y - 8, 44, 17, obj, fc="white", ec=GRIS, tam=7)
-        caja(ax, 52, y - 8, 45, 17, est, fc=fc, ec=ec, tam=7, peso="bold", color=TINTA)
-        flecha(ax, (47.5, y + 0.5), (52, y + 0.5), color=GRIS)
+    ax.text(3, 90, "Objetivo", fontsize=7, fontweight="bold", color=GRIS)
+    ax.text(30, 90, "Estado y alcance logrado", fontsize=7, fontweight="bold", color=GRIS)
+    ax.text(70, 90, "Siguiente etapa", fontsize=7, fontweight="bold", color=GRIS)
+    for i, (obj, estado, logrado, siguiente, ec, fc) in enumerate(filas):
+        y = 79 - i * 21
+        caja(ax, 2, y - 8, 25, 17, textwrap.fill(obj, 18), fc="white", ec=GRIS, tam=7, peso="bold")
+        caja(ax, 29, y - 8, 38, 17, estado + "\n" + textwrap.fill(logrado, 40), fc=fc, ec=ec, tam=6.4)
+        caja(ax, 69, y - 8, 29, 17, textwrap.fill(siguiente, 26), fc="white", ec=GRIS, tam=6.4)
+        flecha(ax, (27.5, y + 0.5), (29, y + 0.5), color=GRIS)
+        flecha(ax, (67.5, y + 0.5), (69, y + 0.5), color=GRIS)
     guardar(fig, "m08_estado_objetivos")
 
 
