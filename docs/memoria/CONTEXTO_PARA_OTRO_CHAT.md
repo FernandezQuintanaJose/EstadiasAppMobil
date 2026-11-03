@@ -87,3 +87,9 @@ Versión vigente: `Memoria_App_movil_Android_COMPLETA.docx` (51 págs.): capítu
 - Sin recorrido con TalkBack ni prueba de voz registrada: RNF1 dice «el recorrido con lector de pantalla es la siguiente etapa», 4.6 y 5.1.2 dicen que no se probó el reconocimiento de voz de forma sistemática, y 2.4.2 lo declara como límite. Si el alumno hace las pruebas, reemplazar esas frases por tablas pantalla / resultado.
 - Fusionados los dos párrafos de menos de 40 palabras (2.1 y 2.4.2). La Tabla 5 separa la decisión 0011 (propuesta sin aplicar) de la 0012.
 - Abiertos solo del alumno: motivo del hueco de octubre (Figura 1), dictamen y agradecimientos (se entregan firmados o aparte), y revisar que las otras memorias coincidan en Wikipedia, cuentas, Argon2id y costos.
+
+## Cierre de capítulos (3 de noviembre de 2026)
+
+- 4.1.1 explica el hueco del 5 al 25 de octubre tal como lo dijo el alumno: ese periodo se dedicó a validar y revisar lo desarrollado y a generar la documentación; la programación se retomó el 26 de octubre. No se menciona ninguna visita al CECAPI porque el alumno no la confirmó.
+- Alcance acordado: solo capítulos y formato (índices). No se agregan pruebas en el teléfono, recorrido con TalkBack ni datos nuevos del CECAPI.
+- Antes de exportar desde Word: Ctrl+A y F9 para actualizar índices y rótulos; el PDF de entrega debe exportarse desde Word.

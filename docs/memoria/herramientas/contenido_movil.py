@@ -40,7 +40,9 @@ p("La aplicación se divide en siete módulos, cada uno en su propia carpeta den
 
 p("La [[tab:alcance]] resume el tamaño del código descrito en esta memoria, contado en líneas no vacías con los comentarios incluidos, y la "
   "[[fig:avance]] muestra los cambios registrados por semana en esas carpetas hasta el 3 de noviembre de 2026. La mayor actividad se registró en la "
-  "semana del 28 de septiembre al 4 de octubre, con 30 cambios, y en la del 26 de octubre al 1 de noviembre, con 21.")
+  "semana del 28 de septiembre al 4 de octubre, con 30 cambios, y en la del 26 de octubre al 1 de noviembre, con 21. Entre el 5 y el 25 de octubre "
+  "el registro de cambios en estas carpetas fue mínimo porque ese periodo se dedicó a validar y revisar lo desarrollado y a generar la documentación "
+  "correspondiente; la programación se retomó el 26 de octubre.")
 
 tab("alcance", "Código de los módulos 1 y 2 y su apoyo en core",
     ["Parte", "Carpeta", "Archivos", "Líneas"],
