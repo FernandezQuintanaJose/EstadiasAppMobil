@@ -133,7 +133,7 @@ class SeleccionTarjeta(private val claveGuardada: MutableState<String?> = mutabl
 val LocalSeleccionTarjeta = compositionLocalOf<SeleccionTarjeta?> { null }
 
 /** Si TalkBack (el lector de pantalla de Android) está encendido, él lee y dibuja su propio foco. */
-private fun lectorDePantallaActivo(contexto: Context): Boolean =
+internal fun lectorDePantallaActivo(contexto: Context): Boolean =
     (contexto.getSystemService(Context.ACCESSIBILITY_SERVICE) as? AccessibilityManager)?.isTouchExplorationEnabled == true
 
 /** Marca el hijo de [PantallaConMicrofono] que es el micrófono. */

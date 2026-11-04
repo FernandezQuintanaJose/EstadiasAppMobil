@@ -6,8 +6,11 @@ import androidx.lifecycle.viewModelScope
 import com.cecapi.app.core.util.DisplayControl
 import com.cecapi.app.core.voice.AddressStyle
 import com.cecapi.app.core.voice.AssistantPreferences
+import com.cecapi.app.core.voice.CatalogoDeVoces
 import com.cecapi.app.core.voice.DeviceSettings
+import com.cecapi.app.core.voice.EstadoVoz
 import com.cecapi.app.core.voice.FeedbackCues
+import com.cecapi.app.core.voice.FiltroVoces
 import com.cecapi.app.core.voice.VoiceEngine
 import com.cecapi.app.core.voice.VoiceOption
 import com.cecapi.app.core.voice.VoiceProfile
@@ -15,6 +18,7 @@ import com.cecapi.app.core.voice.VoiceState
 import com.cecapi.app.core.voice.VoiceText
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -52,6 +56,9 @@ class PersonalizationViewModel @Inject constructor(
         viewModelScope, SharingStarted.WhileSubscribed(5_000), VoiceState.Idle,
     )
 
+    private val _filtroVoces = MutableStateFlow(FiltroVoces.TODAS)
+    val filtroVoces: StateFlow<FiltroVoces> = _filtroVoces
+
     private val _back = MutableSharedFlow<Unit>(extraBufferCapacity = 1)
     val back: SharedFlow<Unit> = _back
 
@@ -73,12 +80,17 @@ class PersonalizationViewModel @Inject constructor(
         fun has(vararg words: String) = VoiceText.hasAny(text, *words)
         val newAssistantName = ASSISTANT_NAME.find(spoken)?.groupValues?.get(1)
         val newUserName = USER_NAME.find(spoken)?.groupValues?.get(1)
+        val filtroPedido = CatalogoDeVoces.filtroPedido(text)
+        val vozPedida = CatalogoDeVoces.numeroPedido(text)
         when {
             CommandCatalog.isRequest(spoken) -> voiceEngine.speak(CommandCatalog.PERSONALIZATION, listenAfter = true)
             newAssistantName != null -> onAssistantNameSaved(cleanName(newAssistantName))
             newUserName != null -> onPreferredNameSaved(cleanName(newUserName))
             has("usted") -> onAddressStyleChosen(AddressStyle.USTED)
             has("de tu", "tutea") -> onAddressStyleChosen(AddressStyle.TU)
+            filtroPedido != null -> onFiltroVocesElegido(filtroPedido)
+            vozPedida != null -> onVozPedidaPorNumero(vozPedida)
+            has("voz automatica") -> onVoiceChosen("")
             has("voz anterior") -> cycleVoice(-1)
             has("otra voz", "siguiente voz", "cambia la voz", "cambiar la voz", "cambia de voz") -> cycleVoice(1)
             has("prueba de voz", "probar voz", "prueba la voz", "escuchate", "di algo") -> onTestVoice()
@@ -109,15 +121,37 @@ class PersonalizationViewModel @Inject constructor(
     private fun cleanName(raw: String): String =
         raw.trim().trimEnd('.', ',', '!', '?').replaceFirstChar { it.uppercase() }
 
-    /** Moves to the next (or, with -1, the previous) Spanish voice the phone has. */
+    /** Moves to the next (or, with -1, the previous) voice that works now, among the ones the filter shows. */
     private fun cycleVoice(step: Int) {
-        val options = voices()
-        if (options.isEmpty()) {
-            voiceEngine.speak("No encontré otras voces en español en este teléfono.")
+        val siguiente = CatalogoDeVoces.siguiente(CatalogoDeVoces.filtrar(voices(), _filtroVoces.value), voiceName.value, step)
+        if (siguiente == null) {
+            voiceEngine.speak("No encontré otra voz que puedas usar.")
             return
         }
-        val current = options.indexOfFirst { it.name == voiceName.value }
-        onVoiceChosen(options[(current + step).mod(options.size)].name)
+        onVoiceChosen(siguiente.name)
+    }
+
+    private fun onVozPedidaPorNumero(numero: Int) {
+        val voz = voices().firstOrNull { it.numero == numero }
+        if (voz == null) {
+            voiceEngine.speak("No hay voz $numero en este teléfono.")
+            return
+        }
+        onVoiceChosen(voz.name)
+    }
+
+    /** Call from the filter button: all, then without internet, then with internet. */
+    fun onFiltroVocesTocado() = onFiltroVocesElegido(_filtroVoces.value.siguiente())
+
+    private fun onFiltroVocesElegido(filtro: FiltroVoces) {
+        _filtroVoces.value = filtro
+        val usables = CatalogoDeVoces.filtrar(voices(), filtro).count { it.estado == EstadoVoz.LISTA }
+        voiceEngine.speak("Mostrando: ${filtro.etiqueta}. Puedes usar $usables.")
+    }
+
+    /** Dice en qué tarjeta quedó la persona al deslizar; con TalkBack la lee él. */
+    fun onVozMostrada(voz: VoiceOption?) {
+        voiceEngine.speak(CatalogoDeVoces.descripcion(voz))
     }
 
     /** Call from the header button: reads out this screen's commands. */
@@ -134,9 +168,16 @@ class PersonalizationViewModel @Inject constructor(
     fun voices(): List<VoiceOption> = voiceEngine.spanishVoices()
 
     fun onVoiceChosen(name: String) {
+        // Se revisa con la lista de ahora, no con la de la pantalla: pudo irse el internet mientras tanto.
+        val opciones = voices()
+        CatalogoDeVoces.motivoDeBloqueo(opciones, name)?.let { motivo ->
+            voiceEngine.speak(motivo)
+            return
+        }
         voiceEngine.applyVoiceProfile(name, pitch.value)
         viewModelScope.launch { deviceSettings.setVoiceName(name) }
-        voiceEngine.speak("Así sueno con esta voz.")
+        val nombre = opciones.firstOrNull { it.name == name }?.label ?: "Automática"
+        voiceEngine.speak("Así sueno. $nombre.")
     }
 
     fun onSpeechRateChanged(rate: Float) {

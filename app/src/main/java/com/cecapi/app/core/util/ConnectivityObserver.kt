@@ -23,6 +23,13 @@ import javax.inject.Singleton
 class ConnectivityObserver @Inject constructor(
     @ApplicationContext private val context: Context,
 ) {
+    /** Si ahora mismo hay internet comprobado; una red WiFi sin salida (portal de hotel) no cuenta. */
+    fun hayInternetAhora(): Boolean = runCatching {
+        val connectivityManager = context.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
+        val capacidades = connectivityManager.getNetworkCapabilities(connectivityManager.activeNetwork)
+        capacidades?.hasCapability(NetworkCapabilities.NET_CAPABILITY_VALIDATED) == true
+    }.getOrDefault(false)
+
     fun observe(): Flow<Boolean> = callbackFlow {
         val connectivityManager = context.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
 

@@ -19,4 +19,11 @@ enum class AddressStyle {
 }
 
 /** One of the phone's Spanish voices, in words the person can choose from. */
-data class VoiceOption(val name: String, val label: String, val needsInternet: Boolean)
+data class VoiceOption(
+    val name: String,
+    val label: String,
+    val needsInternet: Boolean,
+    val numero: Int,
+    val pais: String,
+    val estado: EstadoVoz,
+)

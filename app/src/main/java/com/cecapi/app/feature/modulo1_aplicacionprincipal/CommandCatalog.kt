@@ -99,7 +99,8 @@ object CommandCatalog {
     const val PERSONALIZATION =
         "En personalización puedes decir: háblame de tú, o háblame de usted. " +
             "Llámame, y un nombre, para que te salude así. Llámate, y un nombre, para ponerme nombre. " +
-            "Otra voz, para probar la siguiente voz, o voz anterior. " +
+            "Otra voz, para probar la siguiente voz, o voz anterior. Voz, y un número, para elegirla. " +
+            "Voz automática. Voces sin internet, voces con internet o todas las voces, para filtrarlas. " +
             "Más rápido, más lento, más grave o más agudo, para cambiar cómo hablo. " +
             "Activa o desactiva los sonidos y las vibraciones. Vibración suave, normal o fuerte. " +
             "Perfil normal o perfil de persona mayor, para ajustar mi voz. " +

@@ -10,6 +10,7 @@ import android.media.AudioRecord
 import android.media.MediaRecorder
 import android.media.audiofx.AcousticEchoCanceler
 import android.media.audiofx.NoiseSuppressor
+import android.os.Build
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
@@ -19,8 +20,10 @@ import android.speech.RecognizerIntent
 import android.speech.SpeechRecognizer
 import android.speech.tts.TextToSpeech
 import android.speech.tts.UtteranceProgressListener
+import android.speech.tts.Voice
 import android.util.Log
 import androidx.core.content.ContextCompat
+import com.cecapi.app.core.util.ConnectivityObserver
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
@@ -57,6 +60,7 @@ import kotlin.math.sqrt
 class VoiceEngine @Inject constructor(
     @ApplicationContext private val context: Context,
     private val cues: FeedbackCues,
+    private val connectivity: ConnectivityObserver,
 ) {
     private val _state = MutableStateFlow<VoiceState>(VoiceState.Idle)
     val state: StateFlow<VoiceState> = _state.asStateFlow()
@@ -92,6 +96,11 @@ class VoiceEngine @Inject constructor(
     @Volatile var addressStyle: AddressStyle = AddressStyle.TU
     private var currentPitch = 1.0f
     private var currentVoiceName = ""
+
+    // La voz elegida falló al hablar: se usa la automática hasta que se elija o se ajuste otra vez.
+    @Volatile private var vozFallo = false
+    @Volatile private var vozElegidaNecesitaInternet = false
+    @Volatile private var conexionAlAplicar = false
 
     // Comandos de voz globales (volumen, estado del teléfono...) que funcionan en toda pantalla, registrados por GlobalVoiceCommands.
     private val speechInterceptors = mutableListOf<(String) -> Boolean>()
@@ -160,6 +169,7 @@ class VoiceEngine @Inject constructor(
             if (ttsReady) {
                 selectSpanishVoice()
                 applyProfile()
+                registrarVoces()
                 textToSpeech?.setSpeechRate(currentRate)
                 textToSpeech?.setOnUtteranceProgressListener(object : UtteranceProgressListener() {
                     override fun onStart(utteranceId: String?) {
@@ -182,10 +192,21 @@ class VoiceEngine @Inject constructor(
 
                     @Deprecated("Deprecated in Java")
                     override fun onError(utteranceId: String?) {
+                        val escucharDespues = listenAfterSpeech
                         chunksLeft.set(0)
                         stopBargeInDetection()
                         listenAfterSpeech = false
                         _state.value = VoiceState.Idle
+                        // Quedarse callado deja a la persona sin saber qué pasó: repite una vez con la voz automática.
+                        if (currentVoiceName.isNotEmpty() && !vozFallo && _mode.value == AssistantMode.ACTIVE) {
+                            vozFallo = true
+                            val texto = lastSpoken.orEmpty()
+                            mainHandler.post {
+                                applyProfile()
+                                speakInternal("Esa voz no funcionó. Uso otra. $texto", escucharDespues)
+                            }
+                            return
+                        }
                         mainHandler.post { resumeWakeWord() }
                     }
                 })
@@ -274,6 +295,7 @@ class VoiceEngine @Inject constructor(
         val parts = splitForSpeech(text)
         chunksLeft.set(parts.size)
         onTtsThread { tts ->
+            ajustarVozALaConexion()
             parts.forEachIndexed { index, part ->
                 val mode = if (index == 0) TextToSpeech.QUEUE_FLUSH else TextToSpeech.QUEUE_ADD
                 tts.speak(part, mode, params, UUID.randomUUID().toString())
@@ -389,19 +411,35 @@ class VoiceEngine @Inject constructor(
         val tts = textToSpeech ?: return emptyList()
         if (!ttsReady) return emptyList()
         return runCatching {
-            tts.voices.orEmpty()
-                .filter { it.locale.language == "es" }
-                .sortedBy { it.name }
-                .mapIndexed { index, voice ->
-                    val country = voice.locale.getDisplayCountry(Locale("es")).ifBlank { "genérica" }
-                    VoiceOption(voice.name, "Voz ${index + 1} · $country", voice.isNetworkConnectionRequired)
-                }
+            CatalogoDeVoces.armar(vocesEnEspanol(tts).map { it.aVozDelMotor() }, connectivity.hayInternetAhora())
         }.getOrDefault(emptyList())
+    }
+
+    private fun vocesEnEspanol(tts: TextToSpeech): List<Voice> =
+        tts.voices.orEmpty().filter { it.locale.language == "es" }
+
+    private fun Voice.aVozDelMotor() = VozDelMotor(
+        nombre = name,
+        pais = locale.getDisplayCountry(Locale("es")).ifBlank { "genérica" },
+        necesitaInternet = isNetworkConnectionRequired,
+        sinInstalar = features?.contains(TextToSpeech.Engine.KEY_FEATURE_NOT_INSTALLED) == true,
+    )
+
+    /** Deja en el registro las voces de este teléfono, para saber cuáles hay en cada modelo. Son nombres de voces, no datos de la persona. */
+    private fun registrarVoces() {
+        val tts = textToSpeech ?: return
+        runCatching {
+            Log.i("CecapiVoces", "motor=${tts.defaultEngine} modelo=${Build.MANUFACTURER} ${Build.MODEL} android=${Build.VERSION.SDK_INT}")
+            vocesEnEspanol(tts).map { it.aVozDelMotor() }.sortedBy { it.nombre }.forEach {
+                Log.i("CecapiVoces", "${it.nombre} internet=${it.necesitaInternet} sinInstalar=${it.sinInstalar}")
+            }
+        }
     }
 
     /** [voiceName] vacío significa "automático". [pitch] va de 0.5 (grave) a 2.0 (agudo). */
     fun applyVoiceProfile(voiceName: String, pitch: Float) {
         currentVoiceName = voiceName
+        vozFallo = false
         currentPitch = pitch.coerceIn(0.5f, 2.0f)
         if (ttsReady) applyProfile()
     }
@@ -409,11 +447,27 @@ class VoiceEngine @Inject constructor(
     private fun applyProfile() {
         val tts = textToSpeech ?: return
         tts.setPitch(currentPitch)
-        if (currentVoiceName.isEmpty()) {
-            selectSpanishVoice()
+        val hayInternet = connectivity.hayInternetAhora()
+        val elegida = if (currentVoiceName.isEmpty() || vozFallo) {
+            null
         } else {
-            tts.voices.orEmpty().firstOrNull { it.name == currentVoiceName }?.let { tts.voice = it }
+            runCatching { tts.voices.orEmpty().firstOrNull { it.name == currentVoiceName } }.getOrNull()
         }
+        vozElegidaNecesitaInternet = elegida?.isNetworkConnectionRequired == true
+        conexionAlAplicar = hayInternet
+        // La voz guardada no se borra: si vuelve el internet o se instala, se usa otra vez.
+        if (elegida != null && CatalogoDeVoces.sePuedeUsar(elegida.aVozDelMotor(), hayInternet) &&
+            tts.setVoice(elegida) == TextToSpeech.SUCCESS
+        ) {
+            return
+        }
+        selectSpanishVoice()
+    }
+
+    /** Se fue o volvió el internet desde que se puso una voz de internet: cambia antes de hablar en vez de quedarse callado. */
+    private fun ajustarVozALaConexion() {
+        if (!vozElegidaNecesitaInternet) return
+        if (connectivity.hayInternetAhora() != conexionAlAplicar) applyProfile()
     }
 
     private fun silenceSpeech() {

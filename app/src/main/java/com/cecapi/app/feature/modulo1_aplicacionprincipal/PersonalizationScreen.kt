@@ -40,14 +40,20 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -69,13 +75,17 @@ import com.cecapi.app.core.ui.BigBtnVariant
 import com.cecapi.app.core.ui.MicPad
 import com.cecapi.app.core.ui.PantallaConMicrofono
 import com.cecapi.app.core.ui.ScreenTopBar
+import com.cecapi.app.core.ui.lectorDePantallaActivo
 import com.cecapi.app.core.ui.voiceHint
 import com.cecapi.app.core.voice.AddressStyle
+import com.cecapi.app.core.voice.CatalogoDeVoces
+import com.cecapi.app.core.voice.EstadoVoz
 import com.cecapi.app.core.voice.FeedbackCues
 import com.cecapi.app.core.voice.VoiceOption
 import com.cecapi.app.core.voice.VoiceProfile
 import com.cecapi.app.core.voice.VoiceState
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.drop
 import kotlin.math.roundToInt
 
 private enum class PersonalizationSub { VOZ, VOZ_ELEGIR, COMO_ME_HABLAS, PERFIL, PANTALLA, AVISOS }
@@ -93,6 +103,7 @@ fun PersonalizationScreen(
     val savedRate by viewModel.speechRate.collectAsState()
     val savedPitch by viewModel.pitch.collectAsState()
     val voiceName by viewModel.voiceName.collectAsState()
+    val filtroVoces by viewModel.filtroVoces.collectAsState()
     val style by viewModel.addressStyle.collectAsState()
     val savedPreferred by viewModel.preferredName.collectAsState()
     val savedAssistant by viewModel.assistantName.collectAsState()
@@ -114,8 +125,9 @@ fun PersonalizationScreen(
     var sub by remember { mutableStateOf<PersonalizationSub?>(null) }
 
     // El motor de voz puede estar iniciando todavía cuando se abre esta pantalla: pregunta otra vez durante unos segundos.
+    // Se pregunta de nuevo al cambiar de tema, por si se fue el internet o se instaló una voz.
     var voices by remember { mutableStateOf(emptyList<VoiceOption>()) }
-    LaunchedEffect(Unit) {
+    LaunchedEffect(sub) {
         repeat(20) {
             voices = viewModel.voices()
             if (voices.isNotEmpty()) return@LaunchedEffect
@@ -164,39 +176,51 @@ fun PersonalizationScreen(
 
                 PersonalizationSub.VOZ_ELEGIR -> {
                     ScreenTopBar(eyebrow = "MI VOZ", title = "Elegir voz", onBack = { sub = PersonalizationSub.VOZ }, onCommands = viewModel::onCommandsRequested)
-                    val paginas = listOf("" to "Automática") + voices.map { it.name to it.label }
-                    val pager = rememberPagerState(
-                        initialPage = paginas.indexOfFirst { it.first == voiceName }.coerceAtLeast(0),
-                        pageCount = { paginas.size },
-                    )
-                    HorizontalPager(state = pager, modifier = Modifier.fillMaxWidth().height(220.dp)) { pagina ->
-                        Column(
-                            modifier = Modifier
-                                .fillMaxSize()
-                                .clip(RoundedCornerShape(20.dp))
-                                .background(CecapiSurface)
-                                .border(1.dp, CecapiBorder, RoundedCornerShape(20.dp))
-                                .padding(20.dp),
-                            verticalArrangement = Arrangement.Center,
-                            horizontalAlignment = Alignment.CenterHorizontally,
-                        ) {
-                            Text(paginas[pagina].second, style = MaterialTheme.typography.headlineSmall, color = MaterialTheme.colorScheme.onBackground)
-                        }
-                    }
                     BigBtn(
-                        icon = Icons.Filled.Check,
-                        label = "Usar esta voz",
-                        variant = BigBtnVariant.Accent,
-                        onClick = { viewModel.onVoiceChosen(paginas[pager.currentPage].first) },
+                        icon = Icons.Filled.Tune,
+                        label = "Mostrar: ${filtroVoces.etiqueta}",
+                        sub = "Todas, sin internet o con internet",
+                        section = Sections.Personalization,
+                        size = BigBtnSize.Compact,
+                        onClick = viewModel::onFiltroVocesTocado,
                     )
+                    // La primera tarjeta siempre es la automática (null): nadie se queda sin una voz que funcione.
+                    val paginas = listOf<VoiceOption?>(null) + CatalogoDeVoces.filtrar(voices, filtroVoces)
+                    key(filtroVoces, voices) {
+                        val pager = rememberPagerState(
+                            initialPage = paginas.indexOfFirst { it?.name.orEmpty() == voiceName }.coerceAtLeast(0),
+                            pageCount = { paginas.size },
+                        )
+                        val contexto = LocalContext.current
+                        LaunchedEffect(pager) {
+                            snapshotFlow { pager.settledPage }.drop(1).collect { pagina ->
+                                if (!lectorDePantallaActivo(contexto)) viewModel.onVozMostrada(paginas.getOrNull(pagina))
+                            }
+                        }
+                        HorizontalPager(state = pager, modifier = Modifier.fillMaxWidth().height(220.dp)) { pagina ->
+                            TarjetaVoz(voz = paginas[pagina], enUso = paginas[pagina]?.name.orEmpty() == voiceName)
+                        }
+                        val elegida = paginas.getOrNull(pager.currentPage)
+                        val motivo = elegida?.let { CatalogoDeVoces.motivoDeBloqueo(it) }
+                        BigBtn(
+                            icon = if (motivo == null) Icons.Filled.Check else Icons.Filled.Close,
+                            label = elegida?.let { CatalogoDeVoces.textoEstado(it) } ?: "Usar esta voz",
+                            variant = if (motivo == null) BigBtnVariant.Accent else BigBtnVariant.Neutral,
+                            enabled = motivo == null,
+                            motivoDeshabilitado = motivo,
+                            onClick = { viewModel.onVoiceChosen(elegida?.name.orEmpty()) },
+                        )
+                    }
                 }
 
                 PersonalizationSub.VOZ -> {
                     ScreenTopBar(eyebrow = "MI VOZ", title = "Nombre y ajustes", onBack = { sub = null }, onCommands = viewModel::onCommandsRequested)
-                    val vozActual = voices.firstOrNull { it.name == voiceName }?.label ?: "Automática"
+                    val guardada = voices.firstOrNull { it.name == voiceName }
+                    val vozActual = guardada?.takeIf { it.estado == EstadoVoz.LISTA }?.label ?: "Automática"
                     BigBtn(
                         icon = Icons.Filled.Mic,
                         label = "Voz: $vozActual",
+                        sub = guardada?.let { voz -> CatalogoDeVoces.textoEstado(voz)?.let { "${voz.label}: $it" } },
                         section = Sections.Personalization,
                         onClick = { sub = PersonalizationSub.VOZ_ELEGIR },
                     )
@@ -419,6 +443,37 @@ fun PersonalizationScreen(
             hint = if (listening) "Escuchando…" else "Di usted o tú, o toca aquí",
             onClick = viewModel::onMicTapped,
         )
+    }
+}
+
+/** Una tarjeta del carrusel de voces. Null es la voz automática. Lo que no se puede usar se ve apagado y lo dice. */
+@Composable
+private fun TarjetaVoz(voz: VoiceOption?, enUso: Boolean) {
+    val estado = voz?.let { CatalogoDeVoces.textoEstado(it) }
+    val descripcion = CatalogoDeVoces.descripcion(voz) + if (enUso) " En uso." else ""
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .clip(RoundedCornerShape(20.dp))
+            .background(CecapiSurface)
+            .border(if (enUso) 3.dp else 1.dp, if (enUso) CecapiAccent else CecapiBorder, RoundedCornerShape(20.dp))
+            .alpha(if (estado == null) 1f else 0.7f)
+            .semantics {
+                contentDescription = descripcion
+                liveRegion = LiveRegionMode.Polite
+            }
+            .padding(20.dp),
+        verticalArrangement = Arrangement.spacedBy(6.dp, Alignment.CenterVertically),
+        horizontalAlignment = Alignment.CenterHorizontally,
+    ) {
+        Text(voz?.label ?: "Automática", style = MaterialTheme.typography.headlineSmall, color = MaterialTheme.colorScheme.onBackground)
+        Text(
+            voz?.let { "${it.pais} · ${CatalogoDeVoces.textoTipo(it)}" } ?: "El teléfono elige",
+            style = MaterialTheme.typography.bodyMedium,
+            color = CecapiTextMuted,
+        )
+        if (estado != null) Text(estado, style = MaterialTheme.typography.titleMedium, color = CecapiWarning)
+        if (enUso) Text("En uso", style = MaterialTheme.typography.titleMedium, color = CecapiAccent)
     }
 }
 
