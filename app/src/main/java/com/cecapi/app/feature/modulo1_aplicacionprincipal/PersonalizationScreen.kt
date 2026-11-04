@@ -80,6 +80,7 @@ import com.cecapi.app.core.ui.voiceHint
 import com.cecapi.app.core.voice.AddressStyle
 import com.cecapi.app.core.voice.CatalogoDeVoces
 import com.cecapi.app.core.voice.EstadoVoz
+import com.cecapi.app.core.voice.FiltroVoces
 import com.cecapi.app.core.voice.FeedbackCues
 import com.cecapi.app.core.voice.VoiceOption
 import com.cecapi.app.core.voice.VoiceProfile
@@ -176,14 +177,16 @@ fun PersonalizationScreen(
 
                 PersonalizationSub.VOZ_ELEGIR -> {
                     ScreenTopBar(eyebrow = "MI VOZ", title = "Elegir voz", onBack = { sub = PersonalizationSub.VOZ }, onCommands = viewModel::onCommandsRequested)
-                    BigBtn(
-                        icon = Icons.Filled.Tune,
-                        label = "Mostrar: ${filtroVoces.etiqueta}",
-                        sub = "Todas, sin internet o con internet",
-                        section = Sections.Personalization,
-                        size = BigBtnSize.Compact,
-                        onClick = viewModel::onFiltroVocesTocado,
-                    )
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
+                        FiltroVoces.entries.forEach { filtro ->
+                            FiltroChip(
+                                texto = filtro.etiqueta,
+                                elegido = filtro == filtroVoces,
+                                onClick = { viewModel.onFiltroVocesElegido(filtro) },
+                                modifier = Modifier.weight(1f),
+                            )
+                        }
+                    }
                     // La primera tarjeta siempre es la automática (null): nadie se queda sin una voz que funcione.
                     val paginas = listOf<VoiceOption?>(null) + CatalogoDeVoces.filtrar(voices, filtroVoces)
                     key(filtroVoces, voices) {
@@ -197,7 +200,7 @@ fun PersonalizationScreen(
                                 if (!lectorDePantallaActivo(contexto)) viewModel.onVozMostrada(paginas.getOrNull(pagina))
                             }
                         }
-                        HorizontalPager(state = pager, modifier = Modifier.fillMaxWidth().height(220.dp)) { pagina ->
+                        HorizontalPager(state = pager, modifier = Modifier.fillMaxWidth().height(160.dp)) { pagina ->
                             TarjetaVoz(voz = paginas[pagina], enUso = paginas[pagina]?.name.orEmpty() == voiceName)
                         }
                         val elegida = paginas.getOrNull(pager.currentPage)
@@ -442,6 +445,29 @@ fun PersonalizationScreen(
             onDoubleTap = viewModel::onMicDoubleTap,
             hint = if (listening) "Escuchando…" else "Di usted o tú, o toca aquí",
             onClick = viewModel::onMicTapped,
+        )
+    }
+}
+
+/** Uno de los tres botones del filtro de voces: chicos, para que la tarjeta y "Usar esta voz" quepan sin tanto desplazarse. */
+@Composable
+private fun FiltroChip(texto: String, elegido: Boolean, onClick: () -> Unit, modifier: Modifier = Modifier) {
+    Box(
+        modifier = modifier
+            .heightIn(min = 56.dp)
+            .clip(RoundedCornerShape(14.dp))
+            .background(if (elegido) CecapiAccent.copy(alpha = 0.18f) else CecapiSurface)
+            .border(if (elegido) BorderStroke(3.dp, CecapiAccent) else BorderStroke(1.dp, CecapiBorder), RoundedCornerShape(14.dp))
+            .clickable(onClick = onClick)
+            .semantics { contentDescription = if (elegido) "Mostrar $texto, elegido" else "Mostrar $texto" }
+            .padding(horizontal = 6.dp, vertical = 8.dp),
+        contentAlignment = Alignment.Center,
+    ) {
+        Text(
+            texto,
+            style = MaterialTheme.typography.titleSmall,
+            color = if (elegido) CecapiAccent else MaterialTheme.colorScheme.onBackground,
+            textAlign = androidx.compose.ui.text.style.TextAlign.Center,
         )
     }
 }

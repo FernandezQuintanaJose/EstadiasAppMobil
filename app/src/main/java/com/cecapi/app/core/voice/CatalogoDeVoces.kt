@@ -28,27 +28,45 @@ data class VozDelMotor(
  */
 object CatalogoDeVoces {
 
+    // Todas las voces conocidas tienen versión local; la de internet solo si el teléfono la reportó (eee y eef no).
+    private val SIN_VERSION_DE_INTERNET = setOf("es-es-x-eee", "es-es-x-eef")
+
     /**
-     * Voces vistas en otros teléfonos, para mostrar "No disponible" si este no las tiene. Solo se agregan
-     * nombres confirmados en un teléfono real: la app los escribe en el registro con la etiqueta `CecapiVoces`.
+     * Voces vistas en teléfonos reales, para mostrar "No disponible" si este no las tiene. Solo se agregan nombres
+     * confirmados en un teléfono: la app los escribe en el registro con la etiqueta `CecapiVoces`
+     * (`adb logcat -s CecapiVoces`). Con las voces de cada teléfono, la lista y los números son los mismos en todos.
+     *
+     * Vistas en: OPPO A57 (CPH2387), Android 12, motor Google (com.google.android.tts), 4 nov 2026. Ahí no hay
+     * ninguna voz de México: solo España y Estados Unidos.
      */
-    val VOCES_CONOCIDAS = listOf(
-        VozDelMotor("es-us-x-sfb-local", "Estados Unidos", necesitaInternet = false, sinInstalar = true),
-    )
+    val VOCES_CONOCIDAS: List<VozDelMotor> =
+        listOf("es-es-x-eea", "es-es-x-eec", "es-es-x-eed", "es-es-x-eee", "es-es-x-eef").flatMap { voz(it, "España") } +
+            listOf("es-us-x-esc", "es-us-x-esd", "es-us-x-esf", "es-us-x-sfb").flatMap { voz(it, "Estados Unidos") }
+
+    private fun voz(base: String, pais: String): List<VozDelMotor> = buildList {
+        add(VozDelMotor("$base-local", pais, necesitaInternet = false, sinInstalar = true))
+        if (base !in SIN_VERSION_DE_INTERNET) add(VozDelMotor("$base-network", pais, necesitaInternet = true, sinInstalar = true))
+    }
+
+    /** `es-ES-language` y `es-US-language` son el idioma entero (lo que ya hace "Automática"), no una voz más. */
+    private fun esVozPropia(nombre: String) = nombre.isNotBlank() && !nombre.endsWith("-language", ignoreCase = true)
 
     const val NO_DISPONIBLE = "No disponible"
     const val SIN_CONEXION = "Sin conexión"
 
-    /** Primero las que funcionan sin internet, luego las de internet y al final las no disponibles. */
+    /**
+     * Ordenadas por nombre: "Voz 3" es la misma voz en cualquier teléfono que tenga las mismas voces, y una que falta
+     * aparece como "No disponible" en su lugar en vez de recorrer los números.
+     */
     fun armar(
         delMotor: List<VozDelMotor>,
         hayInternet: Boolean,
         conocidas: List<VozDelMotor> = VOCES_CONOCIDAS,
     ): List<VoiceOption> =
         (delMotor + conocidas)
-            .filter { it.nombre.isNotBlank() }
+            .filter { esVozPropia(it.nombre) }
             .distinctBy { it.nombre }
-            .sortedWith(compareBy({ grupo(it) }, { it.nombre }))
+            .sortedBy { it.nombre }
             .mapIndexed { indice, voz ->
                 VoiceOption(
                     name = voz.nombre,
@@ -59,12 +77,6 @@ object CatalogoDeVoces {
                     estado = estado(voz, hayInternet),
                 )
             }
-
-    private fun grupo(voz: VozDelMotor): Int = when {
-        voz.sinInstalar -> 2
-        voz.necesitaInternet -> 1
-        else -> 0
-    }
 
     private fun estado(voz: VozDelMotor, hayInternet: Boolean): EstadoVoz = when {
         voz.sinInstalar -> EstadoVoz.NO_DISPONIBLE
