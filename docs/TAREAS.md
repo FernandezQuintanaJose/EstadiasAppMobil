@@ -1,0 +1,54 @@
+# Tareas por equipo — Servidor y App Android
+
+Semana del 4 al 11 nov 2026. Complementa la sección 4 de [estado/2026-11-04-revision-qa-y-entrega.md](estado/2026-11-04-revision-qa-y-entrega.md) y las guías `docs/TAREAS.md` de PaginaCECAPI, PaginaAsistenteCECAPI y WindowsCECAPI. Lo que no se comprobó se marca **SIN VERIFICAR**.
+
+## Reglas comunes
+
+- Una rama por tarea: `tarea/<nombre-corto>`. Pull request a `main`. Nada de `--force`.
+- Antes de cada pull request: servidor `cd backend && python -m pytest`; Android `./gradlew testDebugUnitTest`.
+- No subir `local.properties`, claves, cadenas de conexión ni `.env`. Si una clave se pegó en un chat o commit, se cambia, no se borra del historial.
+- Lo que cambie en el servidor y afecte a los demás equipos se avisa en `docs/estado/` (fecha en el nombre).
+- Los equipos no dependen unos de otros para trabajar ([decisión 0016](decisiones/0016-los-equipos-no-dependen-unos-de-otros.md)): cada uno usa el servidor simulado de sus pruebas hasta que el real exista.
+
+## Servidor (`backend/`) — Móvil A
+
+Estado verificado el 4 nov 2026: `python -m pytest` da 241 correctas y 6 `xfail` (huecos conocidos H2). Es lo único que se corrió; **no** se ha corrido contra Render ni Neon reales.
+
+| # | Tarea | Dónde | Hecho cuando |
+|---|---|---|---|
+| S1 | **Publicar** en Neon y Render con [backend/PUBLICAR.md](../backend/PUBLICAR.md). Dar la URL a los demás equipos. | `render.yaml`, `backend/PUBLICAR.md` | `GET /` responde desde la URL pública y `alembic upgrade head` corrió sin error en Neon. |
+| S2 | **Verificar `X-Forwarded-For` en Render** (H1): mandar una petición con un `X-Forwarded-For: 1.2.3.4` falso y ver en el registro qué IP queda. Si Render agrega la IP real a la derecha, leer ese valor en `_limitar`; si no, quitar `--forwarded-allow-ips '*'`. | `render.yaml` (`startCommand`), `backend/main.py` (`_limitar`, línea 162) | Una prueba (`test_hostil.py`) demuestra que mandar una IP falsa no salta el límite por minuto. |
+| S3 | **CORS** para `https://fernandezquintanajose.github.io` y el dominio final (H3). Hoy `backend/main.py` no define CORS. Lista cerrada de orígenes, nunca `*` junto con credenciales. | `backend/main.py` | Una petición desde esa web funciona y desde otro origen no. Prueba nueva. |
+| S4 | **Cómo preguntan las webs sin llevar la clave** (H3): elegir (a) ruta pública con límite por IP o (b) cuentas con token. Documentar la decisión como `docs/decisiones/0020-...md`. La clave `X-Clave-App` **no** puede ir en JavaScript público. | `backend/`, README de PaginaAsistenteCECAPI | Decisión escrita y avisada a los equipos web. |
+| S5 | **Rutas de cuenta** del contrato del README del asistente web: registro, verificación, acceso, recuperar, restablecer, aceptación, borrar chats, eliminar cuenta. Argon2id ([decisión 0019](decisiones/0019-un-servidor-modular-y-argon2id.md)). | `backend/` | Cada ruta con pruebas felices y hostiles (contraseña vacía, enorme, repetida, usuario inexistente, límite de intentos). |
+| S6 | **Proveedor de correo**: elegir Brevo o Resend. Las cifras de sus planes gratuitos son de terceros: **SIN VERIFICAR**, comprobarlas en su sitio oficial. | — | Correo de prueba recibido. Clave en variable de entorno, no en el código. |
+| S7 | **Filtro de privacidad** (H2): decidir qué huecos cubrir (correo "arroba", teléfono en palabras, CURP con espacios, contraseña en inglés). Cada hueco arreglado quita su `xfail` de `test_hostil.py`. Cuidado con los falsos positivos. | `backend/privacidad.py`, `backend/test_hostil.py` | `pytest` sin `xfail` de los huecos elegidos y con pruebas de preguntas normales que **no** se bloquean. |
+| S8 | **Documentación pública** (H4): apagar `/docs`, `/redoc` y `/openapi.json` en producción (`docs_url=None`, etc.) o decidir que se quedan. | `backend/main.py` (`FastAPI(...)`, línea 104) | Decisión escrita; si se apagan, prueba que dan 404. |
+| S9 | **Auditoría OWASP Top 10:2025** antes de publicar (regla de la ficha global). Revisar acceso, inyección, autenticación, secretos, criptografía, registros y manejo de errores. | `backend/` | Informe en `docs/estado/` con hallazgos, severidad y qué se corrigió. |
+| S10 | **Panel de uso** (`/panel`): comprobar que exige clave y no muestra preguntas ni datos personales. | `backend/panel.py`, `panel.html` | Prueba que sin clave no entra y con clave solo muestra conteos. |
+
+Orden sugerido: S1 y S2 primero (todos esperan la URL), luego S3 y S4, luego S5 y S6, S7–S10 en paralelo.
+
+## App Android (`app/`) — Móvil B
+
+Estado verificado el 4 nov 2026: 60 pruebas unitarias correctas (`./gradlew testDebugUnitTest`). **No** se ha probado un APK de publicación en un teléfono.
+
+| # | Tarea | Dónde | Hecho cuando |
+|---|---|---|---|
+| M1 | **Servidor real**: en `local.properties` poner `cecapi.servidor=https://<nombre>.onrender.com` y `cecapi.claveApp=...`. La dirección de ejemplo por defecto (`http://TU-IP-LOCAL:8000`) no debe llegar al APK de publicación. | `app/build.gradle.kts` (líneas 27–32 y `permiteHttp`) | El APK de publicación no permite http (`permiteHttp` en falso) y habla con el servidor real. |
+| M2 | **Firmar el APK** de publicación y probarlo en un teléfono real. `isMinifyEnabled = true` puede romper cosas que solo se ven ejecutando (voz, cámara, ML Kit, Room). Recorrer todas las pantallas. | `app/build.gradle.kts` (línea 44) | APK instalado y recorrido completo sin cierres. Lista de lo probado, modelo de teléfono y versión de Android. |
+| M3 | **Por qué pesa 222 MB**: revisar el APK en Android Studio (Analyze APK) y decidir qué sobra (modelos, audios, imágenes, arquitecturas). | `app/` | Informe de qué ocupa cuánto y decisión de qué se recorta. |
+| M4 | **Pasada completa por voz con TalkBack**: cada pantalla alcanzable con gestos y con nombre hablado. Pruebas del teléfono de [2026-11-02-pendientes.md](estado/2026-11-02-pendientes.md). | Todas | Documento `docs/estado/2026-11-XX-talkback.md` con lo que se oyó mal y qué se corrigió. |
+| M5 | **Cuentas**: hoy viven en el teléfono (`ServicioDeCuentas`/`CuentasLocales`). Con S5 se decide si siguen locales o pasan al servidor. No migrar sin esa decisión. | `ServicioDeCuentas` | Decisión escrita (con Windows, que espera la misma respuesta). |
+| M6 | **Publicar en GitHub Releases** (sin Google Play, [decisión 0008](decisiones/0008-apk-sin-tiendas-y-costo-cero.md)): etiqueta, SHA-256 y registro en `datos/descargas.v1.json` de PaginaAsistenteCECAPI. | GitHub | El botón de descarga del asistente web muestra versión, tamaño y SHA-256 correctos (`Get-FileHash` coincide). |
+| M7 | **Revisión de permisos**: cámara, micrófono, notificaciones, llamadas. Solo los que se usan, cada uno con texto claro para quien no ve. | `AndroidManifest.xml` | Lista de permisos con su justificación; los que sobran se quitan. |
+
+## Para ambos
+
+- **Datos de menores y datos reales** ([decisión 0005](decisiones/0005-responsable-menores-datos-reales.md)): confirmar con CECAPI quién es responsable antes de recibir datos de personas reales.
+- **Revisión legal** del aviso de privacidad y los términos: fuera del código, hay que pedirla desde hoy.
+- **Qué falta para la semana:** lo que depende de terceros (CECAPI, abogado, dominio, certificado de firma) puede no caber en 7 días.
+
+## Entregable final
+
+Servidor publicado con URL y pruebas, APK firmado en un Release, `docs/estado/` con lo probado y lo que quedó pendiente, y las decisiones nuevas en `docs/decisiones/`.
