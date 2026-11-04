@@ -8,9 +8,9 @@ services:
     plan: free
     region: ohio
     buildCommand: pip install -r requirements.txt
-    # Primero pone al día las tablas de Neon; luego arranca. --proxy-headers hace que el
-    # límite por minuto vea la IP real de cada teléfono y no la del proxy de Render.
-    startCommand: alembic upgrade head && uvicorn main:app --host 0.0.0.0 --port $PORT --proxy-headers --forwarded-allow-ips '*'
+    # Primero pone al día las tablas de Neon; luego arranca. Sin --proxy-headers: uvicorn tomaría la IP
+    # que escribe quien manda la petición. La IP real la saca seguridad.ip_cliente (PROXIES_DE_CONFIANZA).
+    startCommand: alembic upgrade head && uvicorn main:app --host 0.0.0.0 --port $PORT --no-proxy-headers
     healthCheckPath: /
     envVars:
       - key: PYTHON_VERSION
@@ -18,6 +18,17 @@ services:
       # Hora de México: el contador diario y los días del panel cambian a la medianoche de aquí, no en UTC.
       - key: TZ
         value: America/Mexico_City
+      - key: CECAPI_ZONA
+        value: America/Mexico_City
+      # 1 es lo seguro aunque haya más proxies: no deja falsear la IP. Comprobarlo: backend/PUBLICAR.md.
+      - key: PROXIES_DE_CONFIANZA
+        value: "1"
+      - key: ORIGENES_WEB
+        value: https://fernandezquintanajose.github.io
+      - key: MOSTRAR_DOCS
+        value: "0"
+      - key: RETENCION_DIAS
+        value: "90"
       # 0 = no guardar textos de preguntas ni respuestas (decisión 0005). Cambiarlo solo con permiso de Pp.
       - key: GUARDAR_TEXTOS
         value: "0"

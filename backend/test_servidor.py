@@ -223,7 +223,7 @@ def test_ver_rechaza_peticiones_invalidas(ia, cuerpo):
 # --- Documentación (/docs) -----------------------------------------------------
 
 def test_cada_ruta_esta_documentada():
-    rutas = cliente.get("/openapi.json").json()["paths"]
+    rutas = main.app.openapi()["paths"]
     assert set(rutas) == {"/", "/uso", "/panel", "/panel/datos", "/preguntar", "/entender", "/ver", "/documento"}
     for ruta, metodos in rutas.items():
         for metodo, doc in metodos.items():

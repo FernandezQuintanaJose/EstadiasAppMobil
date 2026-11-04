@@ -23,11 +23,13 @@ escribir a uno a la vez y, sin él, varias peticiones al mismo tiempo chocarían
 "database is locked". PostgreSQL no lo necesita.
 """
 
+import logging
 import os
 import threading
 from contextlib import contextmanager
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
 from pathlib import Path
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from sqlalchemy import (
     Boolean, CheckConstraint, Column, DateTime, ForeignKey, Index, Integer, MetaData, String, Table, Text,
@@ -35,7 +37,23 @@ from sqlalchemy import (
 )
 from sqlalchemy.engine import Engine
 
+log = logging.getLogger("cecapi.db")
+
 AQUI = Path(__file__).resolve().parent
+ZONA_POR_DEFECTO = "America/Mexico_City"
+
+
+def _zona() -> ZoneInfo:
+    nombre = os.getenv("CECAPI_ZONA", "").strip() or ZONA_POR_DEFECTO
+    try:
+        return ZoneInfo(nombre)
+    except (ZoneInfoNotFoundError, ValueError):
+        log.warning("CECAPI_ZONA no es una zona válida (%s); se usa %s.", nombre, ZONA_POR_DEFECTO)
+        return ZoneInfo(ZONA_POR_DEFECTO)
+
+
+# El "día" del límite de la IA y del panel es el de CECAPI, no el de la computadora donde corre el servidor.
+ZONA = _zona()
 
 metadata = MetaData()
 
@@ -161,6 +179,11 @@ def leer():
 
 def ahora() -> datetime:
     return datetime.now(timezone.utc)
+
+
+def hoy(momento: datetime | None = None) -> date:
+    """El día de hoy en la zona de CECAPI."""
+    return (momento or ahora()).astimezone(ZONA).date()
 
 
 def como_utc(momento: datetime) -> datetime:

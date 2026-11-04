@@ -25,6 +25,11 @@ os.environ["IA_ORDEN"] = "groq,gemini"
 os.environ["CECAPI_CLAVE_APP"] = ""
 os.environ["LIMITE_POR_MINUTO"] = "1000"
 os.environ["GUARDAR_TEXTOS"] = "0"
+os.environ["MOSTRAR_DOCS"] = "0"
+os.environ["PROXIES_DE_CONFIANZA"] = "0"
+os.environ["ORIGENES_WEB"] = "https://fernandezquintanajose.github.io"
+os.environ["RETENCION_DIAS"] = "90"
+os.environ["CECAPI_ZONA"] = "America/Mexico_City"
 # Por si algo usa la base antes de la primera prueba: nunca backend/cecapi.db ni la de Neon.
 os.environ["DATABASE_URL"] = f"sqlite:///{Path(tempfile.mkdtemp(prefix='cecapi-pruebas-')) / 'inicio.db'}"
 

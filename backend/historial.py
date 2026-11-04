@@ -10,6 +10,9 @@ Guarda en la base de datos lo que pasa en /preguntar, /entender, /ver y /documen
 - Un mensaje bloqueado por privacidad nunca guarda su texto, aunque GUARDAR_TEXTOS sea 1.
 - El contexto que manda la app y las fotos de /ver nunca se guardan.
 - Si la base de datos falla, se anota en el log y la persona recibe su respuesta igual.
+- RETENCION_DIAS (en .env, 90 por defecto; 0 = no borrar) decide cuánto se guarda. Lo más viejo
+  se borra al arrancar y una vez al día (purgar_si_toca). El servidor gratuito se duerme, así que
+  no hay un proceso aparte: lo hace la siguiente petición.
 
 Escrito primero sobre SQLite directo (rama modulo03/base-datos, 25/10) y pasado a
 SQLAlchemy el 30/10 para que funcione igual con Neon.
@@ -19,14 +22,16 @@ import logging
 import os
 import uuid
 from dataclasses import dataclass
+from datetime import date, datetime, timedelta
 
-from sqlalchemy import update
+from sqlalchemy import delete, update
 
 import db
 
 log = logging.getLogger("cecapi.historial")
 
 LARGO_TITULO = 60
+RETENCION_POR_DEFECTO = 90
 
 
 @dataclass
@@ -80,7 +85,48 @@ def guardar(
                     comando=m.comando, proveedor=m.proveedor, hay_mas=bool(m.hay_mas),
                     duracion_ms=m.duracion_ms, creado_en=momento,
                 ))
-        return conversacion_id
     except Exception:
         log.exception("No se pudo guardar la conversación; la respuesta se manda igual.")
         return None
+    purgar_si_toca()
+    return conversacion_id
+
+
+def retencion_dias() -> int:
+    """Cuántos días se guarda el historial. 0 = no borrar nada; un valor malo = el de por defecto."""
+    try:
+        dias = int(os.getenv("RETENCION_DIAS", str(RETENCION_POR_DEFECTO)))
+    except ValueError:
+        return RETENCION_POR_DEFECTO
+    return dias if dias >= 0 else RETENCION_POR_DEFECTO
+
+
+def purgar(momento: datetime | None = None) -> int:
+    """Borra lo que pasó de RETENCION_DIAS y regresa cuántos mensajes se fueron."""
+    dias = retencion_dias()
+    if dias == 0:
+        return 0
+    corte = (momento or db.ahora()) - timedelta(days=dias)
+    with db.transaccion() as con:
+        borrados = con.execute(delete(db.mensajes).where(db.mensajes.c.creado_en < corte)).rowcount
+        con.execute(delete(db.conversaciones).where(db.conversaciones.c.ultima_actividad < corte))
+        con.execute(delete(db.uso_diario).where(db.uso_diario.c.fecha < db.hoy(corte).isoformat()))
+    return borrados
+
+
+_ultima_purga: date | None = None
+
+
+def purgar_si_toca() -> None:
+    """Purga una vez al día. Si falla se anota: nunca le cuesta su respuesta a la persona."""
+    global _ultima_purga
+    hoy = db.hoy()
+    if _ultima_purga == hoy:
+        return
+    _ultima_purga = hoy
+    try:
+        borrados = purgar()
+        if borrados:
+            log.info("Retención: se borraron %d mensajes viejos.", borrados)
+    except Exception:
+        log.exception("No se pudo borrar el historial viejo; se intenta otra vez mañana.")

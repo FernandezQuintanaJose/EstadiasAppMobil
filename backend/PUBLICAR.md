@@ -15,6 +15,9 @@ dirección: Android no deja mandar `http://` a internet.
 3. `CECAPI_CLAVE_APP` la genera Render al azar. Cópiala de **Environment**: la necesita la app (paso 3) y el panel.
 4. Al arrancar, Render corre `alembic upgrade head` (crea las tablas en Neon) y luego el servidor.
 5. Prueba: abre `https://<nombre>.onrender.com/` (debe decir "CECAPI backend activo") y `https://<nombre>.onrender.com/panel` (escribe la clave).
+6. Comprueba el límite por minuto, porque la cantidad de proxies de Render no está documentada (`PROXIES_DE_CONFIANZA`, empieza en 1):
+   - **No se puede falsear:** manda 25 preguntas seguidas, cada una con un `X-Forwarded-For` distinto. Deben empezar a dar 429 cerca de la 21. Si nunca llega, baja el número y vuelve a publicar.
+   - **No junta a todos:** desde dos redes (Wi-Fi y datos), agota el límite en una y pregunta desde la otra. Si la otra también da 429, los proxies son más: súbelo a 2 y **repite la primera prueba**, porque contar de más permite falsear la IP.
 
 ## 3. La app
 En `local.properties` (no se sube al repo) de la computadora donde se compila el APK:

@@ -14,6 +14,7 @@ from dotenv import load_dotenv
 load_dotenv()
 
 from fastapi import Body, Depends, FastAPI, Header, HTTPException, Query, Request  # noqa: E402
+from fastapi.middleware.cors import CORSMiddleware  # noqa: E402
 from fastapi.responses import HTMLResponse  # noqa: E402
 from fastapi.security import HTTPBasic, HTTPBasicCredentials  # noqa: E402
 from pydantic import BaseModel, Field, StringConstraints  # noqa: E402
@@ -48,6 +49,7 @@ async def arranque(_app: FastAPI):
     """Al prender uvicorn: abre la base (con SQLite crea las tablas) y copia el uso_diario.json de antes."""
     db.preparar()
     uso.importar_json()
+    historial.purgar_si_toca()
     log.info("Base de datos: %s · GUARDAR_TEXTOS=%s",
              "SQLite local" if db.es_sqlite() else "PostgreSQL", int(historial.guardar_textos()))
     yield
@@ -107,6 +109,15 @@ app = FastAPI(
     version="1.0.0",
     openapi_tags=ETIQUETAS,
     lifespan=arranque,
+    **seguridad.rutas_de_documentacion(),
+)
+
+# Sin credenciales: la web no usa cookies. Lo que pide la clave de la app se sigue revisando en cada ruta.
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=seguridad.origenes_web(),
+    allow_methods=["GET", "POST"],
+    allow_headers=["Content-Type", "X-Clave-App"],
 )
 
 # Cuánto historial se acepta de la app. La IA solo usa las últimas 6 líneas, pero se
@@ -160,7 +171,10 @@ def proteger(
 
 
 def _limitar(request: Request) -> None:
-    quien = request.client.host if request.client else "desconocido"
+    quien = seguridad.ip_cliente(
+        request.headers.getlist("x-forwarded-for"),
+        request.client.host if request.client else None,
+    )
     if not seguridad.limitador.permitir(quien):
         log.warning("Límite por minuto alcanzado para %s", quien)
         raise HTTPException(

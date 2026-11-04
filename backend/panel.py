@@ -21,9 +21,9 @@ DIAS_MAXIMO = 90
 
 
 def _desde(dias: int) -> tuple[date, datetime]:
-    """Primer día del periodo (fecha local) y su medianoche local como momento con zona."""
-    primero = date.today() - timedelta(days=dias - 1)
-    medianoche = datetime.combine(primero, time.min).astimezone()  # zona de la computadora
+    """Primer día del periodo y su medianoche, en la zona de CECAPI."""
+    primero = db.hoy() - timedelta(days=dias - 1)
+    medianoche = datetime.combine(primero, time.min, tzinfo=db.ZONA)
     return primero, medianoche
 
 
@@ -49,7 +49,7 @@ def datos(dias: int, uso_hoy: dict) -> dict:
     tiempos: dict[str, list[int]] = defaultdict(list)
     columna = {"pregunta": "preguntas", "comando": "comandos", "bloqueado": "bloqueados"}
     for f in filas:
-        dia = db.como_utc(f.creado_en).astimezone().date().isoformat()
+        dia = db.como_utc(f.creado_en).astimezone(db.ZONA).date().isoformat()
         if f.rol == "usuario":
             por_ruta[f.ruta] += 1
             if f.tipo in columna:
@@ -67,7 +67,7 @@ def datos(dias: int, uso_hoy: dict) -> dict:
     return {
         "dias": dias,
         "desde": primero.isoformat(),
-        "hasta": date.today().isoformat(),
+        "hasta": db.hoy().isoformat(),
         "hoy": uso_hoy,
         "totales": {c: sum(a[c] for a in actividad) for c in campos},
         "por_ruta": {r: por_ruta[r] for r in db.RUTAS},

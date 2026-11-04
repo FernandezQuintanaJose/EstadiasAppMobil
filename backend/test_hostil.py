@@ -2,8 +2,7 @@
 Pruebas de quien no confía en nada: entradas raras, claves, límite por minuto, fotos hostiles
 y datos personales escritos de formas que el filtro de privacidad todavía no reconoce.
 
-No cubre (porque no es código de la app) que --forwarded-allow-ips '*' deja falsear la IP del límite por
-minuto: ver docs/estado/2026-11-04-revision-qa-y-entrega.md.
+La IP del límite por minuto y el CORS están en test_acceso_web.py.
 
 Las que están marcadas xfail(strict=True) son huecos conocidos (revisión del 4 nov 2026). Cuando
 alguien los arregle, la prueba pasará y pytest avisará con un error para que se quite la marca.
