@@ -44,6 +44,11 @@ android {
             isMinifyEnabled = true
             isShrinkResources = true
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
+            // Sin x86 ni x86_64 (emulador de escritorio): un teléfono real es ARM. Cada arquitectura trae unos 50 MB de
+            // librerías de ML Kit y TensorFlow Lite, así que sin ellas el APK baja a casi la mitad. La depuración las conserva.
+            ndk {
+                abiFilters += listOf("arm64-v8a", "armeabi-v7a")
+            }
         }
     }
 
