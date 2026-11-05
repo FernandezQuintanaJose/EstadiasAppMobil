@@ -47,3 +47,29 @@ adb logcat -s CecapiVoces CecapiSalud
 adb shell svc wifi disable ; adb shell svc data disable   # y enable al terminar
 adb shell run-as com.cecapi.app strings files/datastore/device_settings.preferences_pb   # solo versión de depuración
 ```
+
+## Otras marcas y otros motores (búsqueda del 5 nov 2026)
+
+**No hay una lista oficial de voces por marca.** Lo que se pudo confirmar en fuentes, y lo que no:
+
+| Marca o motor | Lo que dicen las fuentes | Qué falta |
+|---|---|---|
+| Google (`com.google.android.tts`) | Las voces se bajan por idioma con "Instalar datos de voz" ([ayuda de Google](https://support.google.com/accessibility/android/answer/6006983), que no lista variantes de español). En el OPPO A57 hay 16 voces de España y Estados Unidos y ninguna de México | Compararlo con otro teléfono |
+| Samsung | Trae dos motores y el usuario elige entre el de Samsung y el de Google. Solo salen los idiomas instalados ([soporte de Samsung](https://www.samsung.com/us/support/answer/ANS10003701/)). Las voces son paquetes aparte: [Español Voz 1](https://galaxystore.samsung.com/detail/com.samsung.SMT.lang_es_es_l01) y [US Spanish Voz 1](https://galaxystore.samsung.com/detail/com.samsung.SMT.lang_es_us_f00); hay paquetes de español mexicano en [APKMirror](https://www.apkmirror.com/apk/samsung-electronics-co-ltd/samsungtts-mexican-spanish-female/) (espejo de terceros) | **Los nombres que devuelve `getVoices()`** y el nombre del paquete del motor. SIN VERIFICAR |
+| Huawei | Su TTS aparece como [SDK de ML Kit](https://developer.huawei.com/consumer/en/doc/hiai-Guides/on-device-text-to-speech-0000001058761998) para apps; no se encontró que sea un motor del sistema | Todo. Sin servicios de Google, la app podría no tener ningún motor en español. SIN VERIFICAR |
+| LG, Xiaomi, Motorola, otras | No se encontró información utilizable | Todo. SIN VERIFICAR |
+
+### Lo que cambió en la app por esto
+
+- **Las voces conocidas son de un motor.** `VOCES_CONOCIDAS` es de Google; `CatalogoDeVoces.conocidasDe(motor)` solo la usa con `com.google.android.tts`. Antes, en un Samsung con su propio motor, las 16 voces habrían salido como "No disponible". Con otro motor salen solo las que el teléfono reporta.
+- **El idioma se reconoce como `es` o `spa`.** Los motores viejos usan tres letras.
+- **El registro anota los motores instalados** (`motores=[...]`), para saber qué hay en cada marca.
+
+### Cómo agregar una marca
+
+1. Con el teléfono por cable y la depuración por USB encendida: `adb logcat -G 8M`, luego `adb logcat -s CecapiVoces`, y abrir la app.
+2. Copiar `motor=`, `motores=`, el modelo y la lista de voces.
+3. Agregar la lista a `CatalogoDeVoces`, atada a ese motor (`conocidasDe`), con su prueba. **Solo nombres vistos en un teléfono.**
+4. Anotar el teléfono y la fecha en esta tabla.
+
+Sin cable: pedirle a la persona que tenga el teléfono la pantalla "Elegir voz" y el nombre del motor (Ajustes, Texto a voz). No da los nombres internos, pero dice cuántas voces hay y de qué país.

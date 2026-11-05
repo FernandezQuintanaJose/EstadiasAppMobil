@@ -411,12 +411,16 @@ class VoiceEngine @Inject constructor(
         val tts = textToSpeech ?: return emptyList()
         if (!ttsReady) return emptyList()
         return runCatching {
-            CatalogoDeVoces.armar(vocesEnEspanol(tts).map { it.aVozDelMotor() }, connectivity.hayInternetAhora())
+            CatalogoDeVoces.armar(
+                vocesEnEspanol(tts).map { it.aVozDelMotor() },
+                connectivity.hayInternetAhora(),
+                CatalogoDeVoces.conocidasDe(tts.defaultEngine),
+            )
         }.getOrDefault(emptyList())
     }
 
     private fun vocesEnEspanol(tts: TextToSpeech): List<Voice> =
-        tts.voices.orEmpty().filter { it.locale.language == "es" }
+        tts.voices.orEmpty().filter { CatalogoDeVoces.esEspanol(it.locale.language) }
 
     private fun Voice.aVozDelMotor() = VozDelMotor(
         nombre = name,
@@ -429,7 +433,8 @@ class VoiceEngine @Inject constructor(
     private fun registrarVoces() {
         val tts = textToSpeech ?: return
         runCatching {
-            Log.i("CecapiVoces", "motor=${tts.defaultEngine} modelo=${Build.MANUFACTURER} ${Build.MODEL} android=${Build.VERSION.SDK_INT}")
+            val motores = runCatching { tts.engines.joinToString { it.name } }.getOrDefault("?")
+            Log.i("CecapiVoces", "motor=${tts.defaultEngine} motores=[$motores] modelo=${Build.MANUFACTURER} ${Build.MODEL} android=${Build.VERSION.SDK_INT}")
             vocesEnEspanol(tts).map { it.aVozDelMotor() }.sortedBy { it.nombre }.forEach {
                 Log.i("CecapiVoces", "${it.nombre} internet=${it.necesitaInternet} sinInstalar=${it.sinInstalar}")
             }

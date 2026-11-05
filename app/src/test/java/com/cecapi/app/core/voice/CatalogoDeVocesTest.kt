@@ -43,6 +43,34 @@ class CatalogoDeVocesTest {
     }
 
     @Test
+    fun laListaConocidaSoloSeUsaConElMotorDeGoogle() {
+        assertEquals(CatalogoDeVoces.VOCES_CONOCIDAS, CatalogoDeVoces.conocidasDe("com.google.android.tts"))
+        assertTrue(CatalogoDeVoces.conocidasDe("com.samsung.SMT").isEmpty())
+        assertTrue(CatalogoDeVoces.conocidasDe(null).isEmpty())
+        assertTrue(CatalogoDeVoces.conocidasDe("").isEmpty())
+    }
+
+    @Test
+    fun conOtroMotorSoloSalenLasVocesQueElTelefonoReporta() {
+        val deSamsung = listOf("es-MX-SMTf00", "es-ES-SMTl01").map { local.copy(nombre = it) }
+        val voces = CatalogoDeVoces.armar(deSamsung, hayInternet = true, conocidas = CatalogoDeVoces.conocidasDe("com.samsung.SMT"))
+        assertEquals(listOf("es-ES-SMTl01", "es-MX-SMTf00"), voces.map { it.name })
+        assertTrue(voces.all { it.estado == EstadoVoz.LISTA })
+    }
+
+    @Test
+    fun elEspanolSeReconoceConDosOTresLetras() {
+        assertTrue(CatalogoDeVoces.esEspanol("es"))
+        assertTrue(CatalogoDeVoces.esEspanol("ES"))
+        assertTrue(CatalogoDeVoces.esEspanol("spa"))
+        assertFalse(CatalogoDeVoces.esEspanol("en"))
+        assertFalse(CatalogoDeVoces.esEspanol("eng"))
+        assertFalse(CatalogoDeVoces.esEspanol("est")) // estonio, no español
+        assertFalse(CatalogoDeVoces.esEspanol(""))
+        assertFalse(CatalogoDeVoces.esEspanol(null))
+    }
+
+    @Test
     fun lasConocidasSonLasDelOppoA57() {
         val nombres = CatalogoDeVoces.VOCES_CONOCIDAS.map { it.nombre }
         assertEquals(16, nombres.size)

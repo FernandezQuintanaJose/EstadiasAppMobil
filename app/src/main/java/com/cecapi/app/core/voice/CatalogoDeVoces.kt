@@ -31,6 +31,8 @@ object CatalogoDeVoces {
     // Todas las voces conocidas tienen versión local; la de internet solo si el teléfono la reportó (eee y eef no).
     private val SIN_VERSION_DE_INTERNET = setOf("es-es-x-eee", "es-es-x-eef")
 
+    const val MOTOR_GOOGLE = "com.google.android.tts"
+
     /**
      * Voces vistas en teléfonos reales, para mostrar "No disponible" si este no las tiene. Solo se agregan nombres
      * confirmados en un teléfono: la app los escribe en el registro con la etiqueta `CecapiVoces`
@@ -48,6 +50,16 @@ object CatalogoDeVoces {
         if (base !in SIN_VERSION_DE_INTERNET) add(VozDelMotor("$base-network", pais, necesitaInternet = true, sinInstalar = true))
     }
 
+    /**
+     * Las voces conocidas son de un motor: cada marca puede traer el suyo (Samsung tiene el propio y deja elegir entre
+     * el de Samsung y el de Google) y sus voces se llaman distinto. Con otro motor no se inventan tarjetas "No disponible":
+     * solo salen las voces que ese teléfono reporta. Se amplía cuando se confirme un motor en un teléfono real.
+     */
+    fun conocidasDe(motor: String?): List<VozDelMotor> = if (motor == MOTOR_GOOGLE) VOCES_CONOCIDAS else emptyList()
+
+    /** El motor dice el idioma con 2 letras ("es") o, en motores viejos, con 3 ("spa"). */
+    fun esEspanol(idioma: String?): Boolean = idioma.equals("es", ignoreCase = true) || idioma.equals("spa", ignoreCase = true)
+
     /** `es-ES-language` y `es-US-language` son el idioma entero (lo que ya hace "Automática"), no una voz más. */
     private fun esVozPropia(nombre: String) = nombre.isNotBlank() && !nombre.endsWith("-language", ignoreCase = true)
 
@@ -61,7 +73,7 @@ object CatalogoDeVoces {
     fun armar(
         delMotor: List<VozDelMotor>,
         hayInternet: Boolean,
-        conocidas: List<VozDelMotor> = VOCES_CONOCIDAS,
+        conocidas: List<VozDelMotor> = emptyList(),
     ): List<VoiceOption> =
         (delMotor + conocidas)
             .filter { esVozPropia(it.nombre) }
