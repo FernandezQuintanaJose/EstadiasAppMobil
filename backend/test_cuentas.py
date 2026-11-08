@@ -246,6 +246,40 @@ def test_restablecer_cambia_la_contrasena_y_cierra_sesiones(buzon):
     assert cliente.delete("/cuenta/borrarChats", headers=bearer(token)).status_code == 401
 
 
+def _otro(codigo: str) -> str:
+    return f"{(int(codigo) + 1) % 10 ** 6:06d}"
+
+
+def test_pedir_codigos_nuevos_no_da_intentos_sin_fin(buzon):
+    """Auditoría OWASP del 8 nov (A07-001): 10 intentos fallidos en 24 horas por cuenta, sumando todos los códigos."""
+    cuenta_lista(buzon)
+    nueva = "Una Frase Nueva Para Entrar"
+    for _ in range(2):
+        cliente.post("/cuenta/recuperar", json={"correo": CORREO})
+        codigo = buzon[-1][1]
+        for _ in range(5):
+            r = cliente.post("/cuenta/restablecer", json={"correo": CORREO, "codigo": _otro(codigo), "contrasena": nueva})
+            assert r.status_code == 400
+    enviados = len(buzon)
+    assert cliente.post("/cuenta/recuperar", json={"correo": CORREO}).status_code == 200
+    assert len(buzon) == enviados  # ya no se manda otro código
+    # Ni el último código correcto sirve hasta que pasen las 24 horas.
+    assert cliente.post("/cuenta/restablecer", json={"correo": CORREO, "codigo": codigo, "contrasena": nueva}).status_code == 400
+
+
+def test_solo_sirve_el_codigo_mas_nuevo(buzon):
+    cuenta_lista(buzon)
+    cliente.post("/cuenta/recuperar", json={"correo": CORREO})
+    viejo = buzon[-1][1]
+    cliente.post("/cuenta/restablecer", json={"correo": CORREO, "codigo": _otro(viejo), "contrasena": "Una Frase Nueva Para Entrar"})
+    cliente.post("/cuenta/recuperar", json={"correo": CORREO})
+    nuevo = buzon[-1][1]
+    if viejo != nuevo:
+        r = cliente.post("/cuenta/restablecer", json={"correo": CORREO, "codigo": viejo, "contrasena": "Una Frase Nueva Para Entrar"})
+        assert r.status_code == 400
+    assert cliente.post("/cuenta/restablecer", json={"correo": CORREO, "codigo": nuevo, "contrasena": "Una Frase Nueva Para Entrar"}).status_code == 200
+
+
 def test_el_codigo_de_registro_no_sirve_para_restablecer(buzon):
     codigo = registrar(buzon)
     r = cliente.post("/cuenta/restablecer", json={"correo": CORREO, "codigo": codigo, "contrasena": "Una Frase Nueva Para Entrar"})

@@ -86,6 +86,11 @@ def codigo_espera_s() -> int:
     return _entero("CODIGO_ESPERA_S", 60, minimo=0)
 
 
+def codigo_fallos_dia() -> int:
+    """Intentos fallidos de código que aguanta una cuenta en 24 horas, sumando todos los códigos que pidió."""
+    return _entero("CODIGO_FALLOS_DIA", 10)
+
+
 def acceso_fallos() -> int:
     return _entero("ACCESO_FALLOS", 5)
 
@@ -164,17 +169,35 @@ def token_de_encabezado(authorization: str | None) -> str | None:
     return valor.strip() or None if tipo.lower() == "bearer" else None
 
 
+def _fallos_recientes(con, cuenta_id: int, proposito: str, momento) -> int:
+    """Intentos fallidos de las últimas 24 horas. Sin este tope, pedir un código nuevo cada minuto daba
+    5 intentos más cada vez (unos 7,200 al día) para adivinar el de recuperación de otra persona."""
+    return con.execute(
+        select(func.coalesce(func.sum(db.codigos.c.intentos), 0))
+        .where(db.codigos.c.cuenta_id == cuenta_id, db.codigos.c.proposito == proposito,
+               db.codigos.c.creado_en > momento - timedelta(hours=24))
+    ).scalar_one()
+
+
 def _nuevo_codigo(con, cuenta_id: int, proposito: str) -> str | None:
-    """Crea un código nuevo (borra el anterior). None si se pidió otro hace menos de CODIGO_ESPERA_S segundos."""
+    """Crea un código nuevo. None si se pidió otro hace menos de CODIGO_ESPERA_S segundos o si la cuenta ya
+    gastó CODIGO_FALLOS_DIA intentos en 24 horas. Los códigos con intentos fallidos se quedan 24 horas para
+    poder contarlos; ya no sirven porque solo vale el más nuevo."""
     momento = db.ahora()
     anterior = con.execute(
         select(db.codigos.c.creado_en)
         .where(db.codigos.c.cuenta_id == cuenta_id, db.codigos.c.proposito == proposito)
-        .order_by(db.codigos.c.creado_en.desc())
+        .order_by(db.codigos.c.creado_en.desc(), db.codigos.c.id.desc())
     ).first()
     if anterior is not None and db.como_utc(anterior.creado_en) > momento - timedelta(seconds=codigo_espera_s()):
         return None
-    con.execute(delete(db.codigos).where(db.codigos.c.cuenta_id == cuenta_id, db.codigos.c.proposito == proposito))
+    if _fallos_recientes(con, cuenta_id, proposito, momento) >= codigo_fallos_dia():
+        log.warning("Cuenta %s: tope de intentos de código de %s en 24 horas; no se manda otro.", cuenta_id, proposito)
+        return None
+    con.execute(delete(db.codigos).where(
+        db.codigos.c.cuenta_id == cuenta_id, db.codigos.c.proposito == proposito,
+        or_(db.codigos.c.intentos == 0, db.codigos.c.creado_en <= momento - timedelta(hours=24)),
+    ))
     codigo = f"{secrets.randbelow(10 ** 6):06d}"
     sal = secrets.token_hex(16)
     con.execute(db.codigos.insert().values(
@@ -185,15 +208,18 @@ def _nuevo_codigo(con, cuenta_id: int, proposito: str) -> str | None:
 
 
 def _codigo_correcto(con, cuenta_id: int, proposito: str, codigo: str) -> bool:
-    """Revisa el código y cuenta el intento. Uno correcto se borra para que no sirva dos veces."""
+    """Revisa el código más nuevo y cuenta el intento. Uno correcto se borra (con los viejos) para que no sirva dos veces."""
+    momento = db.ahora()
     fila = con.execute(
         select(db.codigos).where(db.codigos.c.cuenta_id == cuenta_id, db.codigos.c.proposito == proposito)
+        .order_by(db.codigos.c.creado_en.desc(), db.codigos.c.id.desc())
     ).first()
-    if fila is None or db.como_utc(fila.expira_en) <= db.ahora() or fila.intentos >= codigo_intentos():
+    if (fila is None or db.como_utc(fila.expira_en) <= momento or fila.intentos >= codigo_intentos()
+            or _fallos_recientes(con, cuenta_id, proposito, momento) >= codigo_fallos_dia()):
         return False
     limpio = re.sub(r"\s+", "", codigo or "")
     if hmac.compare_digest(_sha256(fila.sal + limpio), fila.codigo_hash):
-        con.execute(delete(db.codigos).where(db.codigos.c.id == fila.id))
+        con.execute(delete(db.codigos).where(db.codigos.c.cuenta_id == cuenta_id, db.codigos.c.proposito == proposito))
         return True
     con.execute(update(db.codigos).where(db.codigos.c.id == fila.id).values(intentos=fila.intentos + 1))
     return False
@@ -396,6 +422,7 @@ def acceso(body: Acceso):
             valores = {"fallos": fallos}
             if fallos >= acceso_fallos():
                 valores = {"fallos": 0, "bloqueada_hasta": momento + timedelta(minutes=acceso_bloqueo_min())}
+                log.warning("Cuenta %s bloqueada %d minutos tras %d intentos fallidos.", cuenta.id, acceso_bloqueo_min(), fallos)
             con.execute(update(db.cuentas).where(db.cuentas.c.id == cuenta.id).values(**valores))
             correcta = False
         else:
