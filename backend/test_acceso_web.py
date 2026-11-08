@@ -132,7 +132,9 @@ def test_una_respuesta_a_otra_pagina_no_la_autoriza():
 
 
 def test_no_se_permiten_otros_metodos_ni_cookies():
-    assert _preflight(PAGINA, metodo="DELETE").status_code == 400
+    # DELETE sí: lo usan /cuenta/borrarChats y /cuenta/eliminarCuenta (decisión 0020).
+    assert _preflight(PAGINA, metodo="DELETE").status_code == 200
+    assert _preflight(PAGINA, metodo="PUT").status_code == 400
     assert _preflight(PAGINA, encabezados="x-otro").status_code == 400
     assert "access-control-allow-credentials" not in _preflight(PAGINA).headers
 

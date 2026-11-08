@@ -28,7 +28,18 @@ cecapi.claveApp=<la CECAPI_CLAVE_APP de Render>
 ```
 
 La clave dentro del APK se puede sacar descompilándolo: frena el uso casual, no a alguien decidido.
-El control de verdad llegará con las cuentas y el token por usuario (ficha del backend, tarea 4).
+El control de verdad son las cuentas con token (paso 4); la app las usará cuando deje las cuentas locales (M5).
+
+## 4. Correo de los códigos (cuentas, decisión 0020)
+Mientras `CORREO_MODO=consola`, el código de cada registro sale en **Logs** de Render y no se envía nada:
+sirve para probar, no para personas reales. Para enviar de verdad:
+1. Elige la cuenta que mandará los códigos. Con Gmail: activa la verificación en dos pasos y crea una
+   **contraseña de aplicación** (Cuenta de Google → Seguridad). No uses la contraseña normal.
+2. En Render → **Environment**: `CORREO_MODO=smtp`, `CORREO_SMTP_HOST=smtp.gmail.com`,
+   `CORREO_SMTP_USUARIO` y `CORREO_REMITENTE` = el correo, `CORREO_SMTP_CONTRASENA` = la contraseña de aplicación.
+3. Prueba: crea una cuenta desde el asistente web (o `POST /cuenta/registro`) y revisa que llegue el código.
+   Si no llega, **Logs** dice qué faltó, sin mostrar el código.
+4. El límite de envíos al día depende del proveedor: compruébalo en su sitio oficial antes de abrirlo a más personas.
 
 ## Lo que hay que saber
 - **Arranque en frío.** En el plan gratuito Render apaga el servidor tras 15 minutos sin uso y tarda cerca de un minuto en despertar; Neon se suspende tras 5 minutos. La app ya espera hasta 75 segundos y avisa por voz (`AiMessages.WAKING`). La ruta `/` no toca la base: sirve para despertarlo.

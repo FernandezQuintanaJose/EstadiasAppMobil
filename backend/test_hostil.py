@@ -1,11 +1,10 @@
 """
 Pruebas de quien no confía en nada: entradas raras, claves, límite por minuto, fotos hostiles
-y datos personales escritos de formas que el filtro de privacidad todavía no reconoce.
+y datos personales escritos de formas disfrazadas.
 
 La IP del límite por minuto y el CORS están en test_acceso_web.py.
 
-Las que están marcadas xfail(strict=True) son huecos conocidos (revisión del 4 nov 2026). Cuando
-alguien los arregle, la prueba pasará y pytest avisará con un error para que se quite la marca.
+Los seis huecos del filtro de privacidad que encontró la revisión del 4 nov 2026 se cerraron el 8 nov.
 """
 
 import base64
@@ -110,12 +109,11 @@ def test_privacidad_no_bloquea_preguntas_normales(ia, texto):
     assert ia
 
 
-@pytest.mark.xfail(strict=True, reason="Hueco conocido: el filtro no ve datos escritos con espacios, palabras u otro idioma.")
 @pytest.mark.parametrize("texto", [
     "juan [arroba] example punto com", "juan(at)example.com", "juan @ example . com",
     "seis uno ocho uno dos tres cuatro cinco seis siete", "GODE 561231 HDFRRN 09", "my password is hunter2",
 ])
-def test_privacidad_variantes_que_hoy_pasan(ia, texto):
+def test_privacidad_variantes_disfrazadas(ia, texto):
     assert preguntar({"pregunta": texto}).status_code == 200 and not ia
 
 

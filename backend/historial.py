@@ -21,6 +21,7 @@ SQLAlchemy el 30/10 para que funcione igual con Neon.
 import logging
 import os
 import uuid
+from contextvars import ContextVar
 from dataclasses import dataclass
 from datetime import date, datetime, timedelta
 
@@ -45,6 +46,10 @@ class Mensaje:
     duracion_ms: int | None = None
 
 
+# La cuenta de quien pregunta (decisión 0020). La llena cada ruta al empezar; None si entró con la clave de la app.
+CUENTA: ContextVar[int | None] = ContextVar("cuenta", default=None)
+
+
 def guardar_textos() -> bool:
     return os.getenv("GUARDAR_TEXTOS", "0").strip() == "1"
 
@@ -65,15 +70,20 @@ def guardar(
         with db.transaccion() as con:
             momento = db.ahora()
             conversacion_id = _uuid_valido(conversacion_id)
+            usuario_id = CUENTA.get()
+            # Solo se sigue una conversación de la misma cuenta (o sin cuenta, si entró con la clave de la app).
+            de_quien = (db.conversaciones.c.usuario_id == usuario_id if usuario_id is not None
+                        else db.conversaciones.c.usuario_id.is_(None))
             existe = bool(conversacion_id) and con.execute(
                 update(db.conversaciones)
-                .where(db.conversaciones.c.id == conversacion_id)
+                .where(db.conversaciones.c.id == conversacion_id, de_quien)
                 .values(ultima_actividad=momento)
             ).rowcount == 1
             if not existe:
                 conversacion_id = str(uuid.uuid4())
                 con.execute(db.conversaciones.insert().values(
                     id=conversacion_id,
+                    usuario_id=usuario_id,
                     titulo=titulo[:LARGO_TITULO] if con_textos and titulo else None,
                     iniciada_en=momento,
                     ultima_actividad=momento,

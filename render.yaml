@@ -56,3 +56,22 @@ services:
         value: "0.3"
       - key: LIMITE_POR_MINUTO
         value: "20"
+      # Cuentas (decisión 0020). consola mientras no haya cuenta de correo; luego smtp.
+      - key: CORREO_MODO
+        value: consola
+      - key: CORREO_SMTP_HOST
+        sync: false
+      - key: CORREO_SMTP_PUERTO
+        value: "587"
+      - key: CORREO_SMTP_USUARIO
+        sync: false
+      - key: CORREO_SMTP_CONTRASENA
+        sync: false
+      - key: CORREO_REMITENTE
+        sync: false
+      - key: VERIFICACION_POR_CORREO
+        value: "1"
+      - key: SESION_DIAS
+        value: "30"
+      - key: CUPO_DIARIO_POR_CUENTA
+        value: "25"

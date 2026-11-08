@@ -224,7 +224,9 @@ def test_ver_rechaza_peticiones_invalidas(ia, cuerpo):
 
 def test_cada_ruta_esta_documentada():
     rutas = main.app.openapi()["paths"]
-    assert set(rutas) == {"/", "/uso", "/panel", "/panel/datos", "/preguntar", "/entender", "/ver", "/documento"}
+    assert set(rutas) == {"/", "/uso", "/panel", "/panel/datos", "/preguntar", "/entender", "/ver", "/documento",
+                          *(f"/cuenta/{r}" for r in ("registro", "verificar", "acceso", "recuperar", "restablecer",
+                                                    "aceptacion", "borrarChats", "eliminarCuenta", "salir"))}
     for ruta, metodos in rutas.items():
         for metodo, doc in metodos.items():
             assert doc.get("summary") and doc.get("description"), f"{metodo} {ruta} sin texto"

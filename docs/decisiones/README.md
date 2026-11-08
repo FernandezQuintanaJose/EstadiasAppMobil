@@ -25,3 +25,4 @@ Una decisión por archivo, numerada, con el formato de [MADR](https://adr.github
 | [0017](0017-base-en-neon-detras-del-servidor.md) | La base va en Neon detrás del servidor propio | 28 oct 2026 | Aceptada |
 | [0018](0018-ubicacion-evaluacion.md) | Ubicación para orientarse: evaluación | 31 oct 2026 | Propuesta, no implementada |
 | [0019](0019-un-servidor-modular-y-argon2id.md) | Un solo servidor con módulos, no microservicios; contraseñas con Argon2id | 2 nov 2026 | Propuesta |
+| [0020](0020-cuentas-con-codigo-por-correo.md) | Webs y apps preguntan con cuenta propia y token; código por correo | 8 nov 2026 | Aceptada; falta la cuenta de correo |

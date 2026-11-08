@@ -20,6 +20,7 @@ from fastapi.security import HTTPBasic, HTTPBasicCredentials  # noqa: E402
 from pydantic import BaseModel, Field, StringConstraints  # noqa: E402
 
 import comandos  # noqa: E402
+import cuentas  # noqa: E402
 import db  # noqa: E402
 import historial  # noqa: E402
 import imagenes  # noqa: E402  (Owen: prepara la foto para /ver)
@@ -116,8 +117,8 @@ app = FastAPI(
 app.add_middleware(
     CORSMiddleware,
     allow_origins=seguridad.origenes_web(),
-    allow_methods=["GET", "POST"],
-    allow_headers=["Content-Type", "X-Clave-App"],
+    allow_methods=["GET", "POST", "DELETE"],
+    allow_headers=["Content-Type", "X-Clave-App", "Authorization"],
 )
 
 # Cuánto historial se acepta de la app. La IA solo usa las últimas 6 líneas, pero se
@@ -184,6 +185,53 @@ def _limitar(request: Request) -> None:
 
 
 Protegida = [Depends(proteger)]
+
+ERROR_401_SESION = _error(
+    "Falta la clave de la app, o el token de sesión (`Authorization: Bearer`) no existe o venció.",
+    "La app no tiene permiso para usar el asistente.", cuentas.MSJ_SESION,
+)
+ERROR_429_IA = _error(
+    "Esta IP pasó el límite por minuto, o la cuenta ya usó su cupo del día (`CUPO_DIARIO_POR_CUENTA`).",
+    "Hiciste muchas preguntas seguidas. Espera un minuto e intenta de nuevo.",
+    "Ya usaste tus consultas de hoy. Vuelve a intentarlo mañana.",
+)
+ERRORES_IA = {401: ERROR_401_SESION, 429: ERROR_429_IA}
+
+
+def proteger_ia(
+    request: Request,
+    x_clave_app: str | None = Header(
+        default=None,
+        description="Clave de la app. No hace falta si se manda el token de una cuenta.",
+    ),
+    authorization: str | None = Header(
+        default=None,
+        description="`Bearer <token>` de `/cuenta/acceso` o `/cuenta/verificar` (decisión 0020).",
+    ),
+) -> None:
+    """Rutas que usan la IA: entra con el token de una cuenta (la web) o con la clave de la app."""
+    token = cuentas.token_de_encabezado(authorization)
+    if token is None:
+        proteger(request, x_clave_app)
+        return
+    cuenta = cuentas.cuenta_de_token(token)
+    if cuenta is None:
+        raise HTTPException(status_code=401, detail=cuentas.MSJ_SESION)
+    _limitar(request)
+    if not cuentas.consumir_cupo(cuenta):
+        raise HTTPException(status_code=429, detail="Ya usaste tus consultas de hoy. Vuelve a intentarlo mañana.")
+    request.state.cuenta_id = cuenta
+
+
+ProtegidaIA = [Depends(proteger_ia)]
+
+
+def _de_quien(request: Request) -> None:
+    """Las conversaciones que se guarden en esta petición quedan a nombre de la cuenta (o de nadie)."""
+    historial.CUENTA.set(getattr(request.state, "cuenta_id", None))
+
+
+app.include_router(cuentas.router, dependencies=[Depends(_limitar)])
 
 
 class Pregunta(BaseModel):
@@ -359,26 +407,27 @@ def ver_uso():
 # `def` y no `async def`: los SDK son bloqueantes y así FastAPI los corre en otro hilo
 # sin congelar al servidor mientras espera a la IA.
 @app.post(
-    "/preguntar", dependencies=Protegida, tags=["Asistente"], summary="Responder una pregunta",
-    response_model=Respuesta, responses={**ERRORES_PROTEGIDA, 503: ERROR_503},
+    "/preguntar", dependencies=ProtegidaIA, tags=["Asistente"], summary="Responder una pregunta",
+    response_model=Respuesta, responses={**ERRORES_IA, 503: ERROR_503},
 )
-def responder(body: Annotated[Pregunta, Body(openapi_examples=EJEMPLOS_PREGUNTA)]):
+def responder(request: Request, body: Annotated[Pregunta, Body(openapi_examples=EJEMPLOS_PREGUNTA)]):
     """
     Manda la pregunta a la IA y regresa una respuesta corta para decir en voz alta.
 
     Si la pregunta trae datos personales (correo, teléfono, tarjeta, CURP, RFC o
     contraseña) **no se manda a la IA**: se responde con un aviso y `proveedor` es `null`.
     """
+    _de_quien(request)
     if privacidad.contiene_dato_sensible(body.pregunta):
         return _bloquear(body, "preguntar")
     return _preguntar(body, "preguntar")
 
 
 @app.post(
-    "/entender", dependencies=Protegida, tags=["Asistente"], summary="¿Comando o pregunta?",
+    "/entender", dependencies=ProtegidaIA, tags=["Asistente"], summary="¿Comando o pregunta?",
     response_model=Comando | RespuestaEntender, responses={**ERRORES_PROTEGIDA, 503: ERROR_503},
 )
-def entender(body: Annotated[Pregunta, Body(openapi_examples=EJEMPLOS_ENTENDER)]):
+def entender(request: Request, body: Annotated[Pregunta, Body(openapi_examples=EJEMPLOS_ENTENDER)]):
     """
     Decide si lo que dijo la persona es un comando conocido de la app
     (ej. "abre la cámara") o una pregunta libre.
@@ -391,6 +440,7 @@ def entender(body: Annotated[Pregunta, Body(openapi_examples=EJEMPLOS_ENTENDER)]
     - `"comando"`: la app abre el módulo de `comando` (ej. `{"tipo": "comando", "comando": "ENVIRONMENT"}`).
     - `"respuesta"`: lo mismo que /preguntar, más `"tipo": "respuesta"`.
     """
+    _de_quien(request)
     comando = comandos.detectar(body.pregunta)
     if comando:
         conversacion = historial.guardar("entender", body.conversacionId, [
@@ -448,7 +498,7 @@ class RespuestaVision(BaseModel):
 
 
 @app.post(
-    "/ver", dependencies=Protegida, tags=["Visión"], summary="Describir una foto",
+    "/ver", dependencies=ProtegidaIA, tags=["Visión"], summary="Describir una foto",
     response_model=RespuestaVision,
     responses={
         400: _error(
@@ -462,7 +512,7 @@ class RespuestaVision(BaseModel):
         503: ERROR_503,
     },
 )
-def ver(body: Annotated[Imagen, Body(openapi_examples=EJEMPLOS_IMAGEN)]):
+def ver(request: Request, body: Annotated[Imagen, Body(openapi_examples=EJEMPLOS_IMAGEN)]):
     """
     Manda la foto a la IA de visión según el `modo`.
 
@@ -473,6 +523,7 @@ def ver(body: Annotated[Imagen, Body(openapi_examples=EJEMPLOS_IMAGEN)]):
 
     Antes de mandarla, la foto se endereza, se reduce (`IMAGEN_LADO_MAX`) y se le quita el EXIF.
     """
+    _de_quien(request)
     inicio = time.perf_counter()
     foto = Mensaje("usuario", "pregunta")  # la foto nunca se guarda
     try:
@@ -555,10 +606,10 @@ EJEMPLOS_DOCUMENTO = {
 
 
 @app.post(
-    "/documento", dependencies=Protegida, tags=["Asistente"], summary="Redactar un documento",
+    "/documento", dependencies=ProtegidaIA, tags=["Asistente"], summary="Redactar un documento",
     response_model=Documento, responses={**ERRORES_PROTEGIDA, 503: ERROR_503},
 )
-def documento(body: Annotated[PedidoDocumento, Body(openapi_examples=EJEMPLOS_DOCUMENTO)]):
+def documento(request: Request, body: Annotated[PedidoDocumento, Body(openapi_examples=EJEMPLOS_DOCUMENTO)]):
     """
     Redacta el documento que pidió la persona en la pantalla Consultas (carta, solicitud, oficio...).
 
@@ -567,6 +618,7 @@ def documento(body: Annotated[PedidoDocumento, Body(openapi_examples=EJEMPLOS_DO
     privacidad: si el pedido trae CURP, RFC, teléfono, correo, tarjeta o contraseña, no se
     manda a la IA. La persona puede escribir esos datos después, a mano, en el documento.
     """
+    _de_quien(request)
     if privacidad.contiene_dato_sensible(body.pedido):
         historial.guardar("documento", None, [Mensaje("usuario", "bloqueado")])
         return {"documento": None, "aviso": privacidad.MENSAJE_BLOQUEO, "proveedor": None}
