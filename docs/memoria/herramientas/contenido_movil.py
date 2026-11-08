@@ -148,7 +148,7 @@ fig("capas", "m01_capas_app.png", "Arquitectura por capas de la aplicación Andr
 
 h4("4.3.2. Navegación y pantallas")
 
-p("La aplicación tiene 17 destinos de navegación, de los que la [[fig:pantallas]] muestra los de los módulos 1 y 2 y enlaza los de otros equipos. "
+p("La aplicación tiene 19 destinos de navegación, de los que la [[fig:pantallas]] muestra los de los módulos 1 y 2 y enlaza los de otros equipos; el módulo 6 aporta tres, uno de actividades y dos juegos con cámara. "
   "Antes de iniciar sesión se pueden usar el inicio, el inicio de sesión y el registro; algunas pantallas, como Chats, Gestión, Clasificación y Editar "
   "cuenta, piden una cuenta con sesión iniciada. El acceso se maneja con roles, no con planes (decisión 0009), y la [[tab:roles]] resume qué puede "
   "hacer cada rol.")
@@ -345,7 +345,7 @@ p("Los resultados se presentan en el orden de los objetivos específicos del cap
 
 tab("cumplimiento", "Alcance de los objetivos específicos al 3 de noviembre de 2026",
     ["Objetivo", "Alcance logrado", "Siguiente etapa"],
-    [["O1. Pantallas accesibles", "17 destinos de navegación, micrófono fijo, tamaños de botón unificados, pantalla dividida y etiquetas descriptivas en el módulo 1", "Extender las etiquetas a todas las pantallas"],
+    [["O1. Pantallas accesibles", "19 destinos de navegación, micrófono fijo, tamaños de botón unificados, pantalla dividida y etiquetas descriptivas en el módulo 1", "Extender las etiquetas a todas las pantallas"],
      ["O2. Asistente de voz", "Motor de voz único, palabra de activación, tolerancia a errores, comandos globales y por pantalla, escucha en segundo plano opcional y preguntas a la IA conectadas en el código", "Comprobar la conexión con el servidor central"],
      ["O3. Registro e inicio de sesión", "Cuenta local con contraseña de 15 letras, Argon2id, bloqueo por intentos y confirmación de 18 años", "Código por correo y cuentas en el servidor"],
      ["O4. Distribución como APK", "APK de instalación directa compilado e instalado en teléfono, con versión de lanzamiento optimizada", "Firma digital y publicación en GitHub Releases"]],
@@ -355,7 +355,7 @@ fig("estado", "m08_estado_objetivos.png", "Alcance de los objetivos específicos
 
 h4("5.1.1. Interfaz accesible (O1)")
 
-p("La aplicación tiene 17 destinos de navegación, 11 de ellos del módulo 1, y todos comparten el micrófono fijo en la zona inferior y los tamaños "
+p("La aplicación tiene 19 destinos de navegación, 11 de ellos del módulo 1, y todos comparten el micrófono fijo en la zona inferior y los tamaños "
   "de botón de la decisión 0012. El código del módulo 1 declara 15 descripciones de contenido y 22 usos de semántica, y los recuadros de carga "
   "anuncian su mensaje con el lector de pantalla. En el teléfono de pruebas se comprobó la barra de desplazamiento fija en las pantallas Cuenta, Personalización y Configuración. El recorrido de las "
   "pantallas con el lector de pantalla no formó parte de las pruebas realizadas.")

@@ -68,7 +68,7 @@ def m02_pantallas():
         caja(ax, 2 + col * 24, 36 - fila * 12.5, 21, 9, t, fc="#cfe6d8" if ses else VERDE_CLARO, ec=VERDE, tam=6.8)
     ax.text(2, 20, "Módulo 2 · Asistente de voz, y destinos de otros equipos (solo se enlazan)", fontsize=7.8, fontweight="bold", color=AMBAR)
     caja(ax, 2, 5, 22, 10, "Asistente de voz\n(voice_assistant)", fc=AMBAR_CLARO, ec=AMBAR, tam=6.8)
-    otros = ["IA\n(módulo 3)", "Lector\n(módulo 4)", "Solicitudes*\n(módulo 5)", "Actividades*\n(módulo 6)", "Entorno\n(módulo 7)"]
+    otros = ["IA\n(módulo 3)", "Lector\n(módulo 4)", "Solicitudes*\n(módulo 5)", "Actividades y\njuegos* (módulo 6)", "Entorno\n(módulo 7)"]
     for i, t in enumerate(otros):
         caja(ax, 28 + i * 14.4, 5, 13, 10, t, fc=GRIS_CLARO, ec=GRIS, tam=5.9)
     guardar(fig, "m02_mapa_pantallas")
