@@ -191,7 +191,7 @@ def test_ver_billete(ia):
 @pytest.mark.parametrize("modo, prompt", [
     ("billete", PROMPT_BILLETE),
     ("escena", PROMPT_ESCENA),
-])
+], ids=["billete", "escena"])
 def test_ver_usa_el_prompt_del_modo(ia, modo, prompt):
     r = cliente.post("/ver", json={"imagen": foto_png_base64(), "modo": modo})
     assert r.status_code == 200
