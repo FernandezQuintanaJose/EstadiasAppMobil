@@ -131,6 +131,26 @@ def test_documento_no_se_corrige_por_palabras_de_vista(monkeypatch, sin_conteo):
     assert len(falso.llamadas) == 1
 
 
+def test_si_repite_las_instrucciones_no_se_dice(monkeypatch, sin_conteo):
+    # Respuesta real de la pregunta 14 (11/11), antes de quitarle la marca.
+    fuga = "Si una respuesta más larga le serviría a la persona, agrega al final, en su propia línea, solo: MAS_DISPONIBLE."
+    falso = ProveedorFalso([fuga])
+    monkeypatch.setattr(proveedores, "configurados", lambda: [falso])
+    respuesta, nombre, hay_mas = proveedores.preguntar_con_respaldo("¿Me puedes repetir lo último que dijiste?", [])
+    assert (respuesta, nombre, hay_mas) == (proveedores.RESPUESTA_FUGA, "groq", False)
+    assert respuesta == "Eso no lo puedo contestar. Si querías que repita lo último, di 'repite'."
+
+
+@pytest.mark.parametrize("texto", [
+    "Para saber si tienes notificaciones nuevas, pregúntale a la app.",          # pregunta 9, 11/11
+    "No tengo acceso al teléfono; di 'qué hora es' a la app.",
+    "El gobierno ofrece la Pensión para el Bienestar de las Personas con Discapacidad Permanente.",  # 29
+    "El CECAPI está en la calle Jacarandá 1603, colonia Valle Florido, código postal 34226, Durango, Durango.",  # 23
+])
+def test_respuesta_normal_no_se_toma_como_fuga(texto):
+    assert proveedores.repite_instrucciones(texto) is False
+
+
 def test_instrucciones_de_documento_piden_texto_plano_y_no_inventar_datos():
     texto = proveedores.INSTRUCCIONES_DOCUMENTO
     assert "sin markdown" in texto

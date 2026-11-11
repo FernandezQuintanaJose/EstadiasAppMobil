@@ -113,6 +113,28 @@ CORRECCION_VISUAL = (
 def tiene_lenguaje_visual(texto: str) -> bool:
     return bool(_LENGUAJE_VISUAL.search(_PERMITIDO.sub("", texto)))
 
+
+# La IA a veces repite sus propias reglas (pregunta 14, 11/11: "¿me puedes repetir lo último
+# que dijiste?" leyó la regla de MAS_DISPONIBLE). Si la respuesta comparte 8 palabras seguidas
+# con las reglas, la persona no la escucha. DATOS_CECAPI y DATOS_APOYOS no cuentan: repetirlos
+# es correcto (preguntas 23, 27 y 29 de todas las corridas). Solo detecta copias casi
+# textuales: si la IA dice las reglas con otras palabras, no se detecta.
+# Puede saltar con cualquier pregunta, así que el mensaje no da por hecho que pidió repetir.
+RESPUESTA_FUGA = "Eso no lo puedo contestar. Si querías que repita lo último, di 'repite'."
+_PALABRAS_FUGA = 8
+
+
+def _frases_de(texto: str) -> set[tuple[str, ...]]:
+    palabras = re.findall(r"\w+", texto.lower())
+    return {tuple(palabras[i:i + _PALABRAS_FUGA]) for i in range(len(palabras) - _PALABRAS_FUGA + 1)}
+
+
+_FRASES_REGLAS = _frases_de(INSTRUCCIONES.replace(DATOS_CECAPI, " ").replace(DATOS_APOYOS, " "))
+
+
+def repite_instrucciones(texto: str) -> bool:
+    return not _frases_de(texto).isdisjoint(_FRASES_REGLAS)
+
 # --- Visión (fotos de billetes y escenas) ---
 # ver() es aparte de preguntar(): recibe la foto ya comprimida (imagenes.py) y el prompt
 # del modo (billete o escena). No usa INSTRUCCIONES ni contexto: el prompt trae todo.
@@ -334,6 +356,9 @@ def preguntar_con_respaldo(
         if hablado and tiene_lenguaje_visual(texto) and not uso.agotado(proveedor.nombre):
             texto = _corregir_visual(proveedor, pregunta, contexto, texto)
         respuesta, hay_mas = _separar_mas(texto)
+        if hablado and repite_instrucciones(respuesta):
+            log.warning("%s repitió las instrucciones; se cambia por un mensaje seguro", proveedor.nombre)
+            respuesta, hay_mas = RESPUESTA_FUGA, False
         return respuesta, proveedor.nombre, hay_mas
     raise ProveedorNoDisponible("Ningún proveedor de IA respondió")
 
