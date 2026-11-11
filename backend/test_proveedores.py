@@ -151,6 +151,19 @@ def test_respuesta_normal_no_se_toma_como_fuga(texto):
     assert proveedores.repite_instrucciones(texto) is False
 
 
+class ErrorConCodigo(Exception):
+    code = 429
+
+
+def test_registro_dice_el_codigo_y_no_el_mensaje(monkeypatch, sin_conteo, caplog):
+    falso = ProveedorFalso([ErrorConCodigo("¿Cuál es mi CURP? texto de la persona")])
+    monkeypatch.setattr(proveedores, "configurados", lambda: [falso])
+    with caplog.at_level("WARNING", logger="cecapi.proveedores"), pytest.raises(proveedores.ProveedorNoDisponible):
+        proveedores.preguntar_con_respaldo("¿Cuál es mi CURP?", [])
+    assert "Falló groq (ErrorConCodigo 429)" in caplog.text
+    assert "CURP" not in caplog.text
+
+
 def test_instrucciones_de_documento_piden_texto_plano_y_no_inventar_datos():
     texto = proveedores.INSTRUCCIONES_DOCUMENTO
     assert "sin markdown" in texto

@@ -147,6 +147,19 @@ class ProveedorNoDisponible(Exception):
     """El proveedor no está configurado o falló; hay que probar el siguiente."""
 
 
+def _describir_error(error: Exception) -> str:
+    """Nombre del error y su código HTTP si lo trae (429, 504...), para el registro.
+
+    No se usa str(error): en Groq puede traer el texto generado (failed_generation) y en
+    Gemini el JSON de la respuesta, que podrían repetir la pregunta de la persona.
+    """
+    for atributo in ("code", "status_code", "status"):
+        codigo = getattr(error, atributo, None)
+        if codigo is not None:
+            return f"{type(error).__name__} {codigo}"
+    return type(error).__name__
+
+
 def _armar_prompt(pregunta: str, contexto: list[str]) -> str:
     if not contexto:
         return pregunta
@@ -330,7 +343,7 @@ def ver_con_respaldo(imagen: bytes, tipo_mime: str, prompt: str) -> tuple[str, s
         try:
             return proveedor.ver(imagen, tipo_mime, prompt), proveedor.nombre_vision
         except Exception as error:
-            log.warning("Falló %s (%s); probando el siguiente", proveedor.nombre_vision, type(error).__name__)
+            log.warning("Falló %s (%s); probando el siguiente", proveedor.nombre_vision, _describir_error(error))
     raise ProveedorNoDisponible("Ninguna IA con visión respondió")
 
 
@@ -350,7 +363,7 @@ def preguntar_con_respaldo(
         try:
             texto = proveedor.preguntar(pregunta, contexto, instrucciones)
         except Exception as error:
-            log.warning("Falló %s (%s); probando el siguiente", proveedor.nombre, type(error).__name__)
+            log.warning("Falló %s (%s); probando el siguiente", proveedor.nombre, _describir_error(error))
             continue
         hablado = instrucciones is INSTRUCCIONES
         if hablado and tiene_lenguaje_visual(texto) and not uso.agotado(proveedor.nombre):
