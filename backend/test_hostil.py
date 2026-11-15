@@ -135,6 +135,7 @@ def _png(ancho, alto, formato="PNG"):
     ("10 MB de ceros", base64.b64encode(b"\0" * (10 * 1024 * 1024 + 5)).decode(), 400),
     ("con prefijo data:", "data:image/png;base64," + base64.b64encode(_png(60, 40)).decode(), 400),
     ("foto normal", base64.b64encode(_png(60, 40)).decode(), 200),
-])
+], ids=["base64 inválido", "vacío", "no es foto", "PNG truncado", "bomba de descompresión",
+        "10 MB de ceros", "con prefijo data:", "foto normal"])  # sin ids, Windows no acepta el nombre
 def test_fotos_hostiles(nombre, imagen, esperado):
     assert cliente.post("/ver", json={"imagen": imagen, "modo": "escena"}).status_code == esperado, nombre
