@@ -6,8 +6,9 @@ services:
     runtime: python
     rootDir: backend
     # Sin CI en el repo, checksPass no aplica. off: cada despliegue se lanza a mano desde Render
-    # (Manual Deploy). rootDir: backend ya evita redesplegar por cambios fuera de backend/. Volver a
-    # decidir entre off y commit al cambiar la rama de Render a main.
+    # (Manual Deploy). rootDir: backend solo filtra despliegues automáticos (importa si se pasa a
+    # commit); los cambios a este render.yaml los controla Auto Sync, que se apaga en el panel
+    # (checklist 6b). Volver a decidir entre off y commit al cambiar la rama de Render a main.
     autoDeployTrigger: "off"
     plan: free
     region: ohio
