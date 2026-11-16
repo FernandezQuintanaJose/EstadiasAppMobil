@@ -12,6 +12,9 @@ services:
     # que escribe quien manda la petición. La IP real la saca seguridad.ip_cliente (PROXIES_DE_CONFIANZA).
     startCommand: alembic upgrade head && uvicorn main:app --host 0.0.0.0 --port $PORT --no-proxy-headers
     healthCheckPath: /
+    # Repo compartido por 7 modulos: un merge no debe cambiar produccion solo. Se despliega a mano
+    # con Manual Deploy (detalle en backend/PUBLICAR.md).
+    autoDeployTrigger: "off"
     envVars:
       - key: PYTHON_VERSION
         value: "3.12.8"
@@ -42,6 +45,10 @@ services:
         generateValue: true
       - key: IA_ORDEN
         value: groq,gemini
+      # Segundos que se espera a cada proveedor antes de pasar al siguiente (decisión del 15/11; el código usa 20 por defecto).
+      # Vale para Groq y Gemini en /preguntar, /documento y /ver; bajar a 8 cuando se midan /documento y /ver.
+      - key: IA_TIEMPO_LIMITE_S
+        value: "12"
       - key: GROQ_MODEL
         value: openai/gpt-oss-20b
       - key: GROQ_VISION_MODEL
@@ -69,9 +76,24 @@ services:
         sync: false
       - key: CORREO_REMITENTE
         sync: false
+      - key: CORREO_NOMBRE
+        value: Asistente CECAPI
       - key: VERIFICACION_POR_CORREO
         value: "1"
       - key: SESION_DIAS
         value: "30"
+      # Códigos y bloqueos: valores por defecto de backend/cuentas.py, aquí para poder ajustarlos desde Render.
+      - key: CODIGO_MINUTOS
+        value: "15"
+      - key: CODIGO_INTENTOS
+        value: "5"
+      - key: CODIGO_ESPERA_S
+        value: "60"
+      - key: CODIGO_FALLOS_DIA
+        value: "10"
+      - key: ACCESO_FALLOS
+        value: "5"
+      - key: ACCESO_BLOQUEO_MIN
+        value: "15"
       - key: CUPO_DIARIO_POR_CUENTA
         value: "25"
