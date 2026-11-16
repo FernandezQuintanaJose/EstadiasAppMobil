@@ -5,6 +5,10 @@ services:
     name: cecapi-asistente
     runtime: python
     rootDir: backend
+    # Sin CI en el repo, checksPass no aplica. off: cada despliegue se lanza a mano desde Render
+    # (Manual Deploy). rootDir: backend ya evita redesplegar por cambios fuera de backend/. Volver a
+    # decidir entre off y commit al cambiar la rama de Render a main.
+    autoDeployTrigger: "off"
     plan: free
     region: ohio
     buildCommand: pip install -r requirements.txt
@@ -12,9 +16,6 @@ services:
     # que escribe quien manda la petición. La IP real la saca seguridad.ip_cliente (PROXIES_DE_CONFIANZA).
     startCommand: alembic upgrade head && uvicorn main:app --host 0.0.0.0 --port $PORT --no-proxy-headers
     healthCheckPath: /
-    # Repo compartido por 7 modulos: un merge no debe cambiar produccion solo. Se despliega a mano
-    # con Manual Deploy (detalle en backend/PUBLICAR.md).
-    autoDeployTrigger: "off"
     envVars:
       - key: PYTHON_VERSION
         value: "3.12.8"
