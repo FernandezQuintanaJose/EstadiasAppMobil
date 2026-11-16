@@ -10,14 +10,13 @@ Contador de peticiones por día y por proveedor (Módulo 3).
 - Al llegar al 100% ese proveedor se salta y se usa directamente el siguiente.
 
 Los límites se configuran en .env (GEMINI_LIMITE_DIARIO, GROQ_LIMITE_DIARIO,
-GROQ_VISION_LIMITE_DIARIO). El día es el de la computadora donde corre el backend
-(en Render es la hora UTC).
+GROQ_VISION_LIMITE_DIARIO). El día es el de la zona de CECAPI (db.hoy), sin importar
+la hora de la computadora donde corre el backend.
 """
 
 import json
 import logging
 import os
-from datetime import date
 from pathlib import Path
 
 from sqlalchemy import select, update
@@ -32,7 +31,7 @@ ARCHIVO_VIEJO = Path(__file__).with_name("uso_diario.json")
 
 
 def hoy() -> str:
-    return date.today().isoformat()
+    return db.hoy().isoformat()
 
 
 def limite(proveedor: str) -> int:

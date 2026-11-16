@@ -4,9 +4,9 @@
 
 ## Resumen
 
-1. **El servidor está bien normalizado** (tres tablas, cada una con un caso de uso claro). Le faltan decisiones antes de crecer: cuentas, retención de datos y zona horaria.
+1. **El servidor está bien normalizado** (tres tablas, cada una con un caso de uso claro). Falta decidir las cuentas. Retención y zona horaria quedaron resueltas (ver sección 2).
 2. **La base del teléfono tiene 22 tablas, pero 10 no tienen quien las lea** en la app. Se pueden reducir hasta 7 tablas (22 a 15), sin perder ninguna función visible.
-3. **No conviene reducirlas esta semana.** La base no tiene pruebas de migración (`exportSchema = false`, sin carpeta `androidTest`, sin `app/schemas`) y la migración de una app ya instalada nunca se ha probado en un teléfono (riesgo principal de la decisión 0004). Primero la red de seguridad, después la limpieza.
+3. **No conviene reducirlas esta semana.** Ya hay pruebas de migración (`MigracionesTest`), pero la actualización de una app ya instalada sigue sin probarse en un teléfono (riesgo principal de la decisión 0004). Primero esa prueba, después la limpieza.
 4. **Dos documentos de esquema mienten** (`database/schema.sql` y `database/servidor.sql`) y confunden a los demás equipos.
 
 ## 1. Base del teléfono (Room)
@@ -52,6 +52,7 @@ Método: por cada tabla se buscó en el código qué métodos de su DAO se llama
 ### 1.2 Normalización de `usuarios`
 
 - **`origen` es texto libre y es la institución.** El ranking por institución compara `u.origen = :origen COLLATE NOCASE`. Un espacio de más o un acento distinto parte una institución en dos. `database/schema.sql` ya diseñaba una tabla `usuarios_institucion` que nunca se hizo. Opción barata: normalizar al guardar (recortar y mayúsculas, como ya se hace con el nombre de usuario). Opción completa: tabla `instituciones` (id, nombre). Solo se justifica si alguien administra instituciones; Gestión ya confirma y quita personas de una institución, así que es defendible, pero no urgente.
+- **`nombre_usuario` no tiene índice único en Room**, aunque `schema.sql` lo declara `UNIQUE`. Solo lo cuida el código al registrar: dos registros simultáneos podrían repetirlo. Agregarlo requiere quitar antes los repetidos; va en la migración 19 a 20.
 - **`educador_id` apunta a otro usuario pero no tiene llave foránea.** Si se borra al educador, el alumno puede quedar con un número huérfano. Hay que revisar que el código lo limpie (no se probó).
 - **Una tabla con ~20 columnas** mezcla identidad, rol, consentimiento (`acepto_adulto_en`) y cinco banderas de trámites (`solicita_validacion`, `aviso_pendiente`, `revision_cuenta`, `institucion_solicitada`, `solicita_cambio_educador`). No es un error; si crecen los trámites, conviene una tabla `solicitudes`. Hoy no.
 
@@ -79,8 +80,8 @@ Está en tercera forma normal. `proveedor` es un texto, no una tabla: aceptable 
 Detalles a decidir:
 
 1. **Cuentas (tarea S5).** Falta `usuarios`. Antes de programar las rutas, fijar el mínimo: correo normalizado y único, hash Argon2id, fechas de verificación y de aceptación del aviso, y `ia_activada` (decisión 0002). Una tabla para los códigos de verificación y recuperación (guardar su hash, no el código, con vencimiento). **No** crear tablas de roles, permisos ni sesiones si el token ya identifica a la persona. Sin cuentas la web no puede preguntar (H3).
-2. **Retención.** No hay ningún borrado en `backend/` (no encontré `delete` ni retención): `mensajes` crece sin límite. Con `GUARDAR_TEXTOS=0` cada fila es pequeña, pero el tope de almacenamiento del plan gratuito de Neon es SIN VERIFICAR (revisar la cifra oficial). Definir cuántos días se guardan y un borrado programado.
-3. **Zona horaria.** `uso_diario.fecha` es "día de la computadora del servidor" y el panel usa `date.today()`. En Render lo normal es UTC, pero es SIN VERIFICAR. Si es UTC, el "día" cambia a las 6 de la tarde de Durango y el límite diario y el panel se desfasan. Fijar la zona (por ejemplo `America/Mexico_City`) y probar el corte.
+2. **Retención. Resuelto:** `RETENCION_DIAS` (90 por defecto; 0 = no borrar) borra mensajes, conversaciones sin actividad y conteos viejos, al arrancar y una vez al día. Los 90 días coinciden con el máximo del panel: **es una propuesta, se confirma con la revisión legal**. El tope de almacenamiento del plan gratuito de Neon sigue SIN VERIFICAR.
+3. **Zona horaria. Resuelto:** `render.yaml` ya traía `TZ=America/Mexico_City`, pero dependía de la computadora. Ahora el día sale de `db.hoy()` (`CECAPI_ZONA`, con `tzdata` en las dependencias) y lo usan el contador y el panel.
 4. **Conexiones de Neon.** El motor abre hasta 10 conexiones (`pool_size=5`, `max_overflow=5`). El límite del plan gratuito es SIN VERIFICAR.
 5. **Doble arranque en frío.** Render duerme el servidor (cerca de un minuto) y Neon suspende la base tras 5 minutos sin uso (`db.py`). La primera petición paga los dos. La app ya habla durante la espera (hasta 75 segundos); falta medirlo con el servidor real.
 6. **`alembic downgrade` borra las tablas.** Correrlo por error en producción pierde el historial. No hay copia de seguridad documentada de Neon: SIN VERIFICAR qué ofrece el plan.
@@ -95,10 +96,10 @@ Detalles a decidir:
 ## 4. Orden recomendado
 
 **Esta semana (sin cambiar tablas):**
-1. Activar `exportSchema = true` y guardar `app/schemas/`. No cambia la base: solo escribe un archivo.
-2. Escribir pruebas de migración de 1 a 19 con `MigrationTestHelper`. Hacen falta en `androidTest` (corren en un teléfono o emulador).
+1. ~~Activar `exportSchema = true` y guardar `app/schemas/`.~~ Hecho.
+2. ~~Escribir pruebas de migración con `MigrationTestHelper`.~~ Hecho: `MigracionesTest`, en la computadora y sin teléfono. Parte de 12 versiones (1 a 7, 9, 13, 16, 17 y 18; la 1 con esquema derivado, ver `app/schemas/README.md`) y comprueba que llegan al esquema de la 19. Se comprobó que fallan si una migración está mal. Quedan sin probar las versiones 8, 10, 11, 12, 14 y 15 como punto de partida.
 3. Probar una actualización real: instalar una versión vieja con datos y actualizar a la nueva en un teléfono.
-4. Fijar la zona horaria del servidor y definir la retención de `mensajes`.
+4. ~~Fijar la zona horaria del servidor y definir la retención de `mensajes`.~~ Hecho; falta confirmar los 90 días.
 5. Decidir qué guarda `cambios_cuenta` y si sobrevive al borrado de la cuenta.
 6. Regenerar o marcar `schema.sql` y `servidor.sql`.
 

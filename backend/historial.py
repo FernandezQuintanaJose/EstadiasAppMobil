@@ -10,6 +10,9 @@ Guarda en la base de datos lo que pasa en /preguntar, /entender, /ver y /documen
 - Un mensaje bloqueado por privacidad nunca guarda su texto, aunque GUARDAR_TEXTOS sea 1.
 - El contexto que manda la app y las fotos de /ver nunca se guardan.
 - Si la base de datos falla, se anota en el log y la persona recibe su respuesta igual.
+- RETENCION_DIAS (en .env, 90 por defecto; 0 = no borrar) decide cuánto se guarda. Lo más viejo
+  se borra al arrancar y una vez al día (purgar_si_toca). El servidor gratuito se duerme, así que
+  no hay un proceso aparte: lo hace la siguiente petición.
 
 Escrito primero sobre SQLite directo (rama modulo03/base-datos, 25/10) y pasado a
 SQLAlchemy el 30/10 para que funcione igual con Neon.
@@ -18,15 +21,18 @@ SQLAlchemy el 30/10 para que funcione igual con Neon.
 import logging
 import os
 import uuid
+from contextvars import ContextVar
 from dataclasses import dataclass
+from datetime import date, datetime, timedelta
 
-from sqlalchemy import update
+from sqlalchemy import delete, update
 
 import db
 
 log = logging.getLogger("cecapi.historial")
 
 LARGO_TITULO = 60
+RETENCION_POR_DEFECTO = 90
 
 
 @dataclass
@@ -38,6 +44,10 @@ class Mensaje:
     proveedor: str | None = None
     hay_mas: bool = False
     duracion_ms: int | None = None
+
+
+# La cuenta de quien pregunta (decisión 0020). La llena cada ruta al empezar; None si entró con la clave de la app.
+CUENTA: ContextVar[int | None] = ContextVar("cuenta", default=None)
 
 
 def guardar_textos() -> bool:
@@ -60,15 +70,20 @@ def guardar(
         with db.transaccion() as con:
             momento = db.ahora()
             conversacion_id = _uuid_valido(conversacion_id)
+            usuario_id = CUENTA.get()
+            # Solo se sigue una conversación de la misma cuenta (o sin cuenta, si entró con la clave de la app).
+            de_quien = (db.conversaciones.c.usuario_id == usuario_id if usuario_id is not None
+                        else db.conversaciones.c.usuario_id.is_(None))
             existe = bool(conversacion_id) and con.execute(
                 update(db.conversaciones)
-                .where(db.conversaciones.c.id == conversacion_id)
+                .where(db.conversaciones.c.id == conversacion_id, de_quien)
                 .values(ultima_actividad=momento)
             ).rowcount == 1
             if not existe:
                 conversacion_id = str(uuid.uuid4())
                 con.execute(db.conversaciones.insert().values(
                     id=conversacion_id,
+                    usuario_id=usuario_id,
                     titulo=titulo[:LARGO_TITULO] if con_textos and titulo else None,
                     iniciada_en=momento,
                     ultima_actividad=momento,
@@ -80,7 +95,48 @@ def guardar(
                     comando=m.comando, proveedor=m.proveedor, hay_mas=bool(m.hay_mas),
                     duracion_ms=m.duracion_ms, creado_en=momento,
                 ))
-        return conversacion_id
     except Exception:
         log.exception("No se pudo guardar la conversación; la respuesta se manda igual.")
         return None
+    purgar_si_toca()
+    return conversacion_id
+
+
+def retencion_dias() -> int:
+    """Cuántos días se guarda el historial. 0 = no borrar nada; un valor malo = el de por defecto."""
+    try:
+        dias = int(os.getenv("RETENCION_DIAS", str(RETENCION_POR_DEFECTO)))
+    except ValueError:
+        return RETENCION_POR_DEFECTO
+    return dias if dias >= 0 else RETENCION_POR_DEFECTO
+
+
+def purgar(momento: datetime | None = None) -> int:
+    """Borra lo que pasó de RETENCION_DIAS y regresa cuántos mensajes se fueron."""
+    dias = retencion_dias()
+    if dias == 0:
+        return 0
+    corte = (momento or db.ahora()) - timedelta(days=dias)
+    with db.transaccion() as con:
+        borrados = con.execute(delete(db.mensajes).where(db.mensajes.c.creado_en < corte)).rowcount
+        con.execute(delete(db.conversaciones).where(db.conversaciones.c.ultima_actividad < corte))
+        con.execute(delete(db.uso_diario).where(db.uso_diario.c.fecha < db.hoy(corte).isoformat()))
+    return borrados
+
+
+_ultima_purga: date | None = None
+
+
+def purgar_si_toca() -> None:
+    """Purga una vez al día. Si falla se anota: nunca le cuesta su respuesta a la persona."""
+    global _ultima_purga
+    hoy = db.hoy()
+    if _ultima_purga == hoy:
+        return
+    _ultima_purga = hoy
+    try:
+        borrados = purgar()
+        if borrados:
+            log.info("Retención: se borraron %d mensajes viejos.", borrados)
+    except Exception:
+        log.exception("No se pudo borrar el historial viejo; se intenta otra vez mañana.")
