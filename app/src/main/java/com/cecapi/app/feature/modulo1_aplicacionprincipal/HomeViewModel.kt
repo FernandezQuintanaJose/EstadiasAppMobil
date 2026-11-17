@@ -369,21 +369,23 @@ class HomeViewModel @Inject constructor(
      * IA) y hay internet, se le da una oportunidad de convertir la frase en un comando que conocemos; si no,
      * se dice que no se entendió.
      */
+    private val wikipediaOn: StateFlow<Boolean> = deviceSettings.wikipediaEnabled.stateIn(viewModelScope, SharingStarted.Eagerly, false)
+
     private fun notUnderstood(text: String, allowFallback: Boolean) {
         val fact = wikidataLookup.matchFact(text)
         val wikiQuery = wikiQuery(text)
         when {
             // Un dato específico y estructurado ("cuándo nació", "capital de", "población de"...) va primero:
             // Wikidata lo responde con más precisión que buscar el número dentro del texto de Wikipedia.
-            allowFallback && fact != null && isOnline.value -> askWikidataFact(fact)
+            allowFallback && wikipediaOn.value && fact != null && isOnline.value -> askWikidataFact(fact)
             allowFallback && intentFallback.resolver != null && isOnline.value -> askAi(text, deep = false)
             // La IA está apagada (sus proveedores no permiten menores de edad) o aún no hay conexión: Wikipedia
             // sigue ayudando con un simple "qué es / quién fue / busca..." cuando hay internet, sin necesitar cuenta.
-            allowFallback && wikiQuery != null && isOnline.value -> askWikipedia(wikiQuery)
+            allowFallback && wikipediaOn.value && wikiQuery != null && isOnline.value -> askWikipedia(wikiQuery)
             // Último recurso antes de rendirse: la frase no dijo "qué es" ni "busca", pero podría ser un tema
             // por sí mismo ("Miguel Hidalgo", "pregúntale por el día de la independencia"...). Es seguro probar
             // con Wikipedia a ciegas: es contenido de referencia curado, no una respuesta abierta de cualquier lado.
-            allowFallback && isOnline.value && text.trim().length >= 3 -> askWikipedia(text.trim())
+            allowFallback && wikipediaOn.value && isOnline.value && text.trim().length >= 3 -> askWikipedia(text.trim())
             else -> sayNotUnderstood()
         }
     }
@@ -442,7 +444,8 @@ class HomeViewModel @Inject constructor(
                 // La IA no pudo responder (servidor inalcanzable, sin respuesta...): una pregunta de tipo
                 // "qué es / quién fue / busca" todavía podría funcionar a través de Wikipedia en lugar de
                 // rendirse en ese momento.
-                else -> askWikipedia(wikiQuery(question) ?: question.trim())
+                wikipediaOn.value -> askWikipedia(wikiQuery(question) ?: question.trim())
+                else -> sayNotUnderstood()
             }
         }
     }

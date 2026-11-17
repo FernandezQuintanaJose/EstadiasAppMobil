@@ -120,6 +120,7 @@ fun SettingsScreen(
     val storage by viewModel.storage.collectAsState()
     val pendingClean by viewModel.pendingClean.collectAsState()
     val aiEnabled by viewModel.aiEnabled.collectAsState()
+    val wikipediaEnabled by viewModel.wikipediaEnabled.collectAsState()
     var sub by remember { mutableStateOf<SettingsSub?>(null) }
     val contexto = LocalContext.current
 
@@ -370,6 +371,15 @@ fun SettingsScreen(
                         "Esto no cambia el reconocimiento de voz del teléfono, que sigue funcionando igual. " +
                         "Los proveedores de inteligencia artificial no permiten su uso con menores de edad. " +
                         "También puedes decir: activa la inteligencia artificial, o desactívala.",
+                )
+                SwitchRow(
+                    label = "Búsqueda en Wikipedia",
+                    description = "Apagada por defecto. Envía el texto de una frase no entendida a Wikipedia o Wikidata",
+                    checked = wikipediaEnabled,
+                    onChange = viewModel::onWikipediaChanged,
+                    help = "Búsqueda en Wikipedia. Apagada, ninguna frase se envía a Wikipedia ni a Wikidata. " +
+                        "Encendida, cuando no entienda una frase y haya internet, el texto de la frase se envía a Wikipedia o a Wikidata, " +
+                        "servicios de terceros, sin pasar por el servidor de la aplicación.",
                 )
                 SwitchRow(
                     label = "Modo simple",

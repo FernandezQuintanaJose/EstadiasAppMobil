@@ -78,6 +78,9 @@ class DeviceSettings @Inject constructor(
     /** Whether phrases the app does not understand may be sent to the AI server. Off by default. */
     val aiEnabled: Flow<Boolean> = data.map { it[KEY_AI] ?: false }
 
+    /** Whether the text of a phrase the app does not understand may be sent to Wikipedia and Wikidata. Off by default. */
+    val wikipediaEnabled: Flow<Boolean> = data.map { it[KEY_WIKIPEDIA] ?: false }
+
     init {
         val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
         scope.launch {
@@ -135,6 +138,8 @@ class DeviceSettings @Inject constructor(
 
     suspend fun setAiEnabled(enabled: Boolean) = context.deviceSettingsStore.edit { it[KEY_AI] = enabled }
 
+    suspend fun setWikipediaEnabled(enabled: Boolean) = context.deviceSettingsStore.edit { it[KEY_WIKIPEDIA] = enabled }
+
     /** Applies a ready-made [VoiceProfile]: speed, pitch and how the assistant addresses the person. */
     suspend fun applyProfile(profile: VoiceProfile) {
         setSpeechRate(profile.rate)
@@ -161,5 +166,6 @@ class DeviceSettings @Inject constructor(
         val KEY_BLACK_SCREEN = booleanPreferencesKey("black_screen")
         val KEY_MIN_BRIGHTNESS = booleanPreferencesKey("min_brightness")
         val KEY_AI = booleanPreferencesKey("ai_enabled")
+        val KEY_WIKIPEDIA = booleanPreferencesKey("wikipedia_enabled")
     }
 }

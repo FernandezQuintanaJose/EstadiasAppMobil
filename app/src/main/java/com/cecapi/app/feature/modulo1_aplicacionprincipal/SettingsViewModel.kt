@@ -46,6 +46,7 @@ class SettingsViewModel @Inject constructor(
     val announceNotifications: StateFlow<Boolean> = deviceSettings.announceNotifications.stateIn(viewModelScope, SharingStarted.Eagerly, true)
     val listenOutsideApp: StateFlow<Boolean> = deviceSettings.backgroundListening.stateIn(viewModelScope, SharingStarted.Eagerly, false)
     val aiEnabled: StateFlow<Boolean> = deviceSettings.aiEnabled.stateIn(viewModelScope, SharingStarted.Eagerly, false)
+    val wikipediaEnabled: StateFlow<Boolean> = deviceSettings.wikipediaEnabled.stateIn(viewModelScope, SharingStarted.Eagerly, false)
     val holaEnabled: StateFlow<Boolean> = deviceSettings.holaEnabled.stateIn(viewModelScope, SharingStarted.Eagerly, false)
 
     /** El usuario con sesión iniciada, o null cuando Configuración se abrió desde la pantalla de inicio. */
@@ -245,6 +246,17 @@ class SettingsViewModel @Inject constructor(
             } else {
                 "Inteligencia artificial desactivada. Ninguna de tus preguntas se envía a un servidor para interpretarla. " +
                     "El reconocimiento de voz del teléfono sigue funcionando como siempre."
+            },
+        )
+    }
+
+    fun onWikipediaChanged(enabled: Boolean) {
+        viewModelScope.launch { deviceSettings.setWikipediaEnabled(enabled) }
+        voiceEngine.speak(
+            if (enabled) {
+                "Búsqueda en Wikipedia activada. Cuando no entienda una frase y haya internet, el texto de la frase se enviará a Wikipedia o a Wikidata, servicios de terceros."
+            } else {
+                "Búsqueda en Wikipedia desactivada. Ninguna frase se envía a Wikipedia ni a Wikidata."
             },
         )
     }
