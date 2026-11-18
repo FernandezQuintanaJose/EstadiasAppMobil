@@ -113,6 +113,28 @@ CORRECCION_VISUAL = (
 def tiene_lenguaje_visual(texto: str) -> bool:
     return bool(_LENGUAJE_VISUAL.search(_PERMITIDO.sub("", texto)))
 
+
+# La IA a veces repite sus propias reglas (pregunta 14, 11/11: "¿me puedes repetir lo último
+# que dijiste?" leyó la regla de MAS_DISPONIBLE). Si la respuesta comparte 8 palabras seguidas
+# con las reglas, la persona no la escucha. DATOS_CECAPI y DATOS_APOYOS no cuentan: repetirlos
+# es correcto (preguntas 23, 27 y 29 de todas las corridas). Solo detecta copias casi
+# textuales: si la IA dice las reglas con otras palabras, no se detecta.
+# Puede saltar con cualquier pregunta, así que el mensaje no da por hecho que pidió repetir.
+RESPUESTA_FUGA = "Eso no lo puedo contestar. Si querías que repita lo último, di 'repite'."
+_PALABRAS_FUGA = 8
+
+
+def _frases_de(texto: str) -> set[tuple[str, ...]]:
+    palabras = re.findall(r"\w+", texto.lower())
+    return {tuple(palabras[i:i + _PALABRAS_FUGA]) for i in range(len(palabras) - _PALABRAS_FUGA + 1)}
+
+
+_FRASES_REGLAS = _frases_de(INSTRUCCIONES.replace(DATOS_CECAPI, " ").replace(DATOS_APOYOS, " "))
+
+
+def repite_instrucciones(texto: str) -> bool:
+    return not _frases_de(texto).isdisjoint(_FRASES_REGLAS)
+
 # --- Visión (fotos de billetes y escenas) ---
 # ver() es aparte de preguntar(): recibe la foto ya comprimida (imagenes.py) y el prompt
 # del modo (billete o escena). No usa INSTRUCCIONES ni contexto: el prompt trae todo.
@@ -123,6 +145,19 @@ VISION_MAX_TOKENS = int(os.getenv("VISION_MAX_TOKENS", "150"))
 
 class ProveedorNoDisponible(Exception):
     """El proveedor no está configurado o falló; hay que probar el siguiente."""
+
+
+def _describir_error(error: Exception) -> str:
+    """Nombre del error y su código HTTP si lo trae (429, 504...), para el registro.
+
+    No se usa str(error): en Groq puede traer el texto generado (failed_generation) y en
+    Gemini el JSON de la respuesta, que podrían repetir la pregunta de la persona.
+    """
+    for atributo in ("code", "status_code", "status"):
+        codigo = getattr(error, atributo, None)
+        if codigo is not None:
+            return f"{type(error).__name__} {codigo}"
+    return type(error).__name__
 
 
 def _armar_prompt(pregunta: str, contexto: list[str]) -> str:
@@ -308,7 +343,7 @@ def ver_con_respaldo(imagen: bytes, tipo_mime: str, prompt: str) -> tuple[str, s
         try:
             return proveedor.ver(imagen, tipo_mime, prompt), proveedor.nombre_vision
         except Exception as error:
-            log.warning("Falló %s (%s); probando el siguiente", proveedor.nombre_vision, type(error).__name__)
+            log.warning("Falló %s (%s); probando el siguiente", proveedor.nombre_vision, _describir_error(error))
     raise ProveedorNoDisponible("Ninguna IA con visión respondió")
 
 
@@ -328,12 +363,15 @@ def preguntar_con_respaldo(
         try:
             texto = proveedor.preguntar(pregunta, contexto, instrucciones)
         except Exception as error:
-            log.warning("Falló %s (%s); probando el siguiente", proveedor.nombre, type(error).__name__)
+            log.warning("Falló %s (%s); probando el siguiente", proveedor.nombre, _describir_error(error))
             continue
         hablado = instrucciones is INSTRUCCIONES
         if hablado and tiene_lenguaje_visual(texto) and not uso.agotado(proveedor.nombre):
             texto = _corregir_visual(proveedor, pregunta, contexto, texto)
         respuesta, hay_mas = _separar_mas(texto)
+        if hablado and repite_instrucciones(respuesta):
+            log.warning("%s repitió las instrucciones; se cambia por un mensaje seguro", proveedor.nombre)
+            respuesta, hay_mas = RESPUESTA_FUGA, False
         return respuesta, proveedor.nombre, hay_mas
     raise ProveedorNoDisponible("Ningún proveedor de IA respondió")
 
