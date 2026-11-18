@@ -6,14 +6,14 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.sp
 
 val CecapiTypography = Typography(
-    headlineLarge = TextStyle(fontWeight = FontWeight.Bold, fontSize = 28.sp, lineHeight = 34.sp),
-    headlineMedium = TextStyle(fontWeight = FontWeight.Bold, fontSize = 22.sp, lineHeight = 28.sp),
-    titleMedium = TextStyle(fontWeight = FontWeight.SemiBold, fontSize = 18.sp, lineHeight = 24.sp),
-    bodyLarge = TextStyle(fontWeight = FontWeight.Normal, fontSize = 16.sp, lineHeight = 22.sp),
-    bodyMedium = TextStyle(fontWeight = FontWeight.Normal, fontSize = 14.sp, lineHeight = 20.sp),
+    headlineLarge = TextStyle(fontWeight = FontWeight.Bold, fontSize = 30.sp, lineHeight = 38.sp),
+    headlineMedium = TextStyle(fontWeight = FontWeight.Bold, fontSize = 24.sp, lineHeight = 31.sp),
+    titleMedium = TextStyle(fontWeight = FontWeight.SemiBold, fontSize = 20.sp, lineHeight = 27.sp),
+    bodyLarge = TextStyle(fontWeight = FontWeight.Normal, fontSize = 18.sp, lineHeight = 26.sp),
+    bodyMedium = TextStyle(fontWeight = FontWeight.Normal, fontSize = 16.sp, lineHeight = 23.sp),
     labelLarge = TextStyle(
         fontWeight = FontWeight.SemiBold,
-        fontSize = 12.sp,
+        fontSize = 14.sp,
         letterSpacing = 1.6.sp,
     ),
 )
@@ -21,6 +21,6 @@ val CecapiTypography = Typography(
 // Uppercase eyebrow labels like "ASISTENTE CECAPI" / "PUEDES DECIR" from the prototype.
 val CecapiEyebrowStyle = TextStyle(
     fontWeight = FontWeight.Medium,
-    fontSize = 12.sp,
+    fontSize = 14.sp,
     letterSpacing = 2.sp,
 )
