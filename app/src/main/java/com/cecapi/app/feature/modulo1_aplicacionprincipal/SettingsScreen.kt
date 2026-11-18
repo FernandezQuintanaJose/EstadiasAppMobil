@@ -232,8 +232,8 @@ fun SettingsScreen(
                 ScreenTopBar(eyebrow = "CONFIGURACIÓN", title = "Acerca de", onBack = { sub = null }, onCommands = viewModel::onCommandsRequested)
                 val version = remember { versionDeLaApp(contexto) }
                 TarjetaLectura(
-                    titulo = "VozAcceso",
-                    cuerpo = "Versión $version. ALIA, asistente por voz para personas ciegas o con baja visión, en colaboración con CECAPI.",
+                    titulo = "ALIA",
+                    cuerpo = "Versión $version. Asistente por voz para personas ciegas o con baja visión, en colaboración con CECAPI.",
                     icono = Icons.Filled.Info,
                     section = Sections.Settings,
                 )
