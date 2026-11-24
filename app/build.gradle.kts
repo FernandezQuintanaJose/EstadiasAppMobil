@@ -1,3 +1,11 @@
+import java.io.File
+import java.net.URI
+import java.net.http.HttpClient
+import java.net.http.HttpRequest
+import java.net.http.HttpResponse
+import java.nio.file.Files
+import java.nio.file.StandardCopyOption
+import java.security.MessageDigest
 import java.util.Properties
 
 plugins {
@@ -144,4 +152,85 @@ dependencies {
     implementation(libs.kotlinx.coroutines.play.services)
     implementation(libs.datastore.preferences)
     implementation(libs.argon2kt)
+}
+
+/**
+ * Descarga los archivos grandes del motor de descripción desde el release de GitHub.
+ *
+ * No se guardan en el repositorio porque pesan ~600 MB y GitHub rechaza archivos de más de
+ * 100 MB. El SHA-256 se verifica contra el archivo SHA256SUMS del release antes de mover
+ * cada archivo a su carpeta.
+ */
+tasks.register("descargarMotor") {
+    group = "build"
+    description = "Descarga y verifica los archivos del motor de descripción."
+
+    doLast {
+        val repo = "FernandezQuintanaJose/EstadiasAppMobil"
+        val tag = "v1.0-motor-de-descripcion"
+        val base = "https://github.com/$repo/releases/download/$tag"
+        val temporal = File(rootProject.projectDir, "build/descargarMotor-tmp").apply { mkdirs() }
+        val cliente = HttpClient.newBuilder()
+            .followRedirects(HttpClient.Redirect.NORMAL)
+            .build()
+
+        fun descargar(url: String, destino: File) {
+            val solicitud = HttpRequest.newBuilder(URI.create(url)).GET().build()
+            val respuesta = cliente.send(solicitud, HttpResponse.BodyHandlers.ofInputStream())
+            check(respuesta.statusCode() == 200) {
+                "No se pudo descargar $url (HTTP ${respuesta.statusCode()})"
+            }
+            destino.parentFile?.mkdirs()
+            respuesta.body().use { entrada ->
+                Files.copy(entrada, destino.toPath(), StandardCopyOption.REPLACE_EXISTING)
+            }
+        }
+
+        fun sha256(archivo: File): String {
+            val digest = MessageDigest.getInstance("SHA-256")
+            archivo.inputStream().use { entrada ->
+                val buffer = ByteArray(1024 * 1024)
+                while (true) {
+                    val leidos = entrada.read(buffer)
+                    if (leidos < 0) break
+                    digest.update(buffer, 0, leidos)
+                }
+            }
+            return digest.digest().joinToString("") { "%02x".format(it) }
+        }
+
+        val sums = File(temporal, "SHA256SUMS")
+        descargar("$base/SHA256SUMS", sums)
+        val esperados = sums.readLines().mapNotNull { linea ->
+            val partes = linea.trim().split(Regex("\\s+"), limit = 2)
+            if (partes.size == 2) partes[1].removePrefix("*") to partes[0].lowercase() else null
+        }.toMap()
+
+        val destinos = mapOf(
+            "SmolVLM2-500M-Q8_0.gguf" to
+                rootProject.file("app/src/main/assets/smolvlm/SmolVLM2-500M-Q8_0.gguf"),
+            "mmproj-SmolVLM2-500M-Q8_0.gguf" to
+                rootProject.file("app/src/main/assets/smolvlm/mmproj-SmolVLM2-500M-Q8_0.gguf"),
+            "libsmolvlm_jni-arm64-v8a.so" to
+                rootProject.file("app/src/main/jniLibs/arm64-v8a/libsmolvlm_jni.so"),
+            "libsmolvlm_jni-x86_64.so" to
+                rootProject.file("app/src/main/jniLibs/x86_64/libsmolvlm_jni.so"),
+        )
+
+        destinos.forEach { (nombre, destino) ->
+            val esperado = esperados[nombre]
+                ?: error("El release no contiene $nombre en SHA256SUMS")
+            if (destino.exists() && sha256(destino) == esperado) {
+                println("Ya está listo: $nombre")
+                return@forEach
+            }
+            println("Descargando $nombre...")
+            val copia = File(temporal, nombre)
+            descargar("$base/$nombre", copia)
+            check(sha256(copia) == esperado) { "El SHA-256 de $nombre no coincide" }
+            destino.parentFile?.mkdirs()
+            Files.move(copia.toPath(), destino.toPath(), StandardCopyOption.REPLACE_EXISTING)
+            println("Listo: $nombre")
+        }
+    }
 }

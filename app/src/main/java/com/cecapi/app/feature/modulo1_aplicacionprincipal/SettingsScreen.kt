@@ -208,7 +208,7 @@ fun SettingsScreen(
                 // de referencia. TalkBack del sistema sigue disponible como opción aparte.
                 BigBtn(
                     icon = Icons.Filled.Accessibility,
-                    label = "Accesibilidad de CECAPI",
+                    label = "Accesibilidad de ALIA",
                     sub = "Lector de pantalla, doble volumen y perfiles de gestos",
                     section = Sections.Settings,
                     onClick = onOpenAccessibility,

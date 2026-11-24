@@ -43,7 +43,7 @@ class AccesibilidadViewModel @Inject constructor(
     init {
         actualizarTalkBack()
         voiceEngine.speak(
-            "Accesibilidad. Aquí puedes encender el servicio de CECAPI. Con el servicio encendido, " +
+            "Accesibilidad. Aquí puedes encender el servicio de ALIA. Con el servicio encendido, " +
                 "el doble volumen abajo lee en voz alta el texto que se ve en pantalla. " +
                 "En los ajustes del teléfono, búscame en la lista y actívame.",
         )
@@ -71,9 +71,9 @@ class AccesibilidadViewModel @Inject constructor(
     fun anunciarEstado(activo: Boolean) {
         voiceEngine.speak(
             if (activo) {
-                "El servicio de CECAPI está encendido. Ya puedo leer la pantalla con el doble volumen abajo."
+                "El servicio de ALIA está encendido. Ya puedo leer la pantalla con el doble volumen abajo."
             } else {
-                "El servicio de CECAPI está apagado. Toca abrir ajustes de accesibilidad y actívame en la lista."
+                "El servicio de ALIA está apagado. Toca abrir ajustes de accesibilidad y actívame en la lista."
             },
         )
     }

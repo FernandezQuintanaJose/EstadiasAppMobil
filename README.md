@@ -58,6 +58,27 @@ Los módulos 8 a 14 están diseñados en `database/schema.sql`, pero todavía no
 - **Ninguna llave de IA dentro de la app:** quien descompila el APK la obtendría. La IA pasaría por un servidor propio, y hoy está apagada ([decisión 0002](docs/decisiones/0002-ia-apagada-por-defecto.md)).
 - **Tema oscuro fijo:** para baja visión importa más un contraste constante que seguir el tema del sistema.
 
+## Archivos del motor de descripción
+
+Los archivos grandes del motor de descripción no están dentro del repositorio porque pesan
+alrededor de 600 MB y GitHub no acepta archivos de más de 100 MB en un push normal.
+
+Después de clonar, ejecuta una vez:
+
+```bash
+./gradlew descargarMotor
+```
+
+Ese comando baja los archivos del release `v1.0-motor-de-descripcion`, verifica su SHA-256 y
+los coloca en:
+
+- `app/src/main/assets/smolvlm/`
+- `app/src/main/jniLibs/arm64-v8a/`
+- `app/src/main/jniLibs/x86_64/`
+
+Sin ese paso la app compila, pero la descripción automática en el teléfono no funciona.
+Los checksums y la lista de archivos están en `docs/motor-descripcion/LEEME.md`.
+
 ## Documentación
 
 - [Índice de la documentación](docs/README.md): comandos de voz, módulos, qué sale del teléfono, decisiones y cambios.

@@ -34,7 +34,7 @@ class AccesibilidadRepository @Inject constructor(
         val perfilId = perfilDao.insertar(
             PerfilAccesibilidadEntity(
                 nombre = basico.nombre,
-                descripcion = "Gestos recomendados para empezar: deslizar para leer y abrir CECAPI, " +
+                descripcion = "Gestos recomendados para empezar: deslizar para leer y abrir ALIA, " +
                     "y dos gestos con dos dedos para callar o detener al asistente.",
                 activo = true,
             ),

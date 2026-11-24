@@ -103,7 +103,7 @@ fun PantallaAccesibilidad(
                 color = if (activo) CecapiSuccess else CecapiTextMuted,
             )
             Text(
-                "Con el servicio encendido, presiona volumen abajo dos veces y CECAPI leerá en voz alta " +
+                "Con el servicio encendido, presiona volumen abajo dos veces y ALIA leerá en voz alta " +
                     "el texto que se ve en la pantalla. La captura es temporal: no se guarda ni se envía.",
                 style = MaterialTheme.typography.bodyMedium,
                 color = CecapiTextMuted,
@@ -172,7 +172,7 @@ fun PantallaAccesibilidad(
             Text("GESTOS DE UN DEDO", style = MaterialTheme.typography.labelLarge, color = CecapiTextMuted)
             Text(
                 "Ahora son los de Android: desliza con un dedo a la izquierda, derecha, arriba o abajo. " +
-                    "CECAPI no intercepta esos movimientos.",
+                    "ALIA no intercepta esos movimientos.",
                 style = MaterialTheme.typography.bodyMedium,
                 color = CecapiTextMuted,
             )
