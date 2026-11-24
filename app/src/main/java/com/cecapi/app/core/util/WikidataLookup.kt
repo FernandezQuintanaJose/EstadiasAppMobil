@@ -105,7 +105,7 @@ class WikidataLookup @Inject constructor() {
             requestMethod = "GET"
             connectTimeout = 10_000
             readTimeout = 15_000
-            setRequestProperty("User-Agent", "CECAPI-App/1.0 (accesibilidad; proyecto de estadía)")
+            setRequestProperty("User-Agent", "ALIA-App/1.0 (accesibilidad; proyecto de estadía)")
         }
         return try {
             if (connection.responseCode !in 200..299) return null

@@ -21,7 +21,7 @@ object Politicas {
         ParteDePolitica(
             "Qué es el asistente",
             listOf(
-                "El asistente de CECAPI responde preguntas en español usando inteligencia artificial. Funciona en la página web, en la app para Android y en la app de escritorio para Windows.",
+                "ALIA responde preguntas en español usando inteligencia artificial. Funciona en la página web, en la app para Android y en la app de escritorio para Windows.",
                 "Las apps se descargan solo desde la página del asistente o desde GitHub: el archivo APK para Android y el archivo .exe para Windows. No están en Google Play ni en la Microsoft Store.",
                 "Es solo para personas de 18 años o más.",
             ),

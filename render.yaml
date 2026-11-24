@@ -79,7 +79,7 @@ services:
       - key: CORREO_REMITENTE
         sync: false
       - key: CORREO_NOMBRE
-        value: Asistente CECAPI
+        value: ALIA
       - key: VERIFICACION_POR_CORREO
         value: "1"
       - key: SESION_DIAS

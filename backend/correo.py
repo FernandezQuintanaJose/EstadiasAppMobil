@@ -24,8 +24,8 @@ ASUNTOS = {
     "recuperar": "Tu código para cambiar tu contraseña de CECAPI",
 }
 QUE_HACE = {
-    "registro": "terminar de crear tu cuenta del asistente de CECAPI",
-    "recuperar": "cambiar la contraseña de tu cuenta del asistente de CECAPI",
+    "registro": "terminar de crear tu cuenta de ALIA",
+    "recuperar": "cambiar la contraseña de tu cuenta de ALIA",
 }
 
 
@@ -44,7 +44,7 @@ def mensaje(correo: str, codigo: str, proposito: str, minutos: int) -> EmailMess
     """El correo en texto simple: se lee bien con lector de pantalla y no lleva enlaces que alguien pueda falsear."""
     m = EmailMessage()
     m["Subject"] = ASUNTOS[proposito]
-    nombre = os.getenv("CORREO_NOMBRE", "Asistente CECAPI").strip() or "Asistente CECAPI"
+    nombre = os.getenv("CORREO_NOMBRE", "ALIA").strip() or "ALIA"
     m["From"] = f"{nombre} <{os.getenv('CORREO_REMITENTE', '').strip()}>"
     m["To"] = correo
     digitos = " ".join(codigo)
