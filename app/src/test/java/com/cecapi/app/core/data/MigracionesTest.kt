@@ -147,7 +147,7 @@ class MigracionesTest {
     }
 
     private companion object {
-        const val VERSION_ACTUAL = 19
-        val VERSIONES_PUBLICADAS = listOf(1, 2, 3, 4, 5, 6, 7, 9, 13, 16, 17, 18)
+        const val VERSION_ACTUAL = 20
+        val VERSIONES_PUBLICADAS = listOf(1, 2, 3, 4, 5, 6, 7, 9, 13, 16, 17, 18, 19)
     }
 }

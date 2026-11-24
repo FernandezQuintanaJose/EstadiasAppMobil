@@ -483,6 +483,24 @@ object EtiquetasEntorno {
     /** Si conviene decir el color de este objeto (no de personas ni partes del cuerpo). */
     fun admiteColor(etiquetaIngles: String): Boolean = etiquetaIngles.lowercase().trim() !in etiquetasDePersona
 
+    /**
+     * Objetos que suelen ser lo que la persona quiere reconocer. En una foto de una laptop sobre un
+     * escritorio, el etiquetador puede dar más confianza al escritorio o a la sala; esas etiquetas
+     * describen el contexto, no lo que está enfrente. Estas se prefieren cuando aparecen.
+     */
+    fun esObjetoPrincipal(etiquetaIngles: String): Boolean =
+        etiquetaIngles.lowercase().trim() in etiquetasDeObjetoPrincipal
+
+    private val etiquetasDeObjetoPrincipal = setOf(
+        "laptop", "laptop computer", "computer", "notebook computer", "personal computer",
+        "desktop computer", "television", "tv", "monitor", "computer monitor", "display",
+        "cell phone", "mobile phone", "smartphone", "tablet computer", "tablet",
+        "computer keyboard", "keyboard", "computer mouse", "mouse", "remote control",
+        "book", "notebook", "bottle", "water bottle", "cup", "mug", "wine glass",
+        "backpack", "handbag", "clock", "vase", "potted plant", "microwave", "oven",
+        "refrigerator", "sink", "toilet", "printer", "camera", "headphones",
+    )
+
     fun traducir(etiquetaIngles: String): NombreEs? {
         val clave = etiquetaIngles.lowercase().trim()
         return traducciones[clave]

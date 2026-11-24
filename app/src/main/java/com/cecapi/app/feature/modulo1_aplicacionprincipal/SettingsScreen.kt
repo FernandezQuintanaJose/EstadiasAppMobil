@@ -110,6 +110,7 @@ fun SettingsScreen(
     onBack: () -> Unit,
     onLoggedOut: () -> Unit,
     onOpenAccount: () -> Unit,
+    onOpenAccessibility: () -> Unit,
     viewModel: SettingsViewModel = hiltViewModel(),
 ) {
     val simpleMode by viewModel.simpleMode.collectAsState()
@@ -203,12 +204,19 @@ fun SettingsScreen(
                         modifier = Modifier.weight(1f),
                     )
                 }
-                // TalkBack es el lector de pantalla de Android. Se activa o se apaga en los ajustes del teléfono;
-                // con él encendido, la app sigue iluminando las tarjetas y leyendo en voz alta por su cuenta.
+                // El módulo propio de CECAPI conserva el doble volumen y los perfiles de gestos de la app
+                // de referencia. TalkBack del sistema sigue disponible como opción aparte.
                 BigBtn(
                     icon = Icons.Filled.Accessibility,
-                    label = "Lector de pantalla de Android",
-                    sub = "Abre los ajustes de Android para activar o apagar TalkBack",
+                    label = "Accesibilidad de ALIA",
+                    sub = "Lector de pantalla, doble volumen y perfiles de gestos",
+                    section = Sections.Settings,
+                    onClick = onOpenAccessibility,
+                )
+                BigBtn(
+                    icon = Icons.Filled.Accessibility,
+                    label = "TalkBack de Android",
+                    sub = "Abre los ajustes del teléfono para activarlo o apagarlo",
                     section = Sections.Settings,
                     onClick = { abrirAjustesDeAccesibilidad(contexto) },
                 )

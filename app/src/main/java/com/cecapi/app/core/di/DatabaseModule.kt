@@ -32,6 +32,8 @@ import com.cecapi.app.feature.modulo1_aplicacionprincipal.UsuarioDao
 import com.cecapi.app.feature.modulo2_asistentevoz.ComandoVozDao
 import com.cecapi.app.feature.modulo2_asistentevoz.HistorialComandoDao
 import com.cecapi.app.feature.modulo2_asistentevoz.RespuestaAuditivaDao
+import com.cecapi.app.feature.modulo10_accesibilidad.GestoAccesibilidadDao
+import com.cecapi.app.feature.modulo10_accesibilidad.PerfilAccesibilidadDao
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -114,6 +116,12 @@ object DatabaseModule {
                         put("rol", demo.rol.codigo)
                         put("origen", demo.origen)
                         put("validado", 1) // cuentas de prueba: ya confiables, no quedan pendientes de validar
+                        // Columnas NOT NULL sin valor por defecto en SQL: si faltan, SQLite ignora
+                        // la inserción con CONFLICT_IGNORE y la cuenta de prueba nunca aparece.
+                        put("usar_apodo_ranking", 0)
+                        put("solicita_validacion", 0)
+                        put("revision_cuenta", "confirmada")
+                        put("solicita_cambio_educador", 0)
                     },
                 )
             }
@@ -153,6 +161,12 @@ object DatabaseModule {
                 put("rol", RolUsuario.USUARIO.codigo)
                 put("origen", "CECAPI")
                 put("validado", 0)
+                // Esta cuenta queda pendiente de revisión, pero las columnas NOT NULL deben ir
+                // siempre; si no, la inserción se descarta sin avisar.
+                put("usar_apodo_ranking", 0)
+                put("solicita_validacion", 0)
+                put("revision_cuenta", "nueva")
+                put("solicita_cambio_educador", 0)
             },
         )
     }
@@ -225,4 +239,10 @@ object DatabaseModule {
 
     @Provides
     fun provideDescripcionEntornoDao(db: AppDatabase): DescripcionEntornoDao = db.descripcionEntornoDao()
+
+    @Provides
+    fun providePerfilAccesibilidadDao(db: AppDatabase): PerfilAccesibilidadDao = db.perfilAccesibilidadDao()
+
+    @Provides
+    fun provideGestoAccesibilidadDao(db: AppDatabase): GestoAccesibilidadDao = db.gestoAccesibilidadDao()
 }

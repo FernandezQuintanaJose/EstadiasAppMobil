@@ -4,6 +4,7 @@ import android.content.Context
 import android.media.AudioManager
 import android.os.Handler
 import android.os.Looper
+import android.os.SystemClock
 import com.cecapi.app.core.voice.FeedbackCues
 import com.cecapi.app.core.voice.VoiceEngine
 import com.cecapi.app.core.voice.VoiceText
@@ -27,6 +28,9 @@ class VolumeControl @Inject constructor(
     private val audio = context.getSystemService(Context.AUDIO_SERVICE) as AudioManager
     private val handler = Handler(Looper.getMainLooper())
     private val announceCurrent = Runnable { voiceEngine.speak(levelText()) }
+
+    /** Hasta cuándo no se anuncia el nivel porque el doble volumen ya va a leer la pantalla. */
+    private var suprimirHasta = 0L
 
     private val maxIndex get() = audio.getStreamMaxVolume(AudioManager.STREAM_MUSIC)
     private val currentIndex get() = audio.getStreamVolume(AudioManager.STREAM_MUSIC)
@@ -65,9 +69,19 @@ class VolumeControl @Inject constructor(
         runCatching { audio.setStreamVolume(AudioManager.STREAM_MUSIC, index, 0) }
     }
 
+    /**
+     * El doble volumen abajo ya va a leer la pantalla. Cancela el anuncio pendiente del nivel y
+     * evita que la segunda pulsación lo vuelva a programar, para que no tape la lectura.
+     */
+    fun suprimirAnuncio() {
+        handler.removeCallbacks(announceCurrent)
+        suprimirHasta = SystemClock.uptimeMillis() + SUPRESION_MS
+    }
+
     /** The phone's volume buttons were pressed: say the new level once the presses settle. */
     fun onVolumeKey() {
         handler.removeCallbacks(announceCurrent)
+        if (SystemClock.uptimeMillis() < suprimirHasta) return
         handler.postDelayed(announceCurrent, 600)
     }
 
@@ -89,5 +103,9 @@ class VolumeControl @Inject constructor(
             index == 0 -> "El volumen está en silencio."
             else -> "Volumen al ${(index * 100f / maxIndex).roundToInt()} por ciento."
         }
+    }
+
+    private companion object {
+        const val SUPRESION_MS = 1_200L
     }
 }

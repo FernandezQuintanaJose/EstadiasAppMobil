@@ -12,7 +12,9 @@ import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
+import androidx.compose.runtime.remember
 import com.cecapi.app.core.ui.WakeScope
+import com.cecapi.app.feature.modulo1_aplicacionprincipal.PoliticasScreen
 import com.cecapi.app.feature.modulo1_aplicacionprincipal.DashboardScreen
 import com.cecapi.app.feature.modulo1_aplicacionprincipal.EditAccountScreen
 import com.cecapi.app.feature.modulo1_aplicacionprincipal.HomeScreen
@@ -34,6 +36,7 @@ import androidx.navigation.NavType
 import androidx.navigation.navArgument
 import com.cecapi.app.feature.modulo6_aprendizaje.LearningScreen
 import com.cecapi.app.feature.modulo7_entorno.EnvironmentScreen
+import com.cecapi.app.feature.modulo10_accesibilidad.PantallaAccesibilidad
 
 @Composable
 fun CecapiNavGraph(navController: NavHostController = rememberNavController()) {
@@ -73,7 +76,28 @@ fun CecapiNavGraph(navController: NavHostController = rememberNavController()) {
         navController.navigate(ruta) { launchSingleTop = true }
         navVoice.launchRequests.consumeOpen()
     }
-    NavHost(navController = navController, startDestination = CecapiDestinations.HOME) {
+    val inicio = remember { if (navVoice.aceptacionPoliticas.aceptada) CecapiDestinations.HOME else CecapiDestinations.POLITICAS_INICIO }
+    val actividad = androidx.compose.ui.platform.LocalContext.current as? android.app.Activity
+    NavHost(navController = navController, startDestination = inicio) {
+        composable(CecapiDestinations.POLITICAS_INICIO) {
+            PoliticasScreen(
+                obligatoria = true,
+                onAceptadas = {
+                    navController.navigate(CecapiDestinations.HOME) {
+                        popUpTo(CecapiDestinations.POLITICAS_INICIO) { inclusive = true }
+                    }
+                },
+                onBack = {},
+                onRechazar = { actividad?.finishAffinity() },
+            )
+        }
+        composable(CecapiDestinations.POLITICAS) {
+            PoliticasScreen(
+                obligatoria = false,
+                onAceptadas = { navController.popBackStack() },
+                onBack = { navController.popBackStack() },
+            )
+        }
         composable(CecapiDestinations.HOME) {
             HomeScreen(
                 onNavigateToLogin = { navController.navigate(CecapiDestinations.LOGIN) },
@@ -107,6 +131,7 @@ fun CecapiNavGraph(navController: NavHostController = rememberNavController()) {
                         }
                     },
                     onBack = { navController.popBackStack() },
+                    onVerPoliticas = { navController.navigate(CecapiDestinations.POLITICAS) },
                 )
             }
         }
@@ -130,8 +155,12 @@ fun CecapiNavGraph(navController: NavHostController = rememberNavController()) {
                         }
                     },
                     onOpenAccount = { navController.navigate(CecapiDestinations.EDIT_ACCOUNT) },
+                    onOpenAccessibility = { navController.navigate(CecapiDestinations.ACCESSIBILITY) },
                 )
             }
+        }
+        composable(CecapiDestinations.ACCESSIBILITY) {
+            WakeScope { PantallaAccesibilidad(onBack = { navController.popBackStack() }) }
         }
         composable(CecapiDestinations.PERSONALIZATION) {
             WakeScope { PersonalizationScreen(onBack = { navController.popBackStack() }) }

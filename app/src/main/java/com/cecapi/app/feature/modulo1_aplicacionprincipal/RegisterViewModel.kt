@@ -40,6 +40,8 @@ data class RegisterUiState(
     val institucion: InstitucionRegistro = InstitucionRegistro.NINGUNA,
     /** Confirmó que tiene 18 años o más: sin esto no se crea la cuenta (la aplicación es solo para personas adultas). */
     val esAdulto: Boolean = false,
+    /** Aceptó los términos de uso y la política de privacidad: sin esto no se crea la cuenta. */
+    val aceptaTerminos: Boolean = false,
     val errorMessage: String? = null,
     val isSubmitting: Boolean = false,
 )
@@ -49,6 +51,7 @@ class RegisterViewModel @Inject constructor(
     private val voiceEngine: VoiceEngine,
     private val cues: FeedbackCues,
     private val sessionRepository: ServicioDeCuentas,
+    private val aceptacionPoliticas: com.cecapi.app.core.politicas.AceptacionPoliticas,
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(RegisterUiState())
@@ -189,12 +192,8 @@ class RegisterViewModel @Inject constructor(
         _uiState.value = _uiState.value.copy(esAdulto = value, errorMessage = null)
     }
 
-    /** Quien dice ser menor no crea cuenta: se avisa y no se guarda nada. */
-    fun onEsMenor() {
-        voiceTarget = RegisterVoiceTarget.NONE
-        val message = "Esta aplicación es solo para personas de 18 años o más, así que no puedo crear la cuenta."
-        _uiState.value = _uiState.value.copy(esAdulto = false, errorMessage = message)
-        voiceEngine.speak(message)
+    fun onAceptaTerminosChange(value: Boolean) {
+        _uiState.value = _uiState.value.copy(aceptaTerminos = value, errorMessage = null)
     }
 
     fun onInstitucionChange(value: InstitucionRegistro) {
@@ -247,6 +246,13 @@ class RegisterViewModel @Inject constructor(
             return
         }
 
+        if (!state.aceptaTerminos) {
+            val message = "Para crear la cuenta acepta los términos de uso y la política de privacidad. Puedes leerlos con el botón de arriba."
+            _uiState.value = state.copy(errorMessage = message)
+            voiceEngine.speak(message)
+            return
+        }
+
         _uiState.value = state.copy(isSubmitting = true, errorMessage = null)
         viewModelScope.launch {
             val outcome = try {
@@ -269,6 +275,7 @@ class RegisterViewModel @Inject constructor(
             when (val result = outcome) {
                 is RegisterResult.Success -> {
                     _uiState.value = state.copy(isSubmitting = false)
+                    aceptacionPoliticas.registrar()
                     cues.play(FeedbackCues.Cue.SUCCESS)
                     // Sin voz aquí: a continuación se abre el Dashboard, que da la bienvenida personalizada.
                     _registerSucceeded.tryEmit(Unit)

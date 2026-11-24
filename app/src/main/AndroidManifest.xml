@@ -125,6 +125,24 @@
         <receiver
             android:name=".widget.WidgetActionReceiver"
             android:exported="false" />
+
+        <!--
+            Servicio de accesibilidad de CECAPI (Módulo 10). exported=true es obligatorio para que
+            el sistema lo pueda enlazar; solo el sistema tiene el permiso
+            BIND_ACCESSIBILITY_SERVICE, que es de nivel firma.
+        -->
+        <service
+            android:name=".feature.modulo10_accesibilidad.AccesibilidadServicio"
+            android:exported="true"
+            android:label="@string/app_name"
+            android:permission="android.permission.BIND_ACCESSIBILITY_SERVICE">
+            <intent-filter>
+                <action android:name="android.accessibilityservice.AccessibilityService" />
+            </intent-filter>
+            <meta-data
+                android:name="android.accessibilityservice"
+                android:resource="@xml/accessibility_service_config" />
+        </service>
     </application>
 
 </manifest>

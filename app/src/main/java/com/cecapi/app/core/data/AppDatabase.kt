@@ -47,6 +47,11 @@ import com.cecapi.app.feature.modulo2_asistentevoz.HistorialComandoDao
 import com.cecapi.app.feature.modulo2_asistentevoz.HistorialComandoEntity
 import com.cecapi.app.feature.modulo2_asistentevoz.RespuestaAuditivaDao
 import com.cecapi.app.feature.modulo2_asistentevoz.RespuestaAuditivaEntity
+import com.cecapi.app.feature.modulo10_accesibilidad.AccionEntity
+import com.cecapi.app.feature.modulo10_accesibilidad.GestoAccesibilidadDao
+import com.cecapi.app.feature.modulo10_accesibilidad.GestoEntity
+import com.cecapi.app.feature.modulo10_accesibilidad.PerfilAccesibilidadDao
+import com.cecapi.app.feature.modulo10_accesibilidad.PerfilAccesibilidadEntity
 
 /** Single Room database for the whole app; each module owns its own tables. */
 @Database(
@@ -79,8 +84,12 @@ import com.cecapi.app.feature.modulo2_asistentevoz.RespuestaAuditivaEntity
         EscaneoEntornoEntity::class,
         ObjetoDetectadoEntity::class,
         DescripcionEntornoEntity::class,
+        // Módulo 10 — Accesibilidad: perfiles, gestos y acciones
+        PerfilAccesibilidadEntity::class,
+        GestoEntity::class,
+        AccionEntity::class,
     ],
-    version = 19,
+    version = 20,
     exportSchema = true,
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -112,4 +121,7 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun escaneoEntornoDao(): EscaneoEntornoDao
     abstract fun objetoDetectadoDao(): ObjetoDetectadoDao
     abstract fun descripcionEntornoDao(): DescripcionEntornoDao
+
+    abstract fun perfilAccesibilidadDao(): PerfilAccesibilidadDao
+    abstract fun gestoAccesibilidadDao(): GestoAccesibilidadDao
 }
