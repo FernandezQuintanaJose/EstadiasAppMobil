@@ -279,7 +279,7 @@ class SettingsViewModel @Inject constructor(
     fun isNotificationAccessEnabled(): Boolean = notificationAccess.isEnabled()
 
     fun onOpenNotificationSettings() {
-        voiceEngine.speak("Voy a abrir los ajustes. Busca CECAPI en la lista y actívalo. Después regresa a la aplicación.")
+        voiceEngine.speak("Voy a abrir los ajustes. Busca ALIA en la lista y actívalo. Después regresa a la aplicación.")
         notificationAccess.openSettings()
     }
 

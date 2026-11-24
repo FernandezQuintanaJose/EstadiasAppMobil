@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="ALIA">
+  <title>ALIA</title>
+  <rect width="512" height="512" rx="96" fill="#0B0B12"/>
+  <path d="M106,400 L256,110 L406,400" fill="none" stroke="#F5F5FA" stroke-width="44" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M186,318 Q221,266 256,318 Q291,370 326,318" fill="none" stroke="#38BDF8" stroke-width="24" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>

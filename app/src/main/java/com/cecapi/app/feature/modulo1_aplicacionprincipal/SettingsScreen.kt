@@ -233,7 +233,7 @@ fun SettingsScreen(
                 ScreenTopBar(eyebrow = "CONFIGURACIÓN", title = "Acerca de", onBack = { sub = null }, onCommands = viewModel::onCommandsRequested)
                 val version = remember { versionDeLaApp(contexto) }
                 TarjetaLectura(
-                    titulo = "VozAcceso",
+                    titulo = "ALIA",
                     cuerpo = "Versión $version. Asistente por voz para personas ciegas o con baja visión, en colaboración con CECAPI.",
                     icono = Icons.Filled.Info,
                     section = Sections.Settings,
@@ -280,7 +280,7 @@ fun SettingsScreen(
                 if (!notificationAccess) {
                     ActionButton(
                         "Dar acceso a notificaciones",
-                        "Dar acceso a notificaciones. Abre los ajustes de Android, donde debes buscar CECAPI y activarlo.",
+                        "Dar acceso a notificaciones. Abre los ajustes de Android, donde debes buscar ALIA y activarlo.",
                         viewModel::onOpenNotificationSettings,
                     )
                 }
@@ -311,7 +311,7 @@ fun SettingsScreen(
                         verticalArrangement = Arrangement.spacedBy(8.dp),
                     ) {
                         Text("Libre: ${espacio(usage.freeBytes)}", style = MaterialTheme.typography.titleLarge, color = MaterialTheme.colorScheme.onBackground)
-                        Text("CECAPI usa: ${espacio(usage.appBytes)}", style = MaterialTheme.typography.titleLarge, color = CecapiAccent)
+                        Text("ALIA usa: ${espacio(usage.appBytes)}", style = MaterialTheme.typography.titleLarge, color = CecapiAccent)
                     }
                 }
                 if (pendingClean) {
