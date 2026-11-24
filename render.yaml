@@ -5,12 +5,17 @@ services:
     name: cecapi-asistente
     runtime: python
     rootDir: backend
+    # Sin CI en el repo, checksPass no aplica. off: cada despliegue se lanza a mano desde Render
+    # (Manual Deploy). rootDir: backend solo filtra despliegues automáticos (importa si se pasa a
+    # commit); los cambios a este render.yaml los controla Auto Sync, que se apaga en el panel
+    # (checklist 6b). Volver a decidir entre off y commit al cambiar la rama de Render a main.
+    autoDeployTrigger: "off"
     plan: free
     region: ohio
     buildCommand: pip install -r requirements.txt
-    # Primero pone al día las tablas de Neon; luego arranca. --proxy-headers hace que el
-    # límite por minuto vea la IP real de cada teléfono y no la del proxy de Render.
-    startCommand: alembic upgrade head && uvicorn main:app --host 0.0.0.0 --port $PORT --proxy-headers --forwarded-allow-ips '*'
+    # Primero pone al día las tablas de Neon; luego arranca. Sin --proxy-headers: uvicorn tomaría la IP
+    # que escribe quien manda la petición. La IP real la saca seguridad.ip_cliente (PROXIES_DE_CONFIANZA).
+    startCommand: alembic upgrade head && uvicorn main:app --host 0.0.0.0 --port $PORT --no-proxy-headers
     healthCheckPath: /
     envVars:
       - key: PYTHON_VERSION
@@ -18,6 +23,17 @@ services:
       # Hora de México: el contador diario y los días del panel cambian a la medianoche de aquí, no en UTC.
       - key: TZ
         value: America/Mexico_City
+      - key: CECAPI_ZONA
+        value: America/Mexico_City
+      # 1 es lo seguro aunque haya más proxies: no deja falsear la IP. Comprobarlo: backend/PUBLICAR.md.
+      - key: PROXIES_DE_CONFIANZA
+        value: "1"
+      - key: ORIGENES_WEB
+        value: https://fernandezquintanajose.github.io
+      - key: MOSTRAR_DOCS
+        value: "0"
+      - key: RETENCION_DIAS
+        value: "90"
       # 0 = no guardar textos de preguntas ni respuestas (decisión 0005). Cambiarlo solo con permiso de Pp.
       - key: GUARDAR_TEXTOS
         value: "0"
@@ -31,6 +47,10 @@ services:
         generateValue: true
       - key: IA_ORDEN
         value: groq,gemini
+      # Segundos que se espera a cada proveedor antes de pasar al siguiente (decisión del 15/11; el código usa 20 por defecto).
+      # Vale para Groq y Gemini en /preguntar, /documento y /ver; bajar a 8 cuando se midan /documento y /ver.
+      - key: IA_TIEMPO_LIMITE_S
+        value: "12"
       - key: GROQ_MODEL
         value: openai/gpt-oss-20b
       - key: GROQ_VISION_MODEL
@@ -45,3 +65,37 @@ services:
         value: "0.3"
       - key: LIMITE_POR_MINUTO
         value: "20"
+      # Cuentas (decisión 0020). consola mientras no haya cuenta de correo; luego smtp.
+      - key: CORREO_MODO
+        value: consola
+      - key: CORREO_SMTP_HOST
+        sync: false
+      - key: CORREO_SMTP_PUERTO
+        value: "587"
+      - key: CORREO_SMTP_USUARIO
+        sync: false
+      - key: CORREO_SMTP_CONTRASENA
+        sync: false
+      - key: CORREO_REMITENTE
+        sync: false
+      - key: CORREO_NOMBRE
+        value: Asistente CECAPI
+      - key: VERIFICACION_POR_CORREO
+        value: "1"
+      - key: SESION_DIAS
+        value: "30"
+      # Códigos y bloqueos: valores por defecto de backend/cuentas.py, aquí para poder ajustarlos desde Render.
+      - key: CODIGO_MINUTOS
+        value: "15"
+      - key: CODIGO_INTENTOS
+        value: "5"
+      - key: CODIGO_ESPERA_S
+        value: "60"
+      - key: CODIGO_FALLOS_DIA
+        value: "10"
+      - key: ACCESO_FALLOS
+        value: "5"
+      - key: ACCESO_BLOQUEO_MIN
+        value: "15"
+      - key: CUPO_DIARIO_POR_CUENTA
+        value: "25"

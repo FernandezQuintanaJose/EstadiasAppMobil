@@ -19,6 +19,13 @@ SE_BLOQUEA = [
     "mi nip de la tarjeta es 4321",
     "contraseña gato123",
     "password=hola",
+    "escríbeme a ana arroba correo punto com",
+    "ana [at] correo [dot] mx",
+    "ana @ correo . com . mx",
+    "mi número es cinco cinco uno dos tres cuatro cinco seis siete ocho",
+    "my number is five five one two three four five six seven eight",
+    "mi curp es GOMA-850101-HDFRRL-09",
+    "my pin is 4321",
 ]
 
 PASA = [
@@ -35,6 +42,14 @@ PASA = [
     "la ley de 2011 y la de 2025",
     "¿qué número de emergencia es el 911?",
     "compré 3 kilos a 45 pesos",
+    "nos vemos at home",
+    "look at this.png",
+    "el punto de encuentro es la plaza",
+    "uno de los dos o tres primos",
+    "tengo dos hijos, uno de cinco y otro de siete",
+    "escribe arroba para poner @ en un correo",
+    "¿cómo se dice punto com?",
+    "what is a password manager?",
 ]
 
 

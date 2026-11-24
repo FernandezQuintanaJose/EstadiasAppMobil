@@ -140,10 +140,7 @@ class PersonalizationViewModel @Inject constructor(
         onVoiceChosen(voz.name)
     }
 
-    /** Call from the filter button: all, then without internet, then with internet. */
-    fun onFiltroVocesTocado() = onFiltroVocesElegido(_filtroVoces.value.siguiente())
-
-    private fun onFiltroVocesElegido(filtro: FiltroVoces) {
+    fun onFiltroVocesElegido(filtro: FiltroVoces) {
         _filtroVoces.value = filtro
         val usables = CatalogoDeVoces.filtrar(voices(), filtro).count { it.estado == EstadoVoz.LISTA }
         voiceEngine.speak("Mostrando: ${filtro.etiqueta}. Puedes usar $usables.")

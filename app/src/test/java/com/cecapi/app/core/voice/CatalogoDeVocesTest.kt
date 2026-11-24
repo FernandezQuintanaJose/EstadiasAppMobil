@@ -20,10 +20,63 @@ class CatalogoDeVocesTest {
         CatalogoDeVoces.armar(voces.toList(), hayInternet, conocidas = emptyList())
 
     @Test
-    fun numeraEnOrdenConLasUsablesPrimero() {
-        val voces = armar(sinDescargar, red, local)
-        assertEquals(listOf("es-mx-local", "es-mx-red", "es-es-falta"), voces.map { it.name })
+    fun numeraPorNombreSinImportarQueVocesFuncionan() {
+        val voces = armar(red, sinDescargar, local)
+        assertEquals(listOf("es-es-falta", "es-mx-local", "es-mx-red"), voces.map { it.name })
         assertEquals(listOf("Voz 1", "Voz 2", "Voz 3"), voces.map { it.label })
+        assertEquals(listOf(EstadoVoz.NO_DISPONIBLE, EstadoVoz.LISTA, EstadoVoz.LISTA), voces.map { it.estado })
+    }
+
+    @Test
+    fun laMismaVozTieneElMismoNumeroEnTodosLosTelefonos() {
+        val conocidas = listOf(local, otra, red).map { it.copy(sinInstalar = true) }
+        val conTodas = CatalogoDeVoces.armar(listOf(local, otra, red), hayInternet = true, conocidas = conocidas)
+        val faltaUna = CatalogoDeVoces.armar(listOf(local, red), hayInternet = true, conocidas = conocidas)
+        assertEquals(conTodas.map { it.name to it.numero }, faltaUna.map { it.name to it.numero })
+        assertEquals(EstadoVoz.NO_DISPONIBLE, faltaUna.first { it.name == otra.nombre }.estado)
+    }
+
+    @Test
+    fun elIdiomaEnteroNoEsUnaVozMas() {
+        val alias = listOf("es-ES-language", "es-US-language").map { local.copy(nombre = it) }
+        assertEquals(listOf("es-mx-local"), CatalogoDeVoces.armar(alias + local, hayInternet = true, conocidas = emptyList()).map { it.name })
+    }
+
+    @Test
+    fun laListaConocidaSoloSeUsaConElMotorDeGoogle() {
+        assertEquals(CatalogoDeVoces.VOCES_CONOCIDAS, CatalogoDeVoces.conocidasDe("com.google.android.tts"))
+        assertTrue(CatalogoDeVoces.conocidasDe("com.samsung.SMT").isEmpty())
+        assertTrue(CatalogoDeVoces.conocidasDe(null).isEmpty())
+        assertTrue(CatalogoDeVoces.conocidasDe("").isEmpty())
+    }
+
+    @Test
+    fun conOtroMotorSoloSalenLasVocesQueElTelefonoReporta() {
+        val deSamsung = listOf("es-MX-SMTf00", "es-ES-SMTl01").map { local.copy(nombre = it) }
+        val voces = CatalogoDeVoces.armar(deSamsung, hayInternet = true, conocidas = CatalogoDeVoces.conocidasDe("com.samsung.SMT"))
+        assertEquals(listOf("es-ES-SMTl01", "es-MX-SMTf00"), voces.map { it.name })
+        assertTrue(voces.all { it.estado == EstadoVoz.LISTA })
+    }
+
+    @Test
+    fun elEspanolSeReconoceConDosOTresLetras() {
+        assertTrue(CatalogoDeVoces.esEspanol("es"))
+        assertTrue(CatalogoDeVoces.esEspanol("ES"))
+        assertTrue(CatalogoDeVoces.esEspanol("spa"))
+        assertFalse(CatalogoDeVoces.esEspanol("en"))
+        assertFalse(CatalogoDeVoces.esEspanol("eng"))
+        assertFalse(CatalogoDeVoces.esEspanol("est")) // estonio, no español
+        assertFalse(CatalogoDeVoces.esEspanol(""))
+        assertFalse(CatalogoDeVoces.esEspanol(null))
+    }
+
+    @Test
+    fun lasConocidasSonLasDelOppoA57() {
+        val nombres = CatalogoDeVoces.VOCES_CONOCIDAS.map { it.nombre }
+        assertEquals(16, nombres.size)
+        assertEquals(nombres.size, nombres.toSet().size)
+        assertTrue(nombres.all { it.startsWith("es-es-x-") || it.startsWith("es-us-x-") })
+        assertTrue(CatalogoDeVoces.VOCES_CONOCIDAS.all { it.necesitaInternet == it.nombre.endsWith("-network") })
     }
 
     @Test
@@ -102,7 +155,7 @@ class CatalogoDeVocesTest {
     @Test
     fun lasConocidasQueFaltanSalenComoNoDisponibles() {
         val voces = CatalogoDeVoces.armar(listOf(local), hayInternet = true, conocidas = listOf(sinDescargar))
-        assertEquals(listOf(EstadoVoz.LISTA, EstadoVoz.NO_DISPONIBLE), voces.map { it.estado })
+        assertEquals(listOf(EstadoVoz.NO_DISPONIBLE, EstadoVoz.LISTA), voces.map { it.estado })
     }
 
     @Test

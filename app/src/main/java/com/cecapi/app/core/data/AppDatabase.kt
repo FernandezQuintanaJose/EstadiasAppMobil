@@ -81,7 +81,7 @@ import com.cecapi.app.feature.modulo2_asistentevoz.RespuestaAuditivaEntity
         DescripcionEntornoEntity::class,
     ],
     version = 19,
-    exportSchema = false,
+    exportSchema = true,
 )
 abstract class AppDatabase : RoomDatabase() {
     abstract fun usuarioDao(): UsuarioDao

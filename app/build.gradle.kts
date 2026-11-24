@@ -44,6 +44,11 @@ android {
             isMinifyEnabled = true
             isShrinkResources = true
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
+            // Sin x86 ni x86_64 (emulador de escritorio): un teléfono real es ARM. Cada arquitectura trae unos 50 MB de
+            // librerías de ML Kit y TensorFlow Lite, así que sin ellas el APK baja a casi la mitad. La depuración las conserva.
+            ndk {
+                abiFilters += listOf("arm64-v8a", "armeabi-v7a")
+            }
         }
     }
 
@@ -66,10 +71,21 @@ android {
             excludes += "/META-INF/{AL2.0,LGPL2.1}"
         }
     }
+
+    // Los esquemas de cada versión de la base, para probar las migraciones en la computadora (MigracionesTest).
+    sourceSets.getByName("debug").assets.srcDir("$projectDir/schemas")
+    testOptions.unitTests.isIncludeAndroidResources = true
+}
+
+ksp {
+    arg("room.schemaLocation", "$projectDir/schemas")
 }
 
 dependencies {
     testImplementation("junit:junit:4.13.2")
+    testImplementation(libs.room.testing)
+    testImplementation("org.robolectric:robolectric:4.14.1")
+    testImplementation("androidx.test:core:1.6.1")
     implementation(libs.core.ktx)
     implementation(libs.lifecycle.runtime.ktx)
     implementation(libs.lifecycle.viewmodel.compose)
