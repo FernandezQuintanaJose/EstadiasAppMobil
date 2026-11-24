@@ -90,7 +90,15 @@ class VoiceEngine @Inject constructor(
         }
     }
     private var ttsReady = false
-    private val pendingSpeech = ArrayDeque<Pair<String, Boolean>>()
+
+    /** Texto pendiente mientras el motor de voz termina de iniciar, con su velocidad propia. */
+    private data class SpeechRequest(
+        val text: String,
+        val listenAfter: Boolean,
+        val speedFactor: Float,
+    )
+
+    private val pendingSpeech = ArrayDeque<SpeechRequest>()
 
     private val _mode = MutableStateFlow(AssistantMode.ACTIVE)
     val mode: StateFlow<AssistantMode> = _mode.asStateFlow()
@@ -221,8 +229,8 @@ class VoiceEngine @Inject constructor(
                     }
                 })
                 while (pendingSpeech.isNotEmpty()) {
-                    val (text, listenAfter) = pendingSpeech.removeFirst()
-                    speakInternal(text, listenAfter)
+                    val (text, listenAfter, speedFactor) = pendingSpeech.removeFirst()
+                    speakInternal(text, listenAfter, speedFactor)
                 }
             }
         }
@@ -263,14 +271,20 @@ class VoiceEngine @Inject constructor(
      * Lee [text] en voz alta. Interrumpe lo que se esté diciendo en ese momento.
      * Con [listenAfter] el micrófono se abre en cuanto termina la lectura, para capturar la respuesta del usuario.
      */
-    fun speak(text: String, listenAfter: Boolean = false, force: Boolean = false) {
+    fun speak(
+        text: String,
+        listenAfter: Boolean = false,
+        force: Boolean = false,
+        /** Ajusta solo esta lectura (por ejemplo, 0.9 para el lector de pantalla). */
+        speedFactor: Float = 1f,
+    ) {
         // Silenciado o detenido: permanecer callado. Solo la despedida tras "para" pasa ([force]).
         if (!force && _mode.value != AssistantMode.ACTIVE) return
         if (!ttsReady) {
-            pendingSpeech.addLast(text to listenAfter)
+            pendingSpeech.addLast(SpeechRequest(text, listenAfter, speedFactor))
             return
         }
-        speakInternal(text, listenAfter)
+        speakInternal(text, listenAfter, speedFactor)
     }
 
     /** Ejecuta [block], una solicitud que puede ser lenta, y le habla a la persona durante la espera para que sepa que sigue funcionando. */
@@ -292,14 +306,14 @@ class VoiceEngine @Inject constructor(
         }
     }
 
-    private fun speakInternal(rawText: String, listenAfter: Boolean) {
+    private fun speakInternal(rawText: String, listenAfter: Boolean, speedFactor: Float = 1f) {
         // El texto de una IA o de un documento escaneado puede traer markdown o emojis que no se deben leer en voz alta.
         val text = VoiceText.forSpeech(rawText).ifBlank { return }
         pauseWakeWord()
         lastSpoken = text
         listenAfterSpeech = listenAfter
         _state.value = VoiceState.Speaking(text)
-        val params = Bundle().apply { putFloat(TextToSpeech.Engine.KEY_PARAM_VOLUME, currentVolume) }
+        val parametros = Bundle().apply { putFloat(TextToSpeech.Engine.KEY_PARAM_VOLUME, currentVolume) }
         // El motor de voz de Android rechaza más de unos 4000 caracteres de una vez (respuestas largas de la IA,
         // documentos escaneados), así que el texto largo se envía en partes, dividido al final de cada oración.
         val parts = splitForSpeech(text)
@@ -308,9 +322,11 @@ class VoiceEngine @Inject constructor(
         callarLectorDePantalla()
         onTtsThread { tts ->
             ajustarVozALaConexion()
+            // Cada lectura fija su velocidad; así una lectura lenta no deja lenta a la siguiente.
+            tts.setSpeechRate((currentRate * speedFactor).coerceIn(0.5f, 2.0f))
             parts.forEachIndexed { index, part ->
                 val mode = if (index == 0) TextToSpeech.QUEUE_FLUSH else TextToSpeech.QUEUE_ADD
-                tts.speak(part, mode, params, UUID.randomUUID().toString())
+                tts.speak(part, mode, parametros, UUID.randomUUID().toString())
             }
         }
         startBargeInDetection()

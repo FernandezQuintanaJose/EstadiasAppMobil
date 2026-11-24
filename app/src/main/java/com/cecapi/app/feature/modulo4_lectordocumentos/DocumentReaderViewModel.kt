@@ -89,6 +89,9 @@ class DocumentReaderViewModel @Inject constructor(
     private val _uiState = MutableStateFlow(DocumentReaderUiState())
     val uiState: StateFlow<DocumentReaderUiState> = _uiState.asStateFlow()
 
+    private val _flashActivado = MutableStateFlow(false)
+    val flashActivado: StateFlow<Boolean> = _flashActivado.asStateFlow()
+
     val history: StateFlow<List<DocumentoEscaneadoEntity>> = sessionRepository.currentUser
         .filterNotNull()
         .flatMapLatest { usuario -> repository.observeRecent(usuario.id) }
@@ -138,6 +141,8 @@ class DocumentReaderViewModel @Inject constructor(
                 "También puedes tocar el botón azul o decir toma la foto. " + CommandCatalog.hint("cámara"),
             listenAfter = true,
         )
+        // El panel de la foto también ofrece "qué hay enfrente". El modelo local se carga hasta
+        // que ya existe una foto, no al abrir el lector.
     }
 
     /** Los comandos que el lector responde, del más específico al más general. */
@@ -148,6 +153,14 @@ class DocumentReaderViewModel @Inject constructor(
         // Un comando de voz cancela el botón que quedó a la espera del segundo toque.
         _uiState.value = _uiState.value.copy(botonArmado = null)
         when {
+            has("desactiva flash", "desactivar flash", "apaga flash", "quita flash") -> {
+                _flashActivado.value = false
+                voiceEngine.speak("Flash desactivado.", listenAfter = true)
+            }
+            has("activa flash", "activar flash", "enciende flash", "prende flash") -> {
+                _flashActivado.value = true
+                voiceEngine.speak("Flash activado para la próxima foto.", listenAfter = true)
+            }
             CommandCatalog.isRequest(spoken) -> voiceEngine.speak(CommandCatalog.READER, listenAfter = true)
             fotoUri != null && has("codigo", "qr", "codigo qr", "codigo de barras") -> leerCodigos()
             fotoUri != null && has("traduce", "traducir", "traduccion", "traducelo") -> traducir()
@@ -369,6 +382,9 @@ class DocumentReaderViewModel @Inject constructor(
         fotoUri = imageUri
         textoDeLaFoto = null
         _uiState.value = DocumentReaderUiState(photoPath = rutaImagen, panelFoto = true)
+        // Ya hay foto: se prepara el modelo mientras la persona escucha las opciones. La
+        // descripción no se ejecuta hasta que elija "qué hay enfrente".
+        entorno.prepararModeloIa()
         voiceEngine.speak(
             (if (desdeCamara) "Foto tomada. " else "") +
                 "¿Qué hacemos con la foto? Puedo leer el texto, decirte qué hay enfrente, leer un código QR o traducir.",
@@ -454,10 +470,24 @@ class DocumentReaderViewModel @Inject constructor(
     fun describirEntorno() {
         val uri = fotoUri ?: return voiceEngine.speak("Primero toma una foto.")
         val ruta = _uiState.value.photoPath ?: return
+        // Asegura que el traductor y el modelo de visión estén preparándose antes de la consulta.
+        entorno.prepararModeloIa()
         trabajarConLaFoto("Describiendo lo que hay en la foto…", "Analizando lo que hay en la foto.") {
-            entorno.processCapturedPhoto(sessionRepository.currentUser.value?.id, uri, ruta).fold(
+            // La descripción del entorno corre bajo demanda, igual que la cámara del módulo 7. El
+            // detector local responde primero; el modelo de visión solo se usa si no reconoció nada.
+            entorno.processCapturedPhoto(
+                sessionRepository.currentUser.value?.id,
+                uri,
+                ruta,
+                usarIa = true,
+            ).fold(
                 onSuccess = { ResultadoFoto("Qué hay enfrente", it.descripcion) },
-                onFailure = { ResultadoFoto("No se pudo describir", "No pude analizar la imagen. Intenta de nuevo.") },
+                onFailure = {
+                    ResultadoFoto(
+                        "No se pudo describir",
+                        "No lo logré describir. Intenta con otra foto.",
+                    )
+                },
             )
         }
     }

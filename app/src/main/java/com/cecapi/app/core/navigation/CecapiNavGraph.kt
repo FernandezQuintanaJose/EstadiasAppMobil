@@ -36,6 +36,7 @@ import androidx.navigation.NavType
 import androidx.navigation.navArgument
 import com.cecapi.app.feature.modulo6_aprendizaje.LearningScreen
 import com.cecapi.app.feature.modulo7_entorno.EnvironmentScreen
+import com.cecapi.app.feature.modulo10_accesibilidad.PantallaAccesibilidad
 
 @Composable
 fun CecapiNavGraph(navController: NavHostController = rememberNavController()) {
@@ -154,8 +155,12 @@ fun CecapiNavGraph(navController: NavHostController = rememberNavController()) {
                         }
                     },
                     onOpenAccount = { navController.navigate(CecapiDestinations.EDIT_ACCOUNT) },
+                    onOpenAccessibility = { navController.navigate(CecapiDestinations.ACCESSIBILITY) },
                 )
             }
+        }
+        composable(CecapiDestinations.ACCESSIBILITY) {
+            WakeScope { PantallaAccesibilidad(onBack = { navController.popBackStack() }) }
         }
         composable(CecapiDestinations.PERSONALIZATION) {
             WakeScope { PersonalizationScreen(onBack = { navController.popBackStack() }) }

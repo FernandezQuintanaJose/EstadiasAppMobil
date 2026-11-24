@@ -33,11 +33,20 @@ android {
         val claveApp = local.getProperty("cecapi.claveApp", "").trim()
         buildConfigField("String", "AI_PROXY_BASE_URL", "\"$servidor\"")
         buildConfigField("String", "AI_APP_KEY", "\"$claveApp\"")
+
+        ndk {
+            // La app se usa en teléfonos reales (arm64). El emulador de desarrollo agrega x86_64
+            // solo en depuración; el APK de entrega no carga los binarios de escritorio.
+            abiFilters += "arm64-v8a"
+        }
     }
 
     buildTypes {
         debug {
             manifestPlaceholders["permiteHttp"] = "true"
+            ndk {
+                abiFilters += "x86_64"
+            }
         }
         release {
             // Código optimizado y con nombres ocultos: más difícil de descompilar y más ligero.
@@ -64,6 +73,12 @@ android {
     buildFeatures {
         compose = true
         buildConfig = true
+    }
+
+    androidResources {
+        // Los GGUF se copian tal cual a filesDir; comprimirlos alarga la instalación y hace que
+        // AssetManager no pueda informar su tamaño para reanudar copias.
+        noCompress += "gguf"
     }
 
     packaging {
@@ -118,7 +133,12 @@ dependencies {
     implementation(libs.mlkit.barcode.scanning)
     implementation(libs.mlkit.translate)
     implementation(libs.mlkit.language.id)
-    implementation(libs.tensorflow.lite.task.vision)
+    implementation(libs.tensorflow.lite.task.vision) {
+        // El intérprete directo 2.17 entiende las capas nuevas del modelo de monedas
+        // (FULLY_CONNECTED v12). Se evita la API vieja que arrastra la tarea de visión.
+        exclude(group = "org.tensorflow", module = "tensorflow-lite-api")
+    }
+    implementation(libs.tensorflow.lite)
 
     implementation(libs.kotlinx.coroutines.android)
     implementation(libs.kotlinx.coroutines.play.services)

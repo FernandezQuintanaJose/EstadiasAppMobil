@@ -108,6 +108,7 @@ fun DocumentReaderScreen(
     val context = LocalContext.current
     val uiState by viewModel.uiState.collectAsState()
     val voiceState by viewModel.voiceState.collectAsState()
+    val flashActivado by viewModel.flashActivado.collectAsState()
     val isPreview = LocalInspectionMode.current
 
     var hasCameraPermission by remember {
@@ -128,6 +129,10 @@ fun DocumentReaderScreen(
     }
 
     var imageCapture by remember { mutableStateOf<ImageCapture?>(null) }
+
+    LaunchedEffect(imageCapture, flashActivado) {
+        imageCapture?.flashMode = if (flashActivado) ImageCapture.FLASH_MODE_ON else ImageCapture.FLASH_MODE_OFF
+    }
 
     val takePhoto: () -> Unit = {
         val capture = imageCapture
@@ -216,8 +221,8 @@ fun DocumentReaderScreen(
             uiState = uiState,
             hasCameraPermission = hasCameraPermission,
             onReadyCamera = { capture ->
-                // Flash automático: la cámara lo dispara sola cuando el documento está muy oscuro.
-                capture?.flashMode = ImageCapture.FLASH_MODE_AUTO
+                // La luz solo se dispara tras el comando de voz «activa flash».
+                capture?.flashMode = if (flashActivado) ImageCapture.FLASH_MODE_ON else ImageCapture.FLASH_MODE_OFF
                 imageCapture = capture
             },
             onBack = onVolverClick,

@@ -11,6 +11,7 @@ object CecapiDestinations {
     const val POLITICAS_INICIO = "politicas_inicio"
     const val DASHBOARD = "dashboard"
     const val SETTINGS = "settings"
+    const val ACCESSIBILITY = "accessibility"
     const val PERSONALIZATION = "personalization"
     const val CHATS = "chats"
 
