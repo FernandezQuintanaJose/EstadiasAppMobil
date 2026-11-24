@@ -5,6 +5,10 @@ object CecapiDestinations {
     const val HOME = "home"
     const val LOGIN = "login"
     const val REGISTER = "register"
+
+    /** Términos de uso y privacidad: [POLITICAS_INICIO] es la primera vez (obligatoria), [POLITICAS] se abre desde el registro. */
+    const val POLITICAS = "politicas"
+    const val POLITICAS_INICIO = "politicas_inicio"
     const val DASHBOARD = "dashboard"
     const val SETTINGS = "settings"
     const val PERSONALIZATION = "personalization"

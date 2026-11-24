@@ -25,6 +25,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Badge
 import androidx.compose.material.icons.filled.Cake
 import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.Description
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.Email
 import androidx.compose.material.icons.filled.Person
@@ -77,6 +78,7 @@ import com.cecapi.app.core.voice.VoiceState
 fun RegisterScreen(
     onRegisterSuccess: () -> Unit,
     onBack: () -> Unit = {},
+    onVerPoliticas: () -> Unit = {},
     viewModel: RegisterViewModel = hiltViewModel(),
 ) {
     val context = LocalContext.current
@@ -201,15 +203,21 @@ fun RegisterScreen(
             onClick = { viewModel.onEsAdultoChange(!uiState.esAdulto) },
             modifier = Modifier.padding(top = 24.dp),
         )
-        if (!uiState.esAdulto) {
-            BigBtn(
-                icon = Icons.Filled.Person,
-                label = "Tengo menos de 18 años",
-                sub = "No se puede crear la cuenta",
-                onClick = viewModel::onEsMenor,
-                modifier = Modifier.padding(top = 12.dp),
-            )
-        }
+        // Términos y privacidad: se pueden leer antes de aceptar, y sin aceptarlos no se crea la cuenta.
+        BigBtn(
+            icon = Icons.Filled.Description,
+            label = "Leer términos de uso y privacidad",
+            onClick = onVerPoliticas,
+            modifier = Modifier.padding(top = 12.dp),
+        )
+        BigBtn(
+            icon = if (uiState.aceptaTerminos) Icons.Filled.Check else Icons.Filled.Person,
+            label = if (uiState.aceptaTerminos) "Acepto los términos y la privacidad" else "Acepto los términos de uso y la política de privacidad",
+            sub = if (uiState.aceptaTerminos) "Toca otra vez para quitarlo" else "Hace falta para crear la cuenta",
+            variant = if (uiState.aceptaTerminos) BigBtnVariant.Success else BigBtnVariant.Neutral,
+            onClick = { viewModel.onAceptaTerminosChange(!uiState.aceptaTerminos) },
+            modifier = Modifier.padding(top = 12.dp),
+        )
 
         BigBtn(
             icon = Icons.Filled.Check,
