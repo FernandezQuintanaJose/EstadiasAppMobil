@@ -17,6 +17,11 @@ captures/
 app/src/main/assets/smolvlm/
 app/src/main/jniLibs/
 
+# Fotografías locales para generar el índice de áreas (no subir originales)
+Referencias_CECAPI/
+tools/__pycache__/
+tools/.venv-areas/
+
 # Logs
 *.log
  

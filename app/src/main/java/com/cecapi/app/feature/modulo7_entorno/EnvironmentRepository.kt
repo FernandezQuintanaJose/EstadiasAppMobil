@@ -19,7 +19,11 @@ import org.tensorflow.lite.support.image.TensorImage
 import org.tensorflow.lite.task.vision.detector.Detection
 import org.tensorflow.lite.task.vision.detector.ObjectDetector as TfliteObjectDetector
 import dagger.hilt.android.qualifiers.ApplicationContext
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.async
+import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.tasks.await
 import kotlinx.coroutines.withContext
@@ -73,6 +77,7 @@ class EnvironmentRepository @Inject constructor(
     private val objetoDao: ObjetoDetectadoDao,
     private val descripcionDao: DescripcionEntornoDao,
     private val iaLocal: SmolVlmLocal,
+    private val areas: CecapiAreaRecognizer,
 ) {
     // Detector de objetos COCO: devuelve clases concretas y una caja por objeto, no solo
     // categorías amplias como "comida" o "instrumento musical".
@@ -148,6 +153,7 @@ class EnvironmentRepository @Inject constructor(
         usarIa: Boolean = false,
     ): Result<EnvironmentResult> {
         var etapa = "validar la foto"
+        var areaScope: CoroutineScope? = null
         return try {
             val inicio = SystemClock.elapsedRealtime()
 
@@ -189,11 +195,22 @@ class EnvironmentRepository @Inject constructor(
                 return Result.success(guardarBillete(usuarioId, rutaImagen, billeteAutomatico, inicio))
             }
 
+            // El área del CECAPI se busca en paralelo con la descripción. Solo aplica a fotos
+            // generales que piden descripción; no a billetes, monedas, OCR ni al juego.
+            val areaJob = if (usarIa) {
+                val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
+                areaScope = scope
+                scope.async { areas.reconocer(bitmap) }
+            } else {
+                null
+            }
+
             // "Qué hay enfrente" usa siempre la IA local. Billetes y monedas conservan sus modelos
             // especializados: si la IA menciona dinero, la denominación la decide el clasificador.
             if (usarIa) {
                 etapa = "describir la foto"
                 val textoIa = iaLocal.describir(bitmap)
+                val area = areaJob?.await()
                 if (textoIa != null) {
                     // Puente con el modelo de monedas: la IA solo avisa que hay una moneda; la
                     // denominación la decide el clasificador entrenado para pesos mexicanos. La IA
@@ -215,18 +232,25 @@ class EnvironmentRepository @Inject constructor(
                         return Result.success(guardarBillete(usuarioId, rutaImagen, billete, inicio))
                     }
                     bitmap.recycle()
+                    val descripcionFinal = conArea(area, textoIa)
                     val escaneoId = usuarioId?.let { id ->
                         etapa = "guardar el resultado"
                         val nuevoId = escaneoDao.insert(
                             EscaneoEntornoEntity(usuarioId = id, rutaImagen = rutaImagen),
                         )
                         descripcionDao.insert(
-                            DescripcionEntornoEntity(escaneoId = nuevoId, textoDescripcion = textoIa),
+                            DescripcionEntornoEntity(
+                                escaneoId = nuevoId,
+                                textoDescripcion = descripcionFinal,
+                            ),
                         )
                         nuevoId
                     }
-                    Log.d(TAG, "Descripción de la IA lista en ${SystemClock.elapsedRealtime() - inicio} ms: $textoIa")
-                    return Result.success(EnvironmentResult(escaneoId, textoIa, emptyList()))
+                    Log.d(
+                        TAG,
+                        "Descripción de la IA lista en ${SystemClock.elapsedRealtime() - inicio} ms: $descripcionFinal",
+                    )
+                    return Result.success(EnvironmentResult(escaneoId, descripcionFinal, emptyList()))
                 }
                 Log.d(
                     TAG,
@@ -328,7 +352,13 @@ class EnvironmentRepository @Inject constructor(
         } catch (e: Exception) {
             Log.e(TAG, "No se pudo analizar la foto durante la etapa: $etapa", e)
             Result.failure(e)
+        } finally {
+            areaScope?.cancel()
         }
+    }
+
+    private fun conArea(area: String?, descripcion: String): String {
+        return if (area.isNullOrBlank()) descripcion else "$area $descripcion".trim()
     }
 
     /** Guarda el resultado del billete en el historial (si hay usuario) y lo devuelve listo para decir en voz alta. */

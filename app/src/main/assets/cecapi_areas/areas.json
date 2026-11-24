@@ -1,0 +1,54 @@
+{
+  "version": 1,
+  "model": "embedder.tflite",
+  "modelSha256": "11af3c560dfeed7737cb4c03c23bf52a8403020784192d4dea0b74862a12828d",
+  "inputSize": 224,
+  "normalization": "0_1",
+  "threshold": 0.8,
+  "margin": 0.08,
+  "topK": 3,
+  "areas": [
+    {
+      "id": "Area_de_Juegos",
+      "frase": "Te encuentras en el área de juegos del CECAPI.",
+      "offset": 0,
+      "count": 57
+    },
+    {
+      "id": "Bienvenida",
+      "frase": "Te encuentras en el área de bienvenida del CECAPI.",
+      "offset": 57,
+      "count": 44
+    },
+    {
+      "id": "Camino_De_Entrada",
+      "frase": "Te encuentras en el camino de entrada del CECAPI.",
+      "offset": 101,
+      "count": 32
+    },
+    {
+      "id": "Edificio_Principal",
+      "frase": "Te encuentras en el edificio principal del CECAPI.",
+      "offset": 133,
+      "count": 99
+    },
+    {
+      "id": "Edificio_Recreativo",
+      "frase": "Te encuentras en el edificio recreativo del CECAPI.",
+      "offset": 232,
+      "count": 75
+    },
+    {
+      "id": "Edificio_Recreativo_Dentro",
+      "frase": "Te encuentras en el interior del edificio recreativo del CECAPI.",
+      "offset": 307,
+      "count": 24
+    },
+    {
+      "id": "Pastizal",
+      "frase": "Te encuentras en el pastizal del CECAPI.",
+      "offset": 331,
+      "count": 42
+    }
+  ]
+}
