@@ -12,4 +12,5 @@ class NavVoiceViewModel @Inject constructor(
     val voiceEngine: VoiceEngine,
     val sessionRepository: ServicioDeCuentas,
     val launchRequests: com.cecapi.app.core.voice.LaunchRequests,
+    val aceptacionPoliticas: com.cecapi.app.core.politicas.AceptacionPoliticas,
 ) : ViewModel()

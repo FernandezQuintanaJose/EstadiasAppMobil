@@ -12,7 +12,7 @@ import java.net.URL
  * está en la base, devuelve null y la app dice solo el número.
  */
 object ProductoPorCodigo {
-    private const val USER_AGENT = "VozAcceso/1.0 (app de accesibilidad; dragonsteam.3141@gmail.com)"
+    private const val USER_AGENT = "ALIA/1.0 (app de accesibilidad; proyecto de estadía)"
 
     suspend fun buscar(codigo: String): String? = withContext(Dispatchers.IO) {
         if (!codigo.all { it.isDigit() } || codigo.length !in 8..14) return@withContext null

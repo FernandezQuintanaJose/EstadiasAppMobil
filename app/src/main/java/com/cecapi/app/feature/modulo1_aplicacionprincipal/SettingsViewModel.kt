@@ -46,6 +46,7 @@ class SettingsViewModel @Inject constructor(
     val announceNotifications: StateFlow<Boolean> = deviceSettings.announceNotifications.stateIn(viewModelScope, SharingStarted.Eagerly, true)
     val listenOutsideApp: StateFlow<Boolean> = deviceSettings.backgroundListening.stateIn(viewModelScope, SharingStarted.Eagerly, false)
     val aiEnabled: StateFlow<Boolean> = deviceSettings.aiEnabled.stateIn(viewModelScope, SharingStarted.Eagerly, false)
+    val wikipediaEnabled: StateFlow<Boolean> = deviceSettings.wikipediaEnabled.stateIn(viewModelScope, SharingStarted.Eagerly, false)
     val holaEnabled: StateFlow<Boolean> = deviceSettings.holaEnabled.stateIn(viewModelScope, SharingStarted.Eagerly, false)
 
     /** El usuario con sesión iniciada, o null cuando Configuración se abrió desde la pantalla de inicio. */
@@ -249,6 +250,17 @@ class SettingsViewModel @Inject constructor(
         )
     }
 
+    fun onWikipediaChanged(enabled: Boolean) {
+        viewModelScope.launch { deviceSettings.setWikipediaEnabled(enabled) }
+        voiceEngine.speak(
+            if (enabled) {
+                "Búsqueda en Wikipedia activada. Cuando no entienda una frase y haya internet, el texto de la frase se enviará a Wikipedia o a Wikidata, servicios de terceros."
+            } else {
+                "Búsqueda en Wikipedia desactivada. Ninguna frase se envía a Wikipedia ni a Wikidata."
+            },
+        )
+    }
+
     private companion object {
         /** Se dice antes de activar la escucha fuera de la app; la aceptación se guarda con su fecha en el teléfono. */
         const val LISTEN_CONSENT_NOTICE =
@@ -267,7 +279,7 @@ class SettingsViewModel @Inject constructor(
     fun isNotificationAccessEnabled(): Boolean = notificationAccess.isEnabled()
 
     fun onOpenNotificationSettings() {
-        voiceEngine.speak("Voy a abrir los ajustes. Busca CECAPI en la lista y actívalo. Después regresa a la aplicación.")
+        voiceEngine.speak("Voy a abrir los ajustes. Busca ALIA en la lista y actívalo. Después regresa a la aplicación.")
         notificationAccess.openSettings()
     }
 

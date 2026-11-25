@@ -216,9 +216,9 @@ fun EnvironmentScreen(
                 CaptureButton(
                     processing = uiState.isProcessing,
                     enabled = imageCapture != null && !uiState.isProcessing,
-                    help = "Botón de captura. Toca dos veces para describir lo que hay enfrente. " +
+                    help = "Botón de captura. Toca para tomar la foto con una cuenta regresiva. " +
                         "También puedes decir: qué hay enfrente.",
-                    onClick = viewModel::pedirCaptura,
+                    onClick = viewModel::pedirFotoConCuenta,
                 )
                 // Mismo ancho que "Mis fotos" para que el obturador quede centrado, pero ahora es
                 // un micrófono real en vez de un espacio vacío.

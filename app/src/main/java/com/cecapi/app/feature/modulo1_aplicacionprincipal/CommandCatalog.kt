@@ -48,7 +48,9 @@ object CommandCatalog {
 
     const val CAMERA =
         "En la cámara puedes decir: leer texto, para leer un papel, un cartel o una etiqueta. " +
-            "Qué hay enfrente, para que te describa lo que ve la cámara. Atrás, para volver al menú. " + MORE
+            "Qué hay enfrente, para que te describa lo que ve la cámara. " +
+            "Activa flash, para usarlo en la próxima foto; desactiva flash, para apagarlo. " +
+            "Atrás, para volver al menú. " + MORE
 
     const val READER =
         "En la cámara puedes decir: toma la foto. Con la foto tomada, di leer texto, qué hay enfrente, " +
@@ -60,6 +62,7 @@ object CommandCatalog {
             "Otra foto, para empezar con otro papel. " +
             "Guarda la foto, para guardarla en tu galería. " +
             "Elige una foto, para leer una imagen que ya tienes en tu teléfono; tú eliges cuál y solo veo esa. " +
+            "Activa flash, para usarlo en la próxima foto; desactiva flash, para apagarlo. " +
             "Qué hay enfrente, para cambiar a describir lo que ve la cámara. " +
             "Atrás, para volver a la cámara. " + MORE
 
@@ -67,7 +70,10 @@ object CommandCatalog {
         "En la descripción del entorno puedes decir: qué hay enfrente, o toma la foto, para que te describa lo que ve. " +
             "Repite, o dilo otra vez, para escuchar la última descripción. " +
             "Elige una foto, para que describa una imagen que ya tienes en tu teléfono; tú eliges cuál y solo veo esa. " +
-            "Más detalle, o describe con la IA, para que la inteligencia artificial describa la última foto; necesita internet. " +
+            "Qué moneda es, para reconocer una moneda. " +
+            "Agrega esta moneda, para reconocerla y sumarla a la cuenta. " +
+            "Cuánto llevo, para escuchar el total de billetes y monedas. " +
+            "Borra las monedas, para empezar la cuenta de monedas de cero. " +
             "Leer texto, para cambiar al lector de texto. " +
             "Atrás, para volver a la cámara. " + MORE
 

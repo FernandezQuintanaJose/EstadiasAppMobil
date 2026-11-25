@@ -1,6 +1,6 @@
 # Comandos de voz de CECAPI
 
-> Vigente · Generado desde el código el 2026-10-08, main en 6240887 · No se edita a mano: se vuelve a generar con `python docs/herramientas/generar_comandos.py`
+> Vigente · Generado desde el código el 2026-11-22, main en acabab1 · No se edita a mano: se vuelve a generar con `python docs/herramientas/generar_comandos.py`
 
 Esta guía repite lo que la app dice cuando alguien pide **lista de comandos** en cada pantalla, y lo que dice con **otras formas de decirlo**. La app también acepta errores pequeños del reconocimiento de voz, como una letra de más o una palabra partida en dos.
 
@@ -64,16 +64,21 @@ Cada lista termina con: *Di otras formas de decirlo, para conocer más maneras d
 
 - En la cámara puedes decir: leer texto, para leer un papel, un cartel o una etiqueta.
 - Qué hay enfrente, para que te describa lo que ve la cámara.
+- Activa flash, para usarlo en la próxima foto; desactiva flash, para apagarlo.
 - Atrás, para volver al menú.
 
 ### Lector de texto
 
-- En el lector de texto puedes decir: toma la foto, para leer lo que tienes enfrente.
-- Repite, o lee otra vez, para volver a leer desde el principio.
+- En la cámara puedes decir: toma la foto.
+- Con la foto tomada, di leer texto, qué hay enfrente, leer código, o traducir, y todo se hace sobre la misma foto.
+- Otras acciones, para volver a elegir.
+- Mientras lees: Repite, o lee otra vez, para volver a leer desde el principio.
 - Siguiente párrafo, o párrafo anterior, para moverte por el texto.
 - Pausa, para detener la lectura, y continúa, para seguir.
 - Otra foto, para empezar con otro papel.
+- Guarda la foto, para guardarla en tu galería.
 - Elige una foto, para leer una imagen que ya tienes en tu teléfono; tú eliges cuál y solo veo esa.
+- Activa flash, para usarlo en la próxima foto; desactiva flash, para apagarlo.
 - Qué hay enfrente, para cambiar a describir lo que ve la cámara.
 - Atrás, para volver a la cámara.
 
@@ -82,6 +87,10 @@ Cada lista termina con: *Di otras formas de decirlo, para conocer más maneras d
 - En la descripción del entorno puedes decir: qué hay enfrente, o toma la foto, para que te describa lo que ve.
 - Repite, o dilo otra vez, para escuchar la última descripción.
 - Elige una foto, para que describa una imagen que ya tienes en tu teléfono; tú eliges cuál y solo veo esa.
+- Qué moneda es, para reconocer una moneda.
+- Agrega esta moneda, para reconocerla y sumarla a la cuenta.
+- Cuánto llevo, para escuchar el total de billetes y monedas.
+- Borra las monedas, para empezar la cuenta de monedas de cero.
 - Leer texto, para cambiar al lector de texto.
 - Atrás, para volver a la cámara.
 
@@ -118,10 +127,13 @@ Cada lista termina con: *Di otras formas de decirlo, para conocer más maneras d
 - Llámame, y un nombre, para que te salude así.
 - Llámate, y un nombre, para ponerme nombre.
 - Otra voz, para probar la siguiente voz, o voz anterior.
+- Voz, y un número, para elegirla.
+- Voz automática.
+- Voces sin internet, voces con internet o todas las voces, para filtrarlas.
 - Más rápido, más lento, más grave o más agudo, para cambiar cómo hablo.
 - Activa o desactiva los sonidos y las vibraciones.
 - Vibración suave, normal o fuerte.
-- Perfil de niño, perfil normal o perfil de persona mayor, para ajustar mi voz a tu edad.
+- Perfil normal o perfil de persona mayor, para ajustar mi voz.
 - Pantalla negra, o brillo mínimo.
 - Prueba de voz, para escucharme.
 - Atrás, para volver al menú.
@@ -145,6 +157,8 @@ Cada lista termina con: *Di otras formas de decirlo, para conocer más maneras d
 - En gestión puedes decir: cuántas personas, para saber cuántas ves.
 - Toca a una persona para cambiarle el rol o, si es un alumno, asignarle un educador.
 - Atrás, para volver al menú.
+
+Listas del código que esta guía todavía no nombra: CONSULTAS.
 
 ## Otras formas de decirlo
 
@@ -195,10 +209,9 @@ Se pide diciendo **otras formas de decirlo** y el nombre del área, o **todas**.
 
 ### Documentos
 
-- Elegir una plantilla: di su nombre o una palabra del título, como constancia, justificación o apoyo.
-- Repetir la pregunta: repite, repite la pregunta o otra vez.
-- Cambiar de plantilla: cancelar, cancela, reiniciar, otra plantilla o nueva plantilla.
-- Cuando ya está lista: repite, otra vez o lee para escucharla de nuevo.
+- Pedir un documento: di qué necesitas, por ejemplo una carta para pedir un justificante.
+- Cuando ya está listo: lee, lee el documento o repite para escucharlo.
+- Pedir otro: nueva consulta, otra consulta o nuevo documento.
 - Volver: atrás, volver, regresa, salir o menú.
 
 ### Personalización
@@ -241,14 +254,14 @@ Se pide diciendo **otras formas de decirlo** y el nombre del área, o **todas**.
 ### Menú
 
 - Ver las opciones: menú, módulos u opciones.
-- Abrir una opción: cámara o lector; documentos, solicitudes o solicitud; actividades, ejercicios o entrenar; chats, conversaciones o historial; personalización o personalizar; configuración o ajustes.
+- Abrir una opción: cámara o lector; consultas, documentos o solicitud; actividades, ejercicios o entrenar; chats, conversaciones o historial; personalización o personalizar; configuración o ajustes.
 - Atajos: qué hay enfrente, describe o entorno abre la descripción; leer texto, lee esto o lee el texto abre el lector.
 - Ponerme nombre: llámate, te llamas o tu nombre es, y el nombre.
 
 ### Ayuda y aprendizaje
 
 - Aprender a usar la aplicación: tutorial, cómo se usa, cómo funciona la aplicación o enséñame a usar la aplicación.
-- Una parte en concreto: tutorial de la cámara, de actividades, de documentos, de chats, de personalización, de configuración o de la pantalla negra.
+- Una parte en concreto: tutorial de la cámara, de actividades, de consultas, de chats, de personalización, de configuración o de la pantalla negra.
 - Saber dónde estás: dónde estoy, en qué pantalla estoy o qué pantalla es esta.
 - Tu avance: cómo voy, mi nivel, mi progreso o en qué nivel voy.
 - Hablar más despacio: habla más despacio, habla más lento o más despacio por favor; y más rápido: habla más rápido o hablas muy despacio.

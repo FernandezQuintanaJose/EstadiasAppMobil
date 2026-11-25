@@ -212,12 +212,73 @@ val MIGRATION_16_17 = object : Migration(16, 17) {
 }
 
 /**
+ * Columnas exactas que Room espera en `usuarios` para v18 y v20. La reparación de abajo solo actúa
+ * si una instalación vieja conserva columnas que la entidad ya no declara.
+ */
+private val columnasUsuariosV18 = listOf(
+    "id", "nombre_usuario", "contrasena_hash", "nombre_completo", "fecha_registro",
+    "rol", "origen", "educador_id", "apodo", "validado", "usar_apodo_ranking",
+    "email", "solicita_validacion", "aviso_pendiente", "revision_cuenta",
+    "institucion_solicitada", "solicita_cambio_educador",
+)
+private val columnasUsuariosV20 = columnasUsuariosV18 + "acepto_adulto_en"
+
+private fun columnasDe(db: SupportSQLiteDatabase, tabla: String): Set<String> =
+    db.query("PRAGMA table_info(`$tabla`)").use { cursor ->
+        val nombre = cursor.getColumnIndexOrThrow("name")
+        buildSet {
+            while (cursor.moveToNext()) add(cursor.getString(nombre))
+        }
+    }
+
+private fun valorPorDefecto(columna: String): String = when (columna) {
+    "nombre_usuario", "contrasena_hash", "nombre_completo", "origen" -> "''"
+    "fecha_registro" -> "0"
+    "rol" -> "'usuario'"
+    "validado", "usar_apodo_ranking", "solicita_validacion", "solicita_cambio_educador" -> "0"
+    "revision_cuenta" -> "'confirmada'"
+    else -> "NULL"
+}
+
+/**
+ * Algunas instalaciones conservan en `usuarios` columnas de versiones anteriores
+ * (`fecha_nacimiento`, `solicita_baja`) o `acepto_adulto_en` antes de tiempo. Room compara la
+ * tabla completa y rechaza la migración, dejando la app sin poder abrir la base. Se reconstruye
+ * solo cuando hace falta, conservando los datos de las columnas que sí existen.
+ */
+private fun normalizarUsuarios(db: SupportSQLiteDatabase, conAceptoAdulto: Boolean) {
+    val actuales = columnasDe(db, "usuarios")
+    val destino = if (conAceptoAdulto) columnasUsuariosV20 else columnasUsuariosV18
+    if (actuales == destino.toSet()) return
+
+    val seleccion = destino.joinToString(", ") { columna ->
+        if (columna in actuales) "`$columna`" else valorPorDefecto(columna)
+    }
+    db.execSQL("DROP TABLE IF EXISTS `usuarios_nueva`")
+    db.execSQL(
+        "CREATE TABLE IF NOT EXISTS `usuarios_nueva` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, " +
+            "`nombre_usuario` TEXT NOT NULL, `contrasena_hash` TEXT NOT NULL, `nombre_completo` TEXT NOT NULL, " +
+            "`fecha_registro` INTEGER NOT NULL, `rol` TEXT NOT NULL, `origen` TEXT NOT NULL, `educador_id` INTEGER, " +
+            "`apodo` TEXT, `validado` INTEGER NOT NULL, `usar_apodo_ranking` INTEGER NOT NULL, `email` TEXT, " +
+            (if (conAceptoAdulto) "`acepto_adulto_en` INTEGER, " else "") +
+            "`solicita_validacion` INTEGER NOT NULL, `aviso_pendiente` TEXT, `revision_cuenta` TEXT NOT NULL, " +
+            "`institucion_solicitada` TEXT, `solicita_cambio_educador` INTEGER NOT NULL)",
+    )
+    db.execSQL(
+        "INSERT INTO usuarios_nueva (${destino.joinToString(", ") { "`$it`" }}) SELECT $seleccion FROM usuarios",
+    )
+    db.execSQL("DROP TABLE usuarios")
+    db.execSQL("ALTER TABLE usuarios_nueva RENAME TO usuarios")
+}
+
+/**
  * v18: se quitan los puntos de prueba que la app sembraba para JUAN (nivel 3, 450) y MIRIAM (nivel 5, 820) y
  * que ya no se crean. Solo se borra la fila si todavía tiene exactamente esos valores: si alguien jugó con esas
  * cuentas y cambió su avance, no se toca.
  */
 val MIGRATION_17_18 = object : Migration(17, 18) {
     override fun migrate(db: SupportSQLiteDatabase) {
+        normalizarUsuarios(db, conAceptoAdulto = false)
         db.execSQL(
             "DELETE FROM niveles_aprendizaje WHERE " +
                 "(nivel_actual = 3 AND puntos_totales = 450 AND usuario_id IN (SELECT id FROM usuarios WHERE nombre_usuario = 'JUAN' COLLATE NOCASE)) OR " +
@@ -229,6 +290,56 @@ val MIGRATION_17_18 = object : Migration(17, 18) {
 /** v19: se guarda cuándo la persona confirmó, al crear su cuenta, que tiene 18 años o más (las cuentas anteriores quedan en nulo). */
 val MIGRATION_18_19 = object : Migration(18, 19) {
     override fun migrate(db: SupportSQLiteDatabase) {
-        db.execSQL("ALTER TABLE usuarios ADD COLUMN acepto_adulto_en INTEGER")
+        // Algunas instalaciones ya traen la columna; agregarla otra vez abortaría la migración.
+        if ("acepto_adulto_en" !in columnasDe(db, "usuarios")) {
+            db.execSQL("ALTER TABLE usuarios ADD COLUMN acepto_adulto_en INTEGER")
+        }
     }
 }
+
+/**
+ * v20: llega el módulo de accesibilidad de CECAPI (el mismo que ya existía en la app de referencia):
+ * perfiles de gestos, gestos y acciones. Solo crea tablas nuevas; no toca datos de otros módulos.
+ */
+val MIGRATION_19_20 = object : Migration(19, 20) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        // Última oportunidad para dejar `usuarios` exactamente como la espera la entidad antes de
+        // que Room valide el esquema completo.
+        normalizarUsuarios(db, conAceptoAdulto = true)
+        db.execSQL(
+            "CREATE TABLE IF NOT EXISTS `perfiles` (" +
+                "`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, " +
+                "`nombre` TEXT NOT NULL, " +
+                "`descripcion` TEXT NOT NULL, " +
+                "`activo` INTEGER NOT NULL)",
+        )
+        db.execSQL(
+            "CREATE TABLE IF NOT EXISTS `gestos` (" +
+                "`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, " +
+                "`perfil_id` INTEGER NOT NULL, " +
+                "`codigo` TEXT NOT NULL, " +
+                "FOREIGN KEY(`perfil_id`) REFERENCES `perfiles`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE)",
+        )
+        db.execSQL("CREATE INDEX IF NOT EXISTS `index_gestos_perfil_id` ON `gestos` (`perfil_id`)")
+        db.execSQL(
+            "CREATE UNIQUE INDEX IF NOT EXISTS `index_gestos_perfil_id_codigo` " +
+                "ON `gestos` (`perfil_id`, `codigo`)",
+        )
+        db.execSQL(
+            "CREATE TABLE IF NOT EXISTS `acciones` (" +
+                "`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, " +
+                "`gesto_id` INTEGER NOT NULL, " +
+                "`tipo` TEXT NOT NULL, " +
+                "`parametro` TEXT, " +
+                "`orden` INTEGER NOT NULL, " +
+                "FOREIGN KEY(`gesto_id`) REFERENCES `gestos`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE)",
+        )
+        db.execSQL("CREATE INDEX IF NOT EXISTS `index_acciones_gesto_id` ON `acciones` (`gesto_id`)")
+    }
+}
+
+/** Las que usa la app y las que prueba MigracionesTest: una sola lista, para que no se separen. */
+val TODAS_LAS_MIGRACIONES = arrayOf(
+    MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10,
+    MIGRATION_10_11, MIGRATION_11_12, MIGRATION_12_13, MIGRATION_13_14, MIGRATION_14_15, MIGRATION_15_16, MIGRATION_16_17, MIGRATION_17_18, MIGRATION_18_19, MIGRATION_19_20,
+)

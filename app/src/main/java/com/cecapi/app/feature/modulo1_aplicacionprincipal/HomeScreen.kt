@@ -151,7 +151,7 @@ fun HomeScreen(
                 modifier = Modifier.size(84.dp).padding(bottom = 8.dp),
             )
             Text(
-                text = "VOZACCESO",
+                text = "ALIA",
                 style = CecapiEyebrowStyle,
                 color = CecapiTextMuted,
                 textAlign = TextAlign.Center,

@@ -110,6 +110,7 @@ fun SettingsScreen(
     onBack: () -> Unit,
     onLoggedOut: () -> Unit,
     onOpenAccount: () -> Unit,
+    onOpenAccessibility: () -> Unit,
     viewModel: SettingsViewModel = hiltViewModel(),
 ) {
     val simpleMode by viewModel.simpleMode.collectAsState()
@@ -120,6 +121,7 @@ fun SettingsScreen(
     val storage by viewModel.storage.collectAsState()
     val pendingClean by viewModel.pendingClean.collectAsState()
     val aiEnabled by viewModel.aiEnabled.collectAsState()
+    val wikipediaEnabled by viewModel.wikipediaEnabled.collectAsState()
     var sub by remember { mutableStateOf<SettingsSub?>(null) }
     val contexto = LocalContext.current
 
@@ -202,12 +204,19 @@ fun SettingsScreen(
                         modifier = Modifier.weight(1f),
                     )
                 }
-                // TalkBack es el lector de pantalla de Android. Se activa o se apaga en los ajustes del teléfono;
-                // con él encendido, la app sigue iluminando las tarjetas y leyendo en voz alta por su cuenta.
+                // El módulo propio de CECAPI conserva el doble volumen y los perfiles de gestos de la app
+                // de referencia. TalkBack del sistema sigue disponible como opción aparte.
                 BigBtn(
                     icon = Icons.Filled.Accessibility,
-                    label = "Lector de pantalla de Android",
-                    sub = "Abre los ajustes de Android para activar o apagar TalkBack",
+                    label = "Accesibilidad de ALIA",
+                    sub = "Lector de pantalla, doble volumen y perfiles de gestos",
+                    section = Sections.Settings,
+                    onClick = onOpenAccessibility,
+                )
+                BigBtn(
+                    icon = Icons.Filled.Accessibility,
+                    label = "TalkBack de Android",
+                    sub = "Abre los ajustes del teléfono para activarlo o apagarlo",
                     section = Sections.Settings,
                     onClick = { abrirAjustesDeAccesibilidad(contexto) },
                 )
@@ -232,7 +241,7 @@ fun SettingsScreen(
                 ScreenTopBar(eyebrow = "CONFIGURACIÓN", title = "Acerca de", onBack = { sub = null }, onCommands = viewModel::onCommandsRequested)
                 val version = remember { versionDeLaApp(contexto) }
                 TarjetaLectura(
-                    titulo = "VozAcceso",
+                    titulo = "ALIA",
                     cuerpo = "Versión $version. Asistente por voz para personas ciegas o con baja visión, en colaboración con CECAPI.",
                     icono = Icons.Filled.Info,
                     section = Sections.Settings,
@@ -279,7 +288,7 @@ fun SettingsScreen(
                 if (!notificationAccess) {
                     ActionButton(
                         "Dar acceso a notificaciones",
-                        "Dar acceso a notificaciones. Abre los ajustes de Android, donde debes buscar CECAPI y activarlo.",
+                        "Dar acceso a notificaciones. Abre los ajustes de Android, donde debes buscar ALIA y activarlo.",
                         viewModel::onOpenNotificationSettings,
                     )
                 }
@@ -310,7 +319,7 @@ fun SettingsScreen(
                         verticalArrangement = Arrangement.spacedBy(8.dp),
                     ) {
                         Text("Libre: ${espacio(usage.freeBytes)}", style = MaterialTheme.typography.titleLarge, color = MaterialTheme.colorScheme.onBackground)
-                        Text("CECAPI usa: ${espacio(usage.appBytes)}", style = MaterialTheme.typography.titleLarge, color = CecapiAccent)
+                        Text("ALIA usa: ${espacio(usage.appBytes)}", style = MaterialTheme.typography.titleLarge, color = CecapiAccent)
                     }
                 }
                 if (pendingClean) {
@@ -370,6 +379,15 @@ fun SettingsScreen(
                         "Esto no cambia el reconocimiento de voz del teléfono, que sigue funcionando igual. " +
                         "Los proveedores de inteligencia artificial no permiten su uso con menores de edad. " +
                         "También puedes decir: activa la inteligencia artificial, o desactívala.",
+                )
+                SwitchRow(
+                    label = "Búsqueda en Wikipedia",
+                    description = "Apagada por defecto. Envía el texto de una frase no entendida a Wikipedia o Wikidata",
+                    checked = wikipediaEnabled,
+                    onChange = viewModel::onWikipediaChanged,
+                    help = "Búsqueda en Wikipedia. Apagada, ninguna frase se envía a Wikipedia ni a Wikidata. " +
+                        "Encendida, cuando no entienda una frase y haya internet, el texto de la frase se envía a Wikipedia o a Wikidata, " +
+                        "servicios de terceros, sin pasar por el servidor de la aplicación.",
                 )
                 SwitchRow(
                     label = "Modo simple",

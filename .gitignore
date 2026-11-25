@@ -13,6 +13,10 @@ captures/
 .externalNativeBuild/
 .cxx/
 
+# Archivos grandes del motor de descripción: se bajan con ./gradlew descargarMotor
+app/src/main/assets/smolvlm/
+app/src/main/jniLibs/
+
 # Logs
 *.log
  

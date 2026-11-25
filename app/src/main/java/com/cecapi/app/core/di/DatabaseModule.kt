@@ -6,24 +6,7 @@ import android.database.sqlite.SQLiteDatabase
 import androidx.room.Room
 import androidx.sqlite.db.SupportSQLiteDatabase
 import com.cecapi.app.core.data.AppDatabase
-import com.cecapi.app.core.data.MIGRATION_1_2
-import com.cecapi.app.core.data.MIGRATION_2_3
-import com.cecapi.app.core.data.MIGRATION_3_4
-import com.cecapi.app.core.data.MIGRATION_4_5
-import com.cecapi.app.core.data.MIGRATION_5_6
-import com.cecapi.app.core.data.MIGRATION_6_7
-import com.cecapi.app.core.data.MIGRATION_7_8
-import com.cecapi.app.core.data.MIGRATION_8_9
-import com.cecapi.app.core.data.MIGRATION_9_10
-import com.cecapi.app.core.data.MIGRATION_10_11
-import com.cecapi.app.core.data.MIGRATION_11_12
-import com.cecapi.app.core.data.MIGRATION_12_13
-import com.cecapi.app.core.data.MIGRATION_13_14
-import com.cecapi.app.core.data.MIGRATION_14_15
-import com.cecapi.app.core.data.MIGRATION_15_16
-import com.cecapi.app.core.data.MIGRATION_16_17
-import com.cecapi.app.core.data.MIGRATION_17_18
-import com.cecapi.app.core.data.MIGRATION_18_19
+import com.cecapi.app.core.data.TODAS_LAS_MIGRACIONES
 import com.cecapi.app.core.util.PasswordHasher
 import com.cecapi.app.feature.modulo3_asistenteinteligente.ConsultaIaDao
 import com.cecapi.app.feature.modulo3_asistenteinteligente.ContextoConversacionDao
@@ -49,6 +32,8 @@ import com.cecapi.app.feature.modulo1_aplicacionprincipal.UsuarioDao
 import com.cecapi.app.feature.modulo2_asistentevoz.ComandoVozDao
 import com.cecapi.app.feature.modulo2_asistentevoz.HistorialComandoDao
 import com.cecapi.app.feature.modulo2_asistentevoz.RespuestaAuditivaDao
+import com.cecapi.app.feature.modulo10_accesibilidad.GestoAccesibilidadDao
+import com.cecapi.app.feature.modulo10_accesibilidad.PerfilAccesibilidadDao
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -71,10 +56,7 @@ object DatabaseModule {
         @ApplicationContext context: Context,
         databaseProvider: Provider<AppDatabase>,
     ): AppDatabase = Room.databaseBuilder(context, AppDatabase::class.java, "cecapi.db")
-        .addMigrations(
-            MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6,
-            MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10, MIGRATION_10_11, MIGRATION_11_12, MIGRATION_12_13, MIGRATION_13_14, MIGRATION_14_15, MIGRATION_15_16, MIGRATION_16_17, MIGRATION_17_18, MIGRATION_18_19,
-        )
+        .addMigrations(*TODAS_LAS_MIGRACIONES)
         .addCallback(object : androidx.room.RoomDatabase.Callback() {
             // Runs on every open (fresh install and upgrade alike); it only adds the missing accounts.
             // It is synchronous on purpose: the accounts must exist before the first login attempt,
@@ -134,6 +116,12 @@ object DatabaseModule {
                         put("rol", demo.rol.codigo)
                         put("origen", demo.origen)
                         put("validado", 1) // cuentas de prueba: ya confiables, no quedan pendientes de validar
+                        // Columnas NOT NULL sin valor por defecto en SQL: si faltan, SQLite ignora
+                        // la inserción con CONFLICT_IGNORE y la cuenta de prueba nunca aparece.
+                        put("usar_apodo_ranking", 0)
+                        put("solicita_validacion", 0)
+                        put("revision_cuenta", "confirmada")
+                        put("solicita_cambio_educador", 0)
                     },
                 )
             }
@@ -173,6 +161,12 @@ object DatabaseModule {
                 put("rol", RolUsuario.USUARIO.codigo)
                 put("origen", "CECAPI")
                 put("validado", 0)
+                // Esta cuenta queda pendiente de revisión, pero las columnas NOT NULL deben ir
+                // siempre; si no, la inserción se descarta sin avisar.
+                put("usar_apodo_ranking", 0)
+                put("solicita_validacion", 0)
+                put("revision_cuenta", "nueva")
+                put("solicita_cambio_educador", 0)
             },
         )
     }
@@ -245,4 +239,10 @@ object DatabaseModule {
 
     @Provides
     fun provideDescripcionEntornoDao(db: AppDatabase): DescripcionEntornoDao = db.descripcionEntornoDao()
+
+    @Provides
+    fun providePerfilAccesibilidadDao(db: AppDatabase): PerfilAccesibilidadDao = db.perfilAccesibilidadDao()
+
+    @Provides
+    fun provideGestoAccesibilidadDao(db: AppDatabase): GestoAccesibilidadDao = db.gestoAccesibilidadDao()
 }

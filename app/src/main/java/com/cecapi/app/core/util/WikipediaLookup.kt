@@ -85,7 +85,7 @@ class WikipediaLookup @Inject constructor() {
             connectTimeout = 10_000
             readTimeout = 15_000
             // Wikipedia's own etiquette (meta.wikimedia.org/wiki/User-Agent_policy) asks for a real identifier.
-            setRequestProperty("User-Agent", "CECAPI-App/1.0 (accesibilidad; proyecto de estadía)")
+            setRequestProperty("User-Agent", "ALIA-App/1.0 (accesibilidad; proyecto de estadía)")
         }
         return try {
             if (connection.responseCode !in 200..299) {

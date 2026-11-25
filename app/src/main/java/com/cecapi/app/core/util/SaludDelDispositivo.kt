@@ -6,6 +6,7 @@ import android.content.Context
 import android.content.res.Configuration
 import android.os.Build
 import android.os.PowerManager
+import android.util.Log
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -125,7 +126,12 @@ class SaludDelDispositivo @Inject constructor(
         val heap = (runtime.totalMemory() - runtime.freeMemory()).toFloat() / runtime.maxMemory().toFloat()
         // Un aviso de memoria solo cuenta unos segundos: después el sistema ya se acomodó.
         val trimVigente = if (System.currentTimeMillis() - trimEn < VIGENCIA_TRIM_MS) trim else 0
-        _nivel.value = EvaluadorDeCarga.nivel(info.lowMemory, heap, trimVigente, termico)
+        val nuevo = EvaluadorDeCarga.nivel(info.lowMemory, heap, trimVigente, termico)
+        // Deja en el registro por qué cambió el nivel (`adb logcat -s CecapiSalud`): solo números del teléfono.
+        if (nuevo != _nivel.value) {
+            Log.i("CecapiSalud", "nivel=$nuevo lowMemory=${info.lowMemory} heap=${"%.2f".format(heap)} trim=$trimVigente termico=$termico")
+        }
+        _nivel.value = nuevo
     }
 
     private companion object {

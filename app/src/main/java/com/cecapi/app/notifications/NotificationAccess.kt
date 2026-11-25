@@ -16,7 +16,7 @@ class NotificationAccess @Inject constructor(
     fun isEnabled(): Boolean =
         NotificationManagerCompat.getEnabledListenerPackages(context).contains(context.packageName)
 
-    /** Opens the system screen where the person switches CECAPI on. */
+    /** Opens the system screen where the person switches ALIA on. */
     fun openSettings() {
         context.startActivity(
             Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),

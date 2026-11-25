@@ -66,7 +66,7 @@ class NotificationReader @Inject constructor(
     private fun enableAccess(): String {
         if (access.isEnabled()) return "El acceso a notificaciones ya está activado."
         access.openSettings()
-        return "Voy a abrir los ajustes. Busca CECAPI en la lista y actívalo. Después regresa a la aplicación."
+        return "Voy a abrir los ajustes. Busca ALIA en la lista y actívalo. Después regresa a la aplicación."
     }
 
     private companion object {

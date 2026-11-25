@@ -25,13 +25,13 @@ def basic(contrasena: str, usuario: str = "admin") -> dict:
 
 
 def mediodia(dia: date) -> datetime:
-    """Mediodía local de ese día (el panel cuenta días locales), como momento con zona."""
-    return datetime.combine(dia, time(12)).astimezone()
+    """Mediodía de ese día en la zona de CECAPI (el panel cuenta esos días), como momento con zona."""
+    return datetime.combine(dia, time(12), tzinfo=db.ZONA)
 
 
 def sembrar():
     """Datos de dos días: hoy y ayer, y uno de hace 30 días que queda fuera del periodo."""
-    hoy = date.today()
+    hoy = db.hoy()
     ayer = hoy - timedelta(days=1)
     viejo = hoy - timedelta(days=30)
     with db.transaccion() as con:

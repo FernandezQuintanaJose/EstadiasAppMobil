@@ -20,6 +20,7 @@ import com.cecapi.app.feature.modulo3_asistenteinteligente.FotoParaIa
 import com.cecapi.app.feature.modulo3_asistenteinteligente.ModoVision
 import kotlinx.coroutines.Dispatchers
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharedFlow
@@ -50,15 +51,23 @@ class EnvironmentViewModel @Inject constructor(
     private val aiApi: AiAssistantApi,
     private val intentFallback: IntentFallback,
     connectivityObserver: ConnectivityObserver,
+    // Visión local: describe las fotos generales sin internet. Nunca se usa para billetes ni monedas.
+    private val iaLocal: SmolVlmLocal,
 ) : ViewModel() {
 
     private val isOnline: StateFlow<Boolean> = connectivityObserver.observe().stateIn(
         viewModelScope, SharingStarted.WhileSubscribed(5_000), true,
     )
 
-    /** La última foto que se describió en el teléfono, y si era de un billete, para mandarla a la IA si la persona lo pide. */
+    /** La última foto que se describió en el teléfono, y si era de un billete o moneda, para la segunda opinión. */
     private var ultimaFoto: String? = null
     private var ultimaFueBillete = false
+    private var ultimaFueMoneda = false
+
+    // Frase exacta que ya se dijo para la moneda. Se conserva para repetirla tal cual, sin volver
+    // a clasificar ni arriesgar una denominación distinta. En una foto general mantiene la regla
+    // de no nombrar la denominación cuando la lectura vino de un rescate.
+    private var ultimaMonedaFrase: String? = null
 
     val voiceState: StateFlow<VoiceState> = voiceEngine.state.stateIn(
         viewModelScope, SharingStarted.WhileSubscribed(5_000), VoiceState.Idle,
@@ -90,6 +99,14 @@ class EnvironmentViewModel @Inject constructor(
                 CommandCatalog.hint("cámara"),
             listenAfter = true,
         )
+        // Deja listos el modelo de visión y el traductor en segundo plano para la primera foto.
+        iaLocal.prepararTraductor()
+        iaLocal.precargar()
+    }
+
+    override fun onCleared() {
+        iaLocal.liberar()
+        super.onCleared()
     }
 
     /** Los comandos que esta pantalla responde, del más específico al más general. */
@@ -104,6 +121,17 @@ class EnvironmentViewModel @Inject constructor(
                 "describelo mejor", "describe mejor", "explicame la foto") -> describirConIa()
             has("cuanto llevo", "cuanto dinero llevo", "que llevo", "cuanto suman", "total de billetes", "dime el total") -> decirTotalBilletes()
             has("borra los billetes", "borrar billetes", "limpia los billetes", "empieza de nuevo", "reinicia los billetes", "borrar total") -> reiniciarBilletes()
+            has(
+                "agrega esta moneda", "agregar moneda", "agrega moneda", "suma esta moneda", "sumar moneda",
+                "suma la moneda", "sumar la moneda", "anota esta moneda", "anotar moneda", "anota la moneda",
+                "anotar la moneda", "guarda la moneda", "guardar la moneda", "guarda moneda", "guardar moneda",
+                "cuenta la moneda", "contar la moneda",
+            ) -> pedirSumarMoneda()
+            has("borra las monedas", "borrar monedas", "limpia las monedas", "reinicia las monedas") -> reiniciarMonedas()
+            has(
+                "que moneda es", "que moneda", "cuanto vale la moneda", "cuanto es la moneda",
+                "reconoce la moneda", "reconocer la moneda", "moneda", "monedas",
+            ) -> pedirCapturaMoneda()
             has("agrega este billete", "agregar billete", "agrega billete", "suma este billete", "sumar billete", "anota este billete", "anotar billete") -> pedirSumarBillete()
             has("billete", "billetes", "dinero", "cuanto vale", "cuanto dinero") -> pedirCapturaBillete()
             has("leer texto", "lee", "leer", "texto", "documento") -> cambiarALectura()
@@ -143,20 +171,52 @@ class EnvironmentViewModel @Inject constructor(
     // Cuenta exacta de los billetes que se han mostrado uno por uno, para sumar el total.
     private val billetesContados = mutableMapOf<DenominacionBillete, Int>()
 
-    /** También es lo que llaman el botón en pantalla y el chip "qué hay enfrente". */
+    // true cuando la próxima foto es para reconocer una moneda (dijo "qué moneda es").
+    private var buscandoMonedaActual = false
+
+    // true cuando esa moneda se va a sumar a la cuenta de "una en una" (dijo "agrega esta moneda").
+    private var sumandoMonedaActual = false
+
+    // Cuenta de las monedas que se han mostrado una por una, para sumar el total junto con los billetes.
+    private val monedasContadas = mutableMapOf<DenominacionMoneda, Int>()
+
+    /**
+     * Botón grande "Tomar foto": vibra, dice la cuenta regresiva y captura al terminar. Es el
+     * mismo botón de siempre; solo se le agregó la cuenta para que la persona tenga tiempo de
+     * apuntar. Los comandos de voz siguen tomando la foto de inmediato.
+     */
+    fun pedirFotoConCuenta() {
+        if (_uiState.value.isProcessing || !hayEspacio()) return
+        limpiarModo()
+        _uiState.value = EnvironmentUiState(isProcessing = true)
+        cues.play(FeedbackCues.Cue.TAP, withSound = false)
+        voiceEngine.speak("Tomando foto en 3, 2, 1")
+        viewModelScope.launch {
+            delay(3_200)
+            _captureRequests.tryEmit(Unit)
+        }
+    }
+
+    /** También es lo que llaman el chip "qué hay enfrente" y la voz. */
     fun pedirCaptura() {
         if (_uiState.value.isProcessing || !hayEspacio()) return
-        buscandoBilleteActual = false
-        sumandoBilleteActual = false
+        limpiarModo()
         voiceEngine.speak("Tomando foto.")
         _captureRequests.tryEmit(Unit)
+    }
+
+    private fun limpiarModo() {
+        buscandoBilleteActual = false
+        sumandoBilleteActual = false
+        buscandoMonedaActual = false
+        sumandoMonedaActual = false
     }
 
     /** Lo que dice "qué billete es" y el botón del mismo nombre: toma la foto y dice de cuánto es el billete. */
     fun pedirCapturaBillete() {
         if (_uiState.value.isProcessing || !hayEspacio()) return
+        limpiarModo()
         buscandoBilleteActual = true
-        sumandoBilleteActual = false
         voiceEngine.speak("Pon el billete plano frente a la cámara. Tomando foto.")
         _captureRequests.tryEmit(Unit)
     }
@@ -165,25 +225,73 @@ class EnvironmentViewModel @Inject constructor(
     /** "Agrega este billete": toma la foto de un billete y, si se lee con claridad, lo suma a la cuenta. */
     fun pedirSumarBillete() {
         if (_uiState.value.isProcessing || !hayEspacio()) return
+        limpiarModo()
         buscandoBilleteActual = true
         sumandoBilleteActual = true
         voiceEngine.speak("Muéstrame un solo billete, plano frente a la cámara. Tomando foto.")
         _captureRequests.tryEmit(Unit)
     }
 
-    /** "Cuánto llevo": dice cuántos billetes se han sumado y el total. */
-    fun decirTotalBilletes() {
-        voiceEngine.speak(fraseTotalBilletes(), listenAfter = true)
+    /** "Qué moneda es": toma la foto de una moneda y dice de cuánto es con el modelo del teléfono. */
+    fun pedirCapturaMoneda() {
+        if (_uiState.value.isProcessing || !hayEspacio()) return
+        limpiarModo()
+        buscandoMonedaActual = true
+        voiceEngine.speak("Pon una sola moneda sobre una superficie lisa, frente a la cámara. Tomando foto.")
+        _captureRequests.tryEmit(Unit)
     }
 
-    /** "Borra los billetes": empieza la cuenta de cero. */
+    /** "Agrega esta moneda": toma la foto de una moneda y, si se reconoce con claridad, la suma a la cuenta. */
+    fun pedirSumarMoneda() {
+        if (_uiState.value.isProcessing || !hayEspacio()) return
+        limpiarModo()
+        buscandoMonedaActual = true
+        sumandoMonedaActual = true
+        voiceEngine.speak("Muéstrame una sola moneda, sola y frente a la cámara. Tomando foto.")
+        _captureRequests.tryEmit(Unit)
+    }
+
+    /** "Cuánto llevo": dice lo que se ha sumado (billetes y monedas) y el total. */
+    fun decirTotalBilletes() {
+        voiceEngine.speak(fraseTotalDinero(), listenAfter = true)
+    }
+
+    /** "Borra los billetes": empieza la cuenta de billetes de cero (la de monedas no se toca). */
     fun reiniciarBilletes() {
         billetesContados.clear()
         voiceEngine.speak("Listo. Empecé la cuenta de billetes desde cero.", listenAfter = true)
     }
 
+    /** "Borra las monedas": empieza la cuenta de monedas de cero (la de billetes no se toca). */
+    fun reiniciarMonedas() {
+        monedasContadas.clear()
+        voiceEngine.speak("Listo. Empecé la cuenta de monedas desde cero.", listenAfter = true)
+    }
+
+    /** Billetes y monedas sumados. Si no hay monedas, queda igual que la cuenta de solo billetes. */
+    private fun fraseTotalDinero(): String {
+        if (monedasContadas.isEmpty()) return fraseTotalBilletes()
+        val partesBilletes = billetesContados.entries.sortedByDescending { it.key.valor }.map { (d, n) ->
+            if (n == 1) "un billete de ${d.nombreHablado}" else "$n billetes de ${d.nombreHablado}"
+        }
+        val partesMonedas = monedasContadas.entries.sortedByDescending { it.key.valor }.map { (d, n) ->
+            if (n == 1) "una moneda de ${d.nombreHablado}" else "$n monedas de ${d.nombreHablado}"
+        }
+        val partes = partesBilletes + partesMonedas
+        val total = billetesContados.entries.sumOf { it.key.valor * it.value } +
+            monedasContadas.entries.sumOf { it.key.valor * it.value }
+        val unidos = if (partes.size == 1) partes[0] else partes.dropLast(1).joinToString(", ") + " y " + partes.last()
+        return "Llevas $unidos. Son $total pesos en total."
+    }
+
     private fun fraseTotalBilletes(): String {
-        if (billetesContados.isEmpty()) return "Todavía no has sumado ningún billete. Di agrega este billete."
+        if (billetesContados.isEmpty()) {
+            return if (monedasContadas.isEmpty()) {
+                "Todavía no has sumado ningún billete ni moneda. Di agrega este billete o agrega esta moneda."
+            } else {
+                "No has sumado billetes. " + fraseSoloMonedas()
+            }
+        }
         val partes = billetesContados.entries.sortedByDescending { it.key.valor }.map { (d, n) ->
             if (n == 1) "un billete de ${d.nombreHablado}" else "$n billetes de ${d.nombreHablado}"
         }
@@ -193,6 +301,15 @@ class EnvironmentViewModel @Inject constructor(
         return "Llevas $unidos. Son $cuantos ${if (cuantos == 1) "billete" else "billetes"}, $total pesos en total."
     }
 
+    private fun fraseSoloMonedas(): String {
+        val partes = monedasContadas.entries.sortedByDescending { it.key.valor }.map { (d, n) ->
+            if (n == 1) "una moneda de ${d.nombreHablado}" else "$n monedas de ${d.nombreHablado}"
+        }
+        val total = monedasContadas.entries.sumOf { it.key.valor * it.value }
+        val unidos = if (partes.size == 1) partes[0] else partes.dropLast(1).joinToString(", ") + " y " + partes.last()
+        return "Llevas $unidos. Son $total pesos en total."
+    }
+
     /** Suma el billete de la foto a la cuenta solo si es uno solo y se leyó con claridad; si no, dice por qué. */
     private fun sumarALaCuenta(resultado: ResultadoBillete?): String {
         val d = resultado?.denominacion
@@ -200,13 +317,22 @@ class EnvironmentViewModel @Inject constructor(
             return "No sumé nada. Para llevar la cuenta, muéstrame un solo billete a la vez, plano y con buena luz."
         }
         billetesContados[d] = (billetesContados[d] ?: 0) + 1
-        return "Anotado, un billete de ${d.nombreHablado}. " + fraseTotalBilletes()
+        return "Anotado, un billete de ${d.nombreHablado}. " + fraseTotalDinero()
+    }
+
+    /** Suma la moneda de la foto a la cuenta solo si se reconoció con claridad; si no, dice por qué. */
+    private fun sumarMonedaALaCuenta(resultado: ResultadoMoneda?): String {
+        val d = resultado?.denominacion
+        if (resultado == null || d == null || !resultado.esSegura) {
+            return "No sumé nada. Para llevar la cuenta, muéstrame una sola moneda a la vez, sola y con buena luz."
+        }
+        monedasContadas[d] = (monedasContadas[d] ?: 0) + 1
+        return "Anotada, una moneda de ${d.nombreHablado}. " + fraseTotalDinero()
     }
 
     fun tomarOtraFoto() {
         if (_uiState.value.isProcessing) return
-        buscandoBilleteActual = false
-        sumandoBilleteActual = false
+        limpiarModo()
         _uiState.value = EnvironmentUiState()
         voiceEngine.speak("Listo. Apunta la cámara y di qué hay enfrente.")
     }
@@ -219,19 +345,26 @@ class EnvironmentViewModel @Inject constructor(
     fun describirConIa() {
         if (_uiState.value.isProcessing) return
         val foto = ultimaFoto
-        when {
-            foto == null -> {
-                voiceEngine.speak("Primero toma una foto. Di qué hay enfrente.", listenAfter = true)
-                return
-            }
-            !intentFallback.disponible -> {
-                voiceEngine.speak(AiMessages.DISABLED, listenAfter = true)
-                return
-            }
-            !isOnline.value -> {
-                voiceEngine.speak("No hay conexión a internet. La descripción con inteligencia artificial necesita internet.", listenAfter = true)
-                return
-            }
+        if (foto == null) {
+            voiceEngine.speak("Primero toma una foto. Di qué hay enfrente.", listenAfter = true)
+            return
+        }
+        // Las monedas siempre las decide el modelo especializado del teléfono. Se repite la frase
+        // local antes de revisar internet o la IA del servidor: reconocer una moneda no depende de
+        // la conexión, y la denominación nunca la pone la descripción.
+        if (ultimaFueMoneda) {
+            val frase = ultimaMonedaFrase
+                ?: "No logré reconocer la moneda. Ponla sola sobre una superficie lisa, con buena luz, y pregunta otra vez."
+            voiceEngine.speak(frase, listenAfter = true)
+            return
+        }
+        if (!intentFallback.disponible) {
+            voiceEngine.speak("No puedo darte más detalle ahora. Revisa la configuración.", listenAfter = true)
+            return
+        }
+        if (!isOnline.value) {
+            voiceEngine.speak("No hay conexión a internet. No puedo darte más detalle ahora.", listenAfter = true)
+            return
         }
         val modo = if (ultimaFueBillete) ModoVision.BILLETE else ModoVision.ESCENA
         _uiState.value = _uiState.value.copy(isProcessing = true, errorMessage = null)
@@ -292,8 +425,7 @@ class EnvironmentViewModel @Inject constructor(
      */
     fun pedirGaleria() {
         if (_uiState.value.isProcessing || !hayEspacio()) return
-        buscandoBilleteActual = false
-        sumandoBilleteActual = false
+        limpiarModo()
         voiceEngine.speak("Voy a abrir tus fotos. Elige la imagen que quieres que describa; solo veré esa.")
         _pickRequests.tryEmit(Unit)
     }
@@ -321,21 +453,49 @@ class EnvironmentViewModel @Inject constructor(
         _uiState.value = EnvironmentUiState(isProcessing = true, photoPath = rutaImagen)
         val buscarBillete = buscandoBilleteActual
         val sumarBillete = sumandoBilleteActual
-        buscandoBilleteActual = false
-        sumandoBilleteActual = false
-        voiceEngine.speak(if (buscarBillete) "Leyendo el billete." else "Analizando el entorno.")
+        val buscarMoneda = buscandoMonedaActual
+        val sumarMoneda = sumandoMonedaActual
+        limpiarModo()
+        // Las fotos generales usan la descripción local de forma automática e invisible. Billetes y
+        // monedas tienen su propio camino y nunca pasan por el modelo de descripción.
+        val usarIa = !buscarBillete && !buscarMoneda
+        voiceEngine.speak(
+            when {
+                buscarBillete -> "Leyendo el billete."
+                buscarMoneda -> "Reconociendo la moneda."
+                else -> "Analizando el entorno."
+            },
+        )
         ultimaFoto = rutaImagen
         ultimaFueBillete = buscarBillete
+        ultimaFueMoneda = buscarMoneda
+        ultimaMonedaFrase = null
         viewModelScope.launch {
-            repository.processCapturedPhoto(usuarioId, imageUri, rutaImagen, buscarBillete)
+            repository.processCapturedPhoto(
+                usuarioId = usuarioId,
+                imageUri = imageUri,
+                rutaImagen = rutaImagen,
+                buscarBillete = buscarBillete,
+                buscarMoneda = buscarMoneda,
+                usarIa = usarIa,
+            )
                 .onSuccess { result ->
+                    // Una foto general puede haber terminado en billete por la revisión automática.
+                    // Para la segunda opinión se conserva ese modo y no se describe como escena.
+                    ultimaFueBillete = buscarBillete || result.billetes != null
+                    ultimaFueMoneda = buscarMoneda || result.monedas != null
+                    ultimaMonedaFrase = if (result.monedas != null) result.descripcion else null
                     // Si era para llevar la cuenta, lo que se dice es lo anotado y el total, no la descripción suelta.
-                    val dicho = if (sumarBillete) sumarALaCuenta(result.billetes) else result.descripcion
+                    val dicho = when {
+                        sumarBillete -> sumarALaCuenta(result.billetes)
+                        sumarMoneda -> sumarMonedaALaCuenta(result.monedas)
+                        else -> result.descripcion
+                    }
                     _uiState.value = EnvironmentUiState(descripcion = dicho, photoPath = rutaImagen)
                     voiceEngine.speak(dicho)
                 }
                 .onFailure {
-                    val message = "No pude analizar la imagen. Intenta de nuevo."
+                    val message = "No lo logré describir. Intenta con otra foto."
                     _uiState.value = EnvironmentUiState(errorMessage = message)
                     cues.play(FeedbackCues.Cue.ERROR)
                     voiceEngine.speak(message, listenAfter = true)

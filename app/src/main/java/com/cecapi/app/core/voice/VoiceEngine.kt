@@ -4,6 +4,7 @@ import android.Manifest
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.media.AudioAttributes
 import android.media.AudioFormat
 import android.media.AudioManager
 import android.media.AudioRecord
@@ -22,6 +23,7 @@ import android.speech.tts.TextToSpeech
 import android.speech.tts.UtteranceProgressListener
 import android.speech.tts.Voice
 import android.util.Log
+import android.view.accessibility.AccessibilityManager
 import androidx.core.content.ContextCompat
 import com.cecapi.app.core.util.ConnectivityObserver
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -88,7 +90,15 @@ class VoiceEngine @Inject constructor(
         }
     }
     private var ttsReady = false
-    private val pendingSpeech = ArrayDeque<Pair<String, Boolean>>()
+
+    /** Texto pendiente mientras el motor de voz termina de iniciar, con su velocidad propia. */
+    private data class SpeechRequest(
+        val text: String,
+        val listenAfter: Boolean,
+        val speedFactor: Float,
+    )
+
+    private val pendingSpeech = ArrayDeque<SpeechRequest>()
 
     private val _mode = MutableStateFlow(AssistantMode.ACTIVE)
     val mode: StateFlow<AssistantMode> = _mode.asStateFlow()
@@ -167,6 +177,14 @@ class VoiceEngine @Inject constructor(
                 cues.play(FeedbackCues.Cue.ERROR)
             }
             if (ttsReady) {
+                // Voz de accesibilidad, no de multimedia: TalkBack no la baja de volumen (ducking) mientras habla,
+                // y usa el volumen de accesibilidad del teléfono. Antes salía por multimedia y se oía muy bajo con TalkBack.
+                textToSpeech?.setAudioAttributes(
+                    AudioAttributes.Builder()
+                        .setUsage(AudioAttributes.USAGE_ASSISTANCE_ACCESSIBILITY)
+                        .setContentType(AudioAttributes.CONTENT_TYPE_SPEECH)
+                        .build(),
+                )
                 selectSpanishVoice()
                 applyProfile()
                 registrarVoces()
@@ -211,8 +229,8 @@ class VoiceEngine @Inject constructor(
                     }
                 })
                 while (pendingSpeech.isNotEmpty()) {
-                    val (text, listenAfter) = pendingSpeech.removeFirst()
-                    speakInternal(text, listenAfter)
+                    val (text, listenAfter, speedFactor) = pendingSpeech.removeFirst()
+                    speakInternal(text, listenAfter, speedFactor)
                 }
             }
         }
@@ -253,14 +271,20 @@ class VoiceEngine @Inject constructor(
      * Lee [text] en voz alta. Interrumpe lo que se esté diciendo en ese momento.
      * Con [listenAfter] el micrófono se abre en cuanto termina la lectura, para capturar la respuesta del usuario.
      */
-    fun speak(text: String, listenAfter: Boolean = false, force: Boolean = false) {
+    fun speak(
+        text: String,
+        listenAfter: Boolean = false,
+        force: Boolean = false,
+        /** Ajusta solo esta lectura (por ejemplo, 0.9 para el lector de pantalla). */
+        speedFactor: Float = 1f,
+    ) {
         // Silenciado o detenido: permanecer callado. Solo la despedida tras "para" pasa ([force]).
         if (!force && _mode.value != AssistantMode.ACTIVE) return
         if (!ttsReady) {
-            pendingSpeech.addLast(text to listenAfter)
+            pendingSpeech.addLast(SpeechRequest(text, listenAfter, speedFactor))
             return
         }
-        speakInternal(text, listenAfter)
+        speakInternal(text, listenAfter, speedFactor)
     }
 
     /** Ejecuta [block], una solicitud que puede ser lenta, y le habla a la persona durante la espera para que sepa que sigue funcionando. */
@@ -282,23 +306,27 @@ class VoiceEngine @Inject constructor(
         }
     }
 
-    private fun speakInternal(rawText: String, listenAfter: Boolean) {
+    private fun speakInternal(rawText: String, listenAfter: Boolean, speedFactor: Float = 1f) {
         // El texto de una IA o de un documento escaneado puede traer markdown o emojis que no se deben leer en voz alta.
         val text = VoiceText.forSpeech(rawText).ifBlank { return }
         pauseWakeWord()
         lastSpoken = text
         listenAfterSpeech = listenAfter
         _state.value = VoiceState.Speaking(text)
-        val params = Bundle().apply { putFloat(TextToSpeech.Engine.KEY_PARAM_VOLUME, currentVolume) }
+        val parametros = Bundle().apply { putFloat(TextToSpeech.Engine.KEY_PARAM_VOLUME, currentVolume) }
         // El motor de voz de Android rechaza más de unos 4000 caracteres de una vez (respuestas largas de la IA,
         // documentos escaneados), así que el texto largo se envía en partes, dividido al final de cada oración.
         val parts = splitForSpeech(text)
         chunksLeft.set(parts.size)
+        // Con TalkBack encendido, se le pide que se calle antes de hablar, para que las dos voces no se encimen.
+        callarLectorDePantalla()
         onTtsThread { tts ->
             ajustarVozALaConexion()
+            // Cada lectura fija su velocidad; así una lectura lenta no deja lenta a la siguiente.
+            tts.setSpeechRate((currentRate * speedFactor).coerceIn(0.5f, 2.0f))
             parts.forEachIndexed { index, part ->
                 val mode = if (index == 0) TextToSpeech.QUEUE_FLUSH else TextToSpeech.QUEUE_ADD
-                tts.speak(part, mode, params, UUID.randomUUID().toString())
+                tts.speak(part, mode, parametros, UUID.randomUUID().toString())
             }
         }
         startBargeInDetection()
@@ -411,12 +439,16 @@ class VoiceEngine @Inject constructor(
         val tts = textToSpeech ?: return emptyList()
         if (!ttsReady) return emptyList()
         return runCatching {
-            CatalogoDeVoces.armar(vocesEnEspanol(tts).map { it.aVozDelMotor() }, connectivity.hayInternetAhora())
+            CatalogoDeVoces.armar(
+                vocesEnEspanol(tts).map { it.aVozDelMotor() },
+                connectivity.hayInternetAhora(),
+                CatalogoDeVoces.conocidasDe(tts.defaultEngine),
+            )
         }.getOrDefault(emptyList())
     }
 
     private fun vocesEnEspanol(tts: TextToSpeech): List<Voice> =
-        tts.voices.orEmpty().filter { it.locale.language == "es" }
+        tts.voices.orEmpty().filter { CatalogoDeVoces.esEspanol(it.locale.language) }
 
     private fun Voice.aVozDelMotor() = VozDelMotor(
         nombre = name,
@@ -429,7 +461,8 @@ class VoiceEngine @Inject constructor(
     private fun registrarVoces() {
         val tts = textToSpeech ?: return
         runCatching {
-            Log.i("CecapiVoces", "motor=${tts.defaultEngine} modelo=${Build.MANUFACTURER} ${Build.MODEL} android=${Build.VERSION.SDK_INT}")
+            val motores = runCatching { tts.engines.joinToString { it.name } }.getOrDefault("?")
+            Log.i("CecapiVoces", "motor=${tts.defaultEngine} motores=[$motores] modelo=${Build.MANUFACTURER} ${Build.MODEL} android=${Build.VERSION.SDK_INT}")
             vocesEnEspanol(tts).map { it.aVozDelMotor() }.sortedBy { it.nombre }.forEach {
                 Log.i("CecapiVoces", "${it.nombre} internet=${it.necesitaInternet} sinInstalar=${it.sinInstalar}")
             }
@@ -641,20 +674,43 @@ class VoiceEngine @Inject constructor(
             override fun onEvent(eventType: Int, params: Bundle?) = Unit
         })
 
-        val intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
-            putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
+        recognizer.startListening(recognizerIntent().apply { putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS, false) })
+    }
+
+    /**
+     * Petición al reconocedor de voz. Sin internet se pide el reconocimiento dentro del teléfono
+     * (paquete de español sin conexión de Google); con internet se deja el de la nube, que entiende mejor.
+     */
+    private fun recognizerIntent(): Intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
+        putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
+        if (connectivity.hayInternetAhora()) {
             putExtra(RecognizerIntent.EXTRA_LANGUAGE, "es-MX")
-            putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS, false)
+        } else {
+            // Google no tiene paquete sin conexión para es-MX (logcat del OPPO: "MDD does not support locale: es-MX");
+            // el español de Estados Unidos sí existe y entiende igual los comandos.
+            putExtra(RecognizerIntent.EXTRA_LANGUAGE, "es-US")
+            putExtra(RecognizerIntent.EXTRA_PREFER_OFFLINE, true)
         }
-        recognizer.startListening(intent)
+    }
+
+    /** Pide a TalkBack (u otro lector) que deje de hablar, si está encendido. */
+    private fun callarLectorDePantalla() {
+        val am = context.getSystemService(Context.ACCESSIBILITY_SERVICE) as? AccessibilityManager ?: return
+        if (am.isEnabled && am.isTouchExplorationEnabled) runCatching { am.interrupt() }
     }
 
     /** Qué decirle al usuario para un código de error del reconocedor de voz, o null si debe quedarse en silencio. */
     private fun recognitionErrorMessage(error: Int): String? = when (error) {
         SpeechRecognizer.ERROR_NO_MATCH, SpeechRecognizer.ERROR_SPEECH_TIMEOUT ->
             "No te escuché. Toca el micrófono para intentarlo otra vez."
-        SpeechRecognizer.ERROR_NETWORK, SpeechRecognizer.ERROR_NETWORK_TIMEOUT, SpeechRecognizer.ERROR_SERVER ->
-            "No pude reconocer tu voz porque la conexión a internet falló. Intenta de nuevo."
+        SpeechRecognizer.ERROR_NETWORK, SpeechRecognizer.ERROR_NETWORK_TIMEOUT, SpeechRecognizer.ERROR_SERVER,
+        ERROR_LANGUAGE_NOT_SUPPORTED, ERROR_LANGUAGE_UNAVAILABLE ->
+            if (connectivity.hayInternetAhora()) {
+                "No pude reconocer tu voz porque la conexión a internet falló. Intenta de nuevo."
+            } else {
+                "No hay internet y el teléfono no tiene el español para reconocer voz sin conexión. " +
+                    "Con internet, pide ayuda para descargarlo en los ajustes de voz de Google."
+            }
         SpeechRecognizer.ERROR_INSUFFICIENT_PERMISSIONS ->
             "Necesito permiso para usar el micrófono. Actívalo en los ajustes de la aplicación."
         SpeechRecognizer.ERROR_AUDIO -> "Hubo un problema con el micrófono. Intenta de nuevo."
@@ -725,7 +781,9 @@ class VoiceEngine @Inject constructor(
                 if (wakeRecognizer !== recognizer) return
                 val isNetworkError = error == SpeechRecognizer.ERROR_NETWORK ||
                     error == SpeechRecognizer.ERROR_NETWORK_TIMEOUT ||
-                    error == SpeechRecognizer.ERROR_SERVER
+                    error == SpeechRecognizer.ERROR_SERVER ||
+                    // Sin internet y sin paquete de español sin conexión: también espera creciente, no cada 300 ms.
+                    error == ERROR_LANGUAGE_NOT_SUPPORTED || error == ERROR_LANGUAGE_UNAVAILABLE
                 // Sin internet el reconocedor en línea falla de inmediato, siempre: reiniciar a los 300ms de
                 // siempre sondearía así para siempre y agotaría la batería. Esperar cada vez más, duplicando
                 // en cada falla, solo para problemas de red; un "nadie dijo nada" normal (NO_MATCH/timeout)
@@ -781,13 +839,7 @@ class VoiceEngine @Inject constructor(
             override fun onPartialResults(partialResults: Bundle?) = Unit
             override fun onEvent(eventType: Int, params: Bundle?) = Unit
         })
-        recognizer.startListening(
-            Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
-                putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
-                putExtra(RecognizerIntent.EXTRA_LANGUAGE, "es-MX")
-                putExtra(RecognizerIntent.EXTRA_MAX_RESULTS, 3)
-            },
-        )
+        recognizer.startListening(recognizerIntent().apply { putExtra(RecognizerIntent.EXTRA_MAX_RESULTS, 3) })
     }
 
     /** "hola" solo responde "¿En qué te puedo ayudar?"; "hola iniciar sesión" ejecuta el comando de inmediato. */
@@ -824,6 +876,11 @@ class VoiceEngine @Inject constructor(
 
     private companion object {
         const val TAG = "CecapiVoice"
+
+        // SpeechRecognizer.ERROR_LANGUAGE_NOT_SUPPORTED / ERROR_LANGUAGE_UNAVAILABLE (Android 12+), con su
+        // valor para compilar con minSdk 26: llegan sin internet cuando falta el paquete de español sin conexión.
+        const val ERROR_LANGUAGE_NOT_SUPPORTED = 12
+        const val ERROR_LANGUAGE_UNAVAILABLE = 13
         const val WAKE_MIN_CONFIDENCE = 0.6f
         const val COMMAND_MIN_CONFIDENCE = 0.4f
         val SENTENCE_END = Regex("(?<=[.!?…])\\s+")
