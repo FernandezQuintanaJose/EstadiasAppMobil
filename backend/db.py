@@ -23,11 +23,13 @@ escribir a uno a la vez y, sin él, varias peticiones al mismo tiempo chocarían
 "database is locked". PostgreSQL no lo necesita.
 """
 
+import logging
 import os
 import threading
 from contextlib import contextmanager
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
 from pathlib import Path
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from sqlalchemy import (
     Boolean, CheckConstraint, Column, DateTime, ForeignKey, Index, Integer, MetaData, String, Table, Text,
@@ -35,7 +37,23 @@ from sqlalchemy import (
 )
 from sqlalchemy.engine import Engine
 
+log = logging.getLogger("cecapi.db")
+
 AQUI = Path(__file__).resolve().parent
+ZONA_POR_DEFECTO = "America/Mexico_City"
+
+
+def _zona() -> ZoneInfo:
+    nombre = os.getenv("CECAPI_ZONA", "").strip() or ZONA_POR_DEFECTO
+    try:
+        return ZoneInfo(nombre)
+    except (ZoneInfoNotFoundError, ValueError):
+        log.warning("CECAPI_ZONA no es una zona válida (%s); se usa %s.", nombre, ZONA_POR_DEFECTO)
+        return ZoneInfo(ZONA_POR_DEFECTO)
+
+
+# El "día" del límite de la IA y del panel es el de CECAPI, no el de la computadora donde corre el servidor.
+ZONA = _zona()
 
 metadata = MetaData()
 
@@ -82,6 +100,58 @@ uso_diario = Table(
     Column("proveedor", String(40), primary_key=True, comment="groq, gemini, groq_vision"),
     Column("peticiones", Integer, nullable=False, default=0),
     Column("aviso_enviado", Boolean, nullable=False, default=False, comment="ya avisó del 80 por ciento"),
+)
+
+# ---------------------------------------------------------------- Cuentas (decisión 0020)
+# usuario_clave y correo_clave son el usuario y el correo en minúsculas: así la unicidad no depende de
+# cómo se escribió ("PEPE" y "pepe" son la misma cuenta) y la revisa la base, no el código.
+cuentas = Table(
+    "cuentas", metadata,
+    Column("id", Integer, primary_key=True, autoincrement=True),
+    Column("usuario", String(30), nullable=False, comment="como lo escribió la persona"),
+    Column("usuario_clave", String(30), nullable=False, unique=True, comment="usuario en minúsculas"),
+    Column("correo", String(254), nullable=False),
+    Column("correo_clave", String(254), nullable=False, unique=True, comment="correo en minúsculas"),
+    Column("contrasena_hash", String(255), nullable=False, comment="Argon2id con sal propia"),
+    Column("verificada", Boolean, nullable=False, default=False, comment="ya confirmó el código del correo"),
+    Column("creada_en", DateTime(timezone=True), nullable=False),
+    Column("mayor_de_edad_en", DateTime(timezone=True), nullable=False, comment="cuándo declaró tener 18 o más"),
+    Column("aceptacion_version", String(20), nullable=True, comment="versión de las políticas aceptadas"),
+    Column("aceptacion_en", DateTime(timezone=True), nullable=True),
+    Column("fallos", Integer, nullable=False, default=0, comment="intentos de acceso fallidos seguidos"),
+    Column("bloqueada_hasta", DateTime(timezone=True), nullable=True),
+)
+
+PROPOSITOS = ("registro", "recuperar")
+
+codigos = Table(
+    "codigos", metadata,
+    Column("id", Integer, primary_key=True, autoincrement=True),
+    Column("cuenta_id", Integer, ForeignKey("cuentas.id", ondelete="CASCADE"), nullable=False),
+    Column("proposito", String(12), nullable=False, comment="registro o recuperar"),
+    Column("codigo_hash", String(64), nullable=False, comment="SHA-256 del código con sal; nunca el código"),
+    Column("sal", String(32), nullable=False),
+    Column("creado_en", DateTime(timezone=True), nullable=False),
+    Column("expira_en", DateTime(timezone=True), nullable=False),
+    Column("intentos", Integer, nullable=False, default=0),
+    CheckConstraint("proposito IN ('registro', 'recuperar')", name="ck_codigos_proposito"),
+    Index("ix_codigos_cuenta", "cuenta_id", "proposito"),
+)
+
+sesiones = Table(
+    "sesiones", metadata,
+    Column("token_hash", String(64), primary_key=True, comment="SHA-256 del token; el token no se guarda"),
+    Column("cuenta_id", Integer, ForeignKey("cuentas.id", ondelete="CASCADE"), nullable=False),
+    Column("creada_en", DateTime(timezone=True), nullable=False),
+    Column("expira_en", DateTime(timezone=True), nullable=False),
+    Index("ix_sesiones_cuenta", "cuenta_id"),
+)
+
+uso_cuentas = Table(
+    "uso_cuentas", metadata,
+    Column("cuenta_id", Integer, ForeignKey("cuentas.id", ondelete="CASCADE"), primary_key=True),
+    Column("fecha", String(10), primary_key=True, comment="AAAA-MM-DD en la zona de CECAPI"),
+    Column("peticiones", Integer, nullable=False, default=0),
 )
 
 _motor: Engine | None = None
@@ -161,6 +231,11 @@ def leer():
 
 def ahora() -> datetime:
     return datetime.now(timezone.utc)
+
+
+def hoy(momento: datetime | None = None) -> date:
+    """El día de hoy en la zona de CECAPI."""
+    return (momento or ahora()).astimezone(ZONA).date()
 
 
 def como_utc(momento: datetime) -> datetime:
