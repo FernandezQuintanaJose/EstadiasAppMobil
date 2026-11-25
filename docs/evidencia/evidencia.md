@@ -118,3 +118,13 @@ Cuenta de demostración DEMO26.
 |---|---|---|---|
 | Consulta escrita "que es un circulo" (14:51) | Se envía y responde | Respondió la definición de círculo en unos 40 s | 2026-11-25/consultas_escrita_tras_arreglo.png |
 | Confirmación de lo oído por voz | Pregunta antes de enviar | **no comprobado en el teléfono** (solo pruebas unitarias). A las 14:52 no se había enviado nada nuevo, pero no se sabe si la app oyó algo | ConfirmacionDeConsultaTest |
+
+### Prueba por voz de Consultas (25-nov 14:54–15:08, CPH2387, Android 12)
+| Prueba | Esperado | Obtenido | Evidencia |
+|---|---|---|---|
+| A: preguntar por voz y responder "no" | Pregunta "¿La envío?" y no envía | La persona que probó reporta que la app preguntó y que respondió "no"; la pantalla siguió sin consulta ni respuesta (14:54) | 2026-11-25/voz_A_no_enviar.png |
+| B: preguntar por voz y responder "sí" | Envía y responde | **no comprobado**. En los intentos con registro temporal ninguna frase llegó a Consultas | logcat |
+| **Pendiente: ventana del micrófono principal** | La persona alcanza a hablar | En un toque sin que nadie hablara (15:07:51), el reconocedor de Google abrió el micrófono, marcó inicio de sonido a los 0.5 s, lo dio por terminado a los 2.0 s y devolvió NO_SPEECH_DETECTED (error 7 en la app). **No comprobado qué sonido oyó** (posible pitido de la app o ruido). Además el registro muestra "Failed to get language pack of required locale: error 12" (es-MX sin conexión) | logcat: RecognitionServiceImpl, SodaSpeechRecognizer, CecapiVoice |
+| **Pendiente: escucha de fondo silenciosa** | Si la app oye algo y lo ignora, avisa | Con el micrófono principal cerrado, la escucha de fondo recibió voz en Consultas con `openMic=false` y la descartó sin decir nada. Quien no ve puede creer que la app sigue escuchando. Podría afectar también al dictado de contraseña (no comprobado) | logcat; VoiceEngine.kt |
+
+El registro temporal de diagnóstico se quitó (no está en ningún commit). Después: 235 pruebas, 0 fallos (15:13) y la versión limpia instalada en el teléfono.
