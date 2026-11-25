@@ -253,7 +253,7 @@ class EnvironmentViewModel @Inject constructor(
 
     /** "Cuánto llevo": dice lo que se ha sumado (billetes y monedas) y el total. */
     fun decirTotalBilletes() {
-        voiceEngine.speak(fraseTotalDinero(), listenAfter = true)
+        voiceEngine.speak(fraseTotalDinero(), listenAfter = true, interrumpible = false)
     }
 
     /** "Borra los billetes": empieza la cuenta de billetes de cero (la de monedas no se toca). */
@@ -379,7 +379,7 @@ class EnvironmentViewModel @Inject constructor(
             resultado
                 .onSuccess { texto ->
                     _uiState.value = _uiState.value.copy(isProcessing = false, descripcion = texto)
-                    voiceEngine.speak(texto, listenAfter = true)
+                    voiceEngine.speak(texto, listenAfter = true, interrumpible = false)
                 }
                 .onFailure { error ->
                     _uiState.value = _uiState.value.copy(isProcessing = false)
@@ -394,7 +394,7 @@ class EnvironmentViewModel @Inject constructor(
         if (descripcion == null) {
             voiceEngine.speak("Todavía no he descrito nada. Di qué hay enfrente.", listenAfter = true)
         } else {
-            voiceEngine.speak(descripcion)
+            voiceEngine.speak(descripcion, interrumpible = false)
         }
     }
 
@@ -492,7 +492,7 @@ class EnvironmentViewModel @Inject constructor(
                         else -> result.descripcion
                     }
                     _uiState.value = EnvironmentUiState(descripcion = dicho, photoPath = rutaImagen)
-                    voiceEngine.speak(dicho)
+                    voiceEngine.speak(dicho, interrumpible = false)
                 }
                 .onFailure {
                     val message = "No lo logré describir. Intenta con otra foto."

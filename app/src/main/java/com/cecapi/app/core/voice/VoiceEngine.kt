@@ -96,6 +96,7 @@ class VoiceEngine @Inject constructor(
         val text: String,
         val listenAfter: Boolean,
         val speedFactor: Float,
+        val interrumpible: Boolean = true,
     )
 
     private val pendingSpeech = ArrayDeque<SpeechRequest>()
@@ -229,8 +230,8 @@ class VoiceEngine @Inject constructor(
                     }
                 })
                 while (pendingSpeech.isNotEmpty()) {
-                    val (text, listenAfter, speedFactor) = pendingSpeech.removeFirst()
-                    speakInternal(text, listenAfter, speedFactor)
+                    val pedido = pendingSpeech.removeFirst()
+                    speakInternal(pedido.text, pedido.listenAfter, pedido.speedFactor, pedido.interrumpible)
                 }
             }
         }
@@ -277,14 +278,20 @@ class VoiceEngine @Inject constructor(
         force: Boolean = false,
         /** Ajusta solo esta lectura (por ejemplo, 0.9 para el lector de pantalla). */
         speedFactor: Float = 1f,
+        /**
+         * Con false, el monitor de interrupción por voz no se activa durante esta lectura: sirve para las descripciones largas
+         * (el entorno, una foto, un documento), que no deben cortarse solas si el micrófono capta la propia voz del asistente.
+         * La persona sigue pudiendo detenerlas con el micrófono o con "silencio" y "para" al terminar la frase.
+         */
+        interrumpible: Boolean = true,
     ) {
         // Silenciado o detenido: permanecer callado. Solo la despedida tras "para" pasa ([force]).
         if (!force && _mode.value != AssistantMode.ACTIVE) return
         if (!ttsReady) {
-            pendingSpeech.addLast(SpeechRequest(text, listenAfter, speedFactor))
+            pendingSpeech.addLast(SpeechRequest(text, listenAfter, speedFactor, interrumpible))
             return
         }
-        speakInternal(text, listenAfter, speedFactor)
+        speakInternal(text, listenAfter, speedFactor, interrumpible)
     }
 
     /** Ejecuta [block], una solicitud que puede ser lenta, y le habla a la persona durante la espera para que sepa que sigue funcionando. */
@@ -306,7 +313,7 @@ class VoiceEngine @Inject constructor(
         }
     }
 
-    private fun speakInternal(rawText: String, listenAfter: Boolean, speedFactor: Float = 1f) {
+    private fun speakInternal(rawText: String, listenAfter: Boolean, speedFactor: Float = 1f, interrumpible: Boolean = true) {
         // El texto de una IA o de un documento escaneado puede traer markdown o emojis que no se deben leer en voz alta.
         val text = VoiceText.forSpeech(rawText).ifBlank { return }
         pauseWakeWord()
@@ -329,7 +336,7 @@ class VoiceEngine @Inject constructor(
                 tts.speak(part, mode, parametros, UUID.randomUUID().toString())
             }
         }
-        startBargeInDetection()
+        if (interrumpible) startBargeInDetection() else stopBargeInDetection()
     }
 
     /**
@@ -539,8 +546,9 @@ class VoiceEngine @Inject constructor(
             record.release()
             return
         }
+        val ecoCancelado = AcousticEchoCanceler.isAvailable()
         val effects = listOfNotNull(
-            if (AcousticEchoCanceler.isAvailable()) AcousticEchoCanceler.create(record.audioSessionId) else null,
+            if (ecoCancelado) AcousticEchoCanceler.create(record.audioSessionId) else null,
             if (NoiseSuppressor.isAvailable()) NoiseSuppressor.create(record.audioSessionId) else null,
         )
         effects.forEach { it.enabled = true }
@@ -549,13 +557,19 @@ class VoiceEngine @Inject constructor(
         bargeInToken = token
         thread(name = "cecapi-barge-in", isDaemon = true) {
             val frame = ShortArray(BARGE_IN_SAMPLE_RATE * BARGE_IN_FRAME_MS / 1000)
-            var loudMs = 0
+            // La decisión vive en DetectorInterrupcion (con pruebas): mide el ruido y la propia voz al empezar y luego exige un volumen
+            // claramente mayor y sostenido. Sin cancelador de eco se pide más margen y más duración.
+            val detector = if (ecoCancelado) {
+                DetectorInterrupcion(cuadroMs = BARGE_IN_FRAME_MS)
+            } else {
+                DetectorInterrupcion(
+                    cuadroMs = BARGE_IN_FRAME_MS,
+                    sostenidoMs = DetectorInterrupcion.SOSTENIDO_SIN_ECO_MS,
+                    margenSobrePico = DetectorInterrupcion.MARGEN_SIN_ECO,
+                )
+            }
             var peak = 0.0
             var sinceLogMs = 0
-            var settleSum = 0.0
-            var settleFrames = 0
-            var threshold = BARGE_IN_RMS_THRESHOLD.toDouble()
-            val startedAt = SystemClock.elapsedRealtime()
             try {
                 record.startRecording()
                 while (token.get()) {
@@ -564,26 +578,14 @@ class VoiceEngine @Inject constructor(
                     var sum = 0.0
                     for (i in 0 until read) sum += frame[i].toDouble() * frame[i]
                     val rms = sqrt(sum / read)
-                    // Los primeros instantes miden el ruido del cuarto (un salón de clases nunca está en silencio).
-                    // El habla solo interrumpe cuando es claramente más fuerte que eso, para que la plática de los niños no corte al asistente.
-                    if (SystemClock.elapsedRealtime() - startedAt < BARGE_IN_SETTLE_MS) {
-                        settleSum += rms
-                        settleFrames++
-                        continue
-                    }
-                    if (settleFrames > 0) {
-                        threshold = maxOf(BARGE_IN_RMS_THRESHOLD.toDouble(), settleSum / settleFrames * BARGE_IN_NOISE_MARGIN)
-                        settleFrames = 0
-                    }
                     peak = maxOf(peak, rms)
                     sinceLogMs += BARGE_IN_FRAME_MS
                     if (sinceLogMs >= 1_000) {
-                        Log.d(TAG, "rms peak=${peak.toInt()} threshold=${threshold.toInt()}")
+                        Log.d(TAG, "rms peak=${peak.toInt()} threshold=${detector.umbral.toInt()} eco=$ecoCancelado")
                         peak = 0.0
                         sinceLogMs = 0
                     }
-                    loudMs = if (rms > threshold) loudMs + BARGE_IN_FRAME_MS else maxOf(0, loudMs - BARGE_IN_FRAME_MS / 2)
-                    if (loudMs >= BARGE_IN_HOLD_MS) {
+                    if (detector.procesar(rms)) {
                         if (token.getAndSet(false)) mainHandler.post { onBargeIn(token) }
                     }
                 }
@@ -893,10 +895,6 @@ class VoiceEngine @Inject constructor(
         // normal cerca del teléfono está en los miles bajos. Observa "rms peak" en logcat (tag CecapiVoice) para reajustar por dispositivo.
         const val BARGE_IN_SAMPLE_RATE = 16_000
         const val BARGE_IN_FRAME_MS = 50
-        const val BARGE_IN_SETTLE_MS = 500L
-        const val BARGE_IN_HOLD_MS = 300
-        const val BARGE_IN_RMS_THRESHOLD = 1_800
-        const val BARGE_IN_NOISE_MARGIN = 2.5
         const val MIC_HANDOFF_MS = 300L
 
         /** La espera más larga entre reinicios de la palabra de activación mientras el reconocedor en línea sigue fallando por la red. */
