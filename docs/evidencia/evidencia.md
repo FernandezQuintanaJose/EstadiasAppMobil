@@ -60,3 +60,40 @@ Compilación y pruebas: BUILD SUCCESSFUL, 97 pruebas, 0 fallos, 0 errores (`./gr
 | Registro completo, bloqueo 10 intentos, pregunta al asistente | — | no comprobado (el registro y la pregunta necesitan el deploy en Render) | — |
 | TalkBack (Inicio, Registro, Configuración) | — | no comprobado (TalkBack no está encendido en el teléfono) | — |
 | Capturas 02–10 | — | Son anteriores a los cambios: muestran el registro viejo (con el botón de menores). Rehacerlas | — |
+
+## 25 de noviembre de 2026
+Teléfono: CPH2387, Android 12. Rama `integracion/2026-11-24`, commit 8ce4745. `main`: acabab1.
+
+| Prueba | Pasos / comando | Esperado | Obtenido | Evidencia |
+|---|---|---|---|---|
+| Motor de descripción | `./gradlew descargarMotor` (11:10–11:22) | 4 archivos con SHA-256 correcto | Los 4 en su carpeta (437 MB, 109 MB, 76 MB, 9 MB); la tarea solo los mueve si coincide el SHA-256. No vi la salida de Gradle | `ls -la` |
+| Compilación y pruebas | `./gradlew assembleDebug testDebugUnitTest` (11:39) | Compila y pasan | BUILD SUCCESSFUL (14 min 17 s); 224 pruebas, 0 fallos | salida de Gradle |
+| Peso APK | `./gradlew assembleRelease` (11:59) | Hasta 150 MB | Depuración 795,685,275 bytes; release sin firmar 741,601,886 bytes. **Pasa el límite** | `ls -la app/build/outputs/apk/` |
+| Cuenta en versión anterior | APK de depuración de `main` (243 MB), instalación limpia; cuenta DEMO25 creada por adb y "Responder a la palabra hola" encendido | Cuenta y ajuste guardados | Menú con "Demo Alia"; existe `cecapi.db`; interruptor encendido. Los intentos manuales previos no dejaron base de datos (causa no comprobada) | 2026-11-25/actualizacion_antes_ajuste.png |
+| Actualización sin perder datos | `adb install -r` de integración (12:26) | Cuenta y ajuste siguen, sin errores de Room | Pide los términos otra vez; tras aceptar, sesión de "Demo Alia" activa y "Responder a la palabra hola" encendido; 0 líneas en logcat con Migration, SQLiteException, IllegalStateException de Room o FATAL EXCEPTION (12:29) | actualizacion_despues_*.png; `adb logcat -d` |
+
+### Paso 4, instalación limpia (25-nov 12:36–12:57, commit 8ce4745)
+| Prueba | Esperado | Obtenido | Evidencia |
+|---|---|---|---|
+| Términos antes del inicio | Se abren | Se abren en "Parte 1 de 11" | 2026-11-25/02_terminos_parte1.png |
+| Párrafo del servicio de accesibilidad | Aparece | Aparece en la parte 4 "Qué datos usamos" | 03_terminos_accesibilidad.png |
+| Inicio con micrófono abajo | Pantalla dividida con ALIA | Correcto | 08_pantalla_dividida.png |
+| Interruptores de Privacidad | Apagados | Escuchar fuera, "hola", IA en internet y Wikipedia: `checked=false`. "Modo simple" viene encendido (no es de privacidad) | 07_configuracion_privacidad.png; uiautomator |
+| Registro con contraseña corta ("corta") | Muestra error y no crea la cuenta | **La cuenta se creó** (menú "Hola, Demo"). La pantalla pasó por "Escuchando…". Explicación probable según el código (RegisterViewModel, caso CONTRASENA): tras el error abre el micrófono, toma lo que oiga como contraseña y como confirmación y llama a `submit()` sin preguntar. **No comprobado qué audio oyó** | 04_registro.png; sin captura del error |
+
+### Arreglo del registro por voz (25-nov 13:23–13:32)
+- Cambio: la contraseña dictada se pide dos veces iguales (`DictadoDeContrasena`) y la cuenta solo se crea con un "sí" o tocando "Crear mi cuenta"; escribir la contraseña cancela la captura por voz.
+- `./gradlew assembleDebug testDebugUnitTest`: BUILD SUCCESSFUL, 229 pruebas, 0 fallos (13:23).
+
+| Prueba | Esperado | Obtenido | Evidencia |
+|---|---|---|---|
+| Registro con "corta" escrita | Error y no se crea la cuenta | "La contraseña tiene 5 letras y necesita al menos 15…"; 25 s después seguía en el registro (13:32) | 2026-11-25/05_registro_validacion.png |
+
+### Bloqueo de inicio de sesión (25-nov 13:45–14:01, CPH2387, Android 12)
+| Prueba | Esperado | Obtenido | Evidencia |
+|---|---|---|---|
+| 10 intentos fallidos (usuario demo25) | Se bloquea al décimo | La app cuenta "Intento N de 10"; `logcat -s CecapiLogin` registra "failed attempt #10" (13:57). Varios toques automáticos no se registraron como intento | adb logcat |
+| Cerrar la app por completo y volver a intentar | Sigue bloqueado | "Inicio de sesión bloqueado por ahora." (14:01) tras `am force-stop` | 2026-11-25/06_bloqueo.png |
+| Reiniciar el teléfono con el bloqueo activo | Sigue bloqueado como máximo 15 min | **no comprobado**. Riesgo visto en el código: LoginAttemptsStore guarda `elapsedRealtime + 15 min`, que vuelve a cero al reiniciar; con el teléfono encendido ~4.6 días (`/proc/uptime` 399183 s), el bloqueo podría durar ese tiempo | LoginAttemptsStore.kt |
+| Registro dictando la contraseña dos veces | Pide repetir y confirma antes de crear | **no comprobado en el teléfono** (solo pruebas unitarias) | DictadoDeContrasenaTest |
+| Observación | — | La burbuja del asistente de Google apareció encima de ALIA varias veces; causa no comprobada | dumpsys window |

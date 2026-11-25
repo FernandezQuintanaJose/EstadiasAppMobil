@@ -22,7 +22,7 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
-private enum class RegisterVoiceTarget { NOMBRE_COMPLETO, USUARIO, CONTRASENA, ADULTO, NONE }
+private enum class RegisterVoiceTarget { NOMBRE_COMPLETO, USUARIO, CONTRASENA, CREAR, ADULTO, NONE }
 
 /** Por ahora solo hay una institución real; el resto entra como independiente. */
 enum class InstitucionRegistro(val origen: String, val etiqueta: String) {
@@ -68,6 +68,7 @@ class RegisterViewModel @Inject constructor(
     val back: SharedFlow<Unit> = _back
 
     private var voiceTarget = RegisterVoiceTarget.NOMBRE_COMPLETO
+    private val dictado = DictadoDeContrasena()
 
     init {
         // Lo que se dice aquí es un nombre o una contraseña, así que los comandos globales no deben tomarlo. Los controles
@@ -107,13 +108,35 @@ class RegisterViewModel @Inject constructor(
                 voiceTarget = RegisterVoiceTarget.CONTRASENA
                 voiceEngine.speak("Ahora di tu contraseña. Debe tener al menos quince letras; puede ser una frase, sin números ni símbolos.")
             }
-            RegisterVoiceTarget.CONTRASENA -> {
-                // Dictada: se normaliza igual que al iniciar sesión, y se toma también como su confirmación.
-                val dictada = PasswordRules.normalize(texto)
-                onContrasenaChange(dictada)
-                onConfirmarContrasenaChange(dictada)
-                voiceTarget = RegisterVoiceTarget.NONE
-                submit()
+            // La contraseña dictada se pide dos veces y aun así no se crea la cuenta sin un "sí": una sola frase
+            // oída (televisión, otra persona o la propia voz de la app) no debe fijarla ni crear la cuenta.
+            RegisterVoiceTarget.CONTRASENA -> when (val resultado = dictado.escuchar(texto)) {
+                is DictadoDeContrasena.Resultado.Invalida ->
+                    voiceEngine.speak("${resultado.motivo} Dime otra contraseña.", listenAfter = true)
+                DictadoDeContrasena.Resultado.Repetir ->
+                    voiceEngine.speak("Para confirmarla, di otra vez la misma contraseña.", listenAfter = true)
+                DictadoDeContrasena.Resultado.NoCoincide ->
+                    voiceEngine.speak("No fueron iguales. Di tu contraseña desde el principio.", listenAfter = true)
+                is DictadoDeContrasena.Resultado.Lista -> {
+                    _uiState.value = _uiState.value.copy(
+                        contrasena = resultado.contrasena,
+                        confirmarContrasena = resultado.contrasena,
+                        errorMessage = null,
+                    )
+                    voiceTarget = RegisterVoiceTarget.CREAR
+                    voiceEngine.speak("Las dos fueron iguales. ¿Creo tu cuenta? Di sí o no.", listenAfter = true)
+                }
+            }
+            RegisterVoiceTarget.CREAR -> when {
+                VoiceText.isNo(texto) -> {
+                    voiceTarget = RegisterVoiceTarget.NONE
+                    voiceEngine.speak("No la creé. Revisa tus datos y toca Crear mi cuenta cuando quieras.")
+                }
+                VoiceText.isYes(texto) -> {
+                    voiceTarget = RegisterVoiceTarget.NONE
+                    submit()
+                }
+                else -> voiceEngine.speak("Di sí para crear la cuenta, o no.", listenAfter = true)
             }
             RegisterVoiceTarget.ADULTO -> when {
                 VoiceText.isNo(texto) -> {
@@ -150,6 +173,7 @@ class RegisterViewModel @Inject constructor(
                 RegisterVoiceTarget.NOMBRE_COMPLETO -> "Di tu nombre completo."
                 RegisterVoiceTarget.USUARIO -> "Di el nombre de usuario que quieres usar."
                 RegisterVoiceTarget.CONTRASENA -> "Di tu contraseña, una frase de al menos quince letras."
+                RegisterVoiceTarget.CREAR -> "¿Creo tu cuenta? Di sí o no."
                 RegisterVoiceTarget.ADULTO -> "¿Tienes 18 años o más? Di sí o no."
                 RegisterVoiceTarget.NONE -> "Ya tengo tus datos. Si algo está mal, corrígelo escribiendo en la pantalla."
             },
@@ -177,6 +201,7 @@ class RegisterViewModel @Inject constructor(
     }
 
     fun onContrasenaChange(value: String) {
+        cancelarDictado()
         _uiState.value = _uiState.value.copy(contrasena = value, errorMessage = null)
     }
 
@@ -184,7 +209,16 @@ class RegisterViewModel @Inject constructor(
         _uiState.value = _uiState.value.copy(email = value.trim(), errorMessage = null)
     }
 
+    /** Si la persona escribe la contraseña, la voz deja de esperar una: lo que se oiga después no la reemplaza. */
+    private fun cancelarDictado() {
+        dictado.reiniciar()
+        if (voiceTarget == RegisterVoiceTarget.CONTRASENA || voiceTarget == RegisterVoiceTarget.CREAR) {
+            voiceTarget = RegisterVoiceTarget.NONE
+        }
+    }
+
     fun onConfirmarContrasenaChange(value: String) {
+        cancelarDictado()
         _uiState.value = _uiState.value.copy(confirmarContrasena = value, errorMessage = null)
     }
 
@@ -219,6 +253,7 @@ class RegisterViewModel @Inject constructor(
         if (problema != null) {
             val message = "$problema Dime otra contraseña."
             _uiState.value = state.copy(errorMessage = message)
+            dictado.reiniciar()
             voiceTarget = RegisterVoiceTarget.CONTRASENA
             voiceEngine.speak(message, listenAfter = true)
             return
