@@ -97,3 +97,24 @@ Teléfono: CPH2387, Android 12. Rama `integracion/2026-11-24`, commit 8ce4745. `
 | Reiniciar el teléfono con el bloqueo activo | Sigue bloqueado como máximo 15 min | **no comprobado**. Riesgo visto en el código: LoginAttemptsStore guarda `elapsedRealtime + 15 min`, que vuelve a cero al reiniciar; con el teléfono encendido ~4.6 días (`/proc/uptime` 399183 s), el bloqueo podría durar ese tiempo | LoginAttemptsStore.kt |
 | Registro dictando la contraseña dos veces | Pide repetir y confirma antes de crear | **no comprobado en el teléfono** (solo pruebas unitarias) | DictadoDeContrasenaTest |
 | Observación | — | La burbuja del asistente de Google apareció encima de ALIA varias veces; causa no comprobada | dumpsys window |
+
+### Capturas y asistente (25-nov 14:10–14:29, commit 1eaccaf, CPH2387, Android 12)
+Cuenta de demostración DEMO26.
+
+| Prueba | Esperado | Obtenido | Evidencia |
+|---|---|---|---|
+| Inicio con menú y Personalización | Muestran ALIA | Correcto | 2026-11-25/01_inicio.png, 10_personalizacion.png |
+| Pregunta escrita en Consultas ("quien es Jake el perro", 14:19) | El asistente responde | Respondió "No estoy seguro de a qué Jake te refieres. ¿Puedes dar más detalles?". **Falta confirmar en el panel de Render que Groq sumó la petición** | 09_asistente_respuesta.png |
+| Consultas anteriores | Guarda el chat | Aparece con fecha y botones de borrar | 11_chats.png |
+| Interruptor "Inteligencia artificial en internet" apagado | — | Consultas envió la pregunta igual. Según el código, el interruptor (`aiEnabled`) solo controla la interpretación de órdenes no entendidas. Su texto dice "Todavía no está conectada", aunque Consultas ya responde | DeviceSettings.kt:98; ConsultasViewModel.generar |
+| Consultas con el micrófono abierto | No enviar nada sin intención | **Tras leer la respuesta, la app abrió el micrófono y envió como consulta una frase que oyó, sin ningún toque.** Según el código, cualquier frase que no sea un comando se manda con `generar()`. Origen de la voz no comprobado; la frase y su captura no se guardan aquí | ConsultasViewModel (rama `else -> generar(spoken)`) |
+| Pantalla del servicio de accesibilidad | Explica y viene apagado | "El servicio está apagado", explica volumen abajo dos veces y que la captura no se guarda ni se envía. Activarlo y lo que lee: no comprobado | 12_accesibilidad.png |
+
+### Arreglo de Consultas (25-nov 14:47–14:52)
+- Cambio: lo que se oye en Consultas ya no se envía directo. La app lo repite y pregunta "¿La envío?"; solo un "sí" claro lo envía y cualquier otra frase lo descarta (`ConfirmacionDeConsulta`). Lo escrito con el botón se envía como antes.
+- `./gradlew assembleDebug testDebugUnitTest`: BUILD SUCCESSFUL, 235 pruebas, 0 fallos (14:47).
+
+| Prueba | Esperado | Obtenido | Evidencia |
+|---|---|---|---|
+| Consulta escrita "que es un circulo" (14:51) | Se envía y responde | Respondió la definición de círculo en unos 40 s | 2026-11-25/consultas_escrita_tras_arreglo.png |
+| Confirmación de lo oído por voz | Pregunta antes de enviar | **no comprobado en el teléfono** (solo pruebas unitarias). A las 14:52 no se había enviado nada nuevo, pero no se sabe si la app oyó algo | ConfirmacionDeConsultaTest |

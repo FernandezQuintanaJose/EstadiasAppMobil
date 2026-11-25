@@ -71,6 +71,8 @@ class ConsultasViewModel @Inject constructor(
     private val _back = MutableSharedFlow<Unit>(extraBufferCapacity = 1)
     val back: SharedFlow<Unit> = _back
 
+    private val confirmacion = ConfirmacionDeConsulta()
+
     private val _chats = MutableSharedFlow<Unit>(extraBufferCapacity = 1)
     val chats: SharedFlow<Unit> = _chats
 
@@ -103,7 +105,19 @@ class ConsultasViewModel @Inject constructor(
             texto in ANTERIORES -> abrirChats()
             estado.paso == ConsultaPaso.LISTO && texto in LEER -> leerDocumento()
             estado.paso == ConsultaPaso.LISTO && texto in NUEVA -> nuevaConsulta()
-            else -> generar(spoken)
+            else -> confirmarLoOido(spoken)
+        }
+    }
+
+    /** Lo oído no sale del teléfono sin un "sí": ver [ConfirmacionDeConsulta]. Lo escrito con el botón no pasa por aquí. */
+    private fun confirmarLoOido(oido: String) {
+        if (oido.isBlank()) return
+        when (val resultado = confirmacion.escuchar(oido)) {
+            is ConfirmacionDeConsulta.Resultado.Preguntar ->
+                voiceEngine.speak("Escuché: ${resultado.consulta}. ¿La envío? Di sí o no.", listenAfter = true)
+            is ConfirmacionDeConsulta.Resultado.Enviar -> generar(resultado.consulta)
+            ConfirmacionDeConsulta.Resultado.Descartar ->
+                voiceEngine.speak("No la envié. Toca el micrófono para preguntar otra cosa.")
         }
     }
 
@@ -121,6 +135,7 @@ class ConsultasViewModel @Inject constructor(
     fun generar(consulta: String) {
         val pedido = consulta.trim()
         if (pedido.isEmpty() || _uiState.value.paso == ConsultaPaso.GENERANDO) return
+        confirmacion.reiniciar()
         val usuario = sessionRepository.currentUser.value
         if (usuario == null) {
             voiceEngine.speak(VoiceMessages.NEEDS_LOGIN)
@@ -185,11 +200,13 @@ class ConsultasViewModel @Inject constructor(
 
     /** Las consultas anteriores (lo que antes era Chats), para volver a escucharlas. */
     fun abrirChats() {
+        confirmacion.reiniciar()
         voiceEngine.stopSpeaking()
         _chats.tryEmit(Unit)
     }
 
     fun nuevaConsulta() {
+        confirmacion.reiniciar()
         voiceEngine.stopSpeaking()
         _uiState.value = ConsultasUiState()
         voiceEngine.speak("Dime tu pregunta, o qué documento necesitas.", listenAfter = true)
