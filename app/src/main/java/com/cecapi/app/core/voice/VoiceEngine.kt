@@ -155,6 +155,8 @@ class VoiceEngine @Inject constructor(
     private var openMic = false
     private var wakeRecognizer: SpeechRecognizer? = null
     private val wakeRestart = Runnable { listenForWakeWord() }
+    private val reintentoDeEscucha = ReintentoDeEscucha()
+    private val reintentoPendiente = Runnable { abrirMicrofono() }
 
     /** Cuántos reinicios consecutivos de la palabra de activación fallaron por error de red; controla la espera creciente en [listenForWakeWord]. */
     @Volatile private var consecutiveWakeNetworkErrors = 0
@@ -316,6 +318,8 @@ class VoiceEngine @Inject constructor(
     private fun speakInternal(rawText: String, listenAfter: Boolean, speedFactor: Float = 1f, interrumpible: Boolean = true) {
         // El texto de una IA o de un documento escaneado puede traer markdown o emojis que no se deben leer en voz alta.
         val text = VoiceText.forSpeech(rawText).ifBlank { return }
+        // Si el asistente va a hablar, no debe abrirse el micrófono encima.
+        mainHandler.removeCallbacks(reintentoPendiente)
         pauseWakeWord()
         lastSpoken = text
         listenAfterSpeech = listenAfter
@@ -511,6 +515,7 @@ class VoiceEngine @Inject constructor(
     }
 
     private fun silenceSpeech() {
+        mainHandler.removeCallbacks(reintentoPendiente)
         chunksLeft.set(0)
         stopBargeInDetection()
         listenAfterSpeech = false
@@ -627,13 +632,31 @@ class VoiceEngine @Inject constructor(
             return
         }
         activate() // tocar el micrófono siempre trae de vuelta al asistente después de "silencio" o "para"
+        reintentoDeEscucha.reiniciar()
+        abrirMicrofono()
+    }
+
+    private fun abrirMicrofono() {
         pauseWakeWord()
         silenceSpeech()
         stopListening()
         val recognizer = SpeechRecognizer.createSpeechRecognizer(context)
         speechRecognizer = recognizer
         recognizer.setRecognitionListener(object : RecognitionListener {
+            private var listoDesde: Long? = null
+
+            /** Si cerró demasiado pronto sin entender nada, vuelve a escuchar en vez de rendirse. */
+            private fun reintentar(error: Int): Boolean {
+                if (!appVisible || _mode.value != AssistantMode.ACTIVE) return false
+                val duracion = listoDesde?.let { SystemClock.elapsedRealtime() - it }
+                if (!reintentoDeEscucha.debeReintentar(error, duracion)) return false
+                Log.i(TAG, "Reintento de escucha: cerró a los $duracion ms con el error $error")
+                mainHandler.postDelayed(reintentoPendiente, MIC_HANDOFF_MS)
+                return true
+            }
+
             override fun onReadyForSpeech(params: Bundle?) {
+                listoDesde = SystemClock.elapsedRealtime()
                 _state.value = VoiceState.Listening
                 // El usuario no puede ver la pantalla: un pitido y un zumbido dicen "estoy escuchando, habla ahora".
                 cues.play(FeedbackCues.Cue.LISTENING)
@@ -647,6 +670,7 @@ class VoiceEngine @Inject constructor(
             override fun onError(error: Int) {
                 Log.w(TAG, "Recognition error $error")
                 _state.value = VoiceState.Idle
+                if (reintentar(error)) return
                 // Un zumbido largo: el micrófono se cerró sin una respuesta utilizable.
                 cues.play(FeedbackCues.Cue.NO_AUDIO)
                 // Nunca fallar en silencio: el usuario no puede ver la pantalla, así que hay que decir qué salió mal.
@@ -667,7 +691,7 @@ class VoiceEngine @Inject constructor(
                 } else if (score != null && score < COMMAND_MIN_CONFIDENCE) {
                     // Probablemente es el ambiente, no la persona: mejor preguntar otra vez que ejecutar un comando equivocado.
                     speak("Hay mucho ruido. Repite, por favor, un poco más cerca del teléfono.")
-                } else {
+                } else if (!reintentar(SpeechRecognizer.ERROR_NO_MATCH)) {
                     speak(recognitionErrorMessage(SpeechRecognizer.ERROR_NO_MATCH).orEmpty())
                 }
             }
@@ -722,6 +746,7 @@ class VoiceEngine @Inject constructor(
     }
 
     fun stopListening() {
+        mainHandler.removeCallbacks(reintentoPendiente)
         speechRecognizer?.cancel()
         speechRecognizer?.destroy()
         speechRecognizer = null

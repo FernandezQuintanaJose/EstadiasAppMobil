@@ -128,3 +128,24 @@ Cuenta de demostración DEMO26.
 | **Pendiente: escucha de fondo silenciosa** | Si la app oye algo y lo ignora, avisa | Con el micrófono principal cerrado, la escucha de fondo recibió voz en Consultas con `openMic=false` y la descartó sin decir nada. Quien no ve puede creer que la app sigue escuchando. Podría afectar también al dictado de contraseña (no comprobado) | logcat; VoiceEngine.kt |
 
 El registro temporal de diagnóstico se quitó (no está en ningún commit). Después: 235 pruebas, 0 fallos (15:13) y la versión limpia instalada en el teléfono.
+
+### Micrófono: medición y reintento (25 de noviembre, después de las 15:13)
+
+Medición en silencio, TalkBack apagado, 10 aperturas por caso en Consultas (registro del reconocedor de Google; no se guardó lo oído):
+
+| Caso | Marcó sonido | Cierre cuando marcó sonido |
+|---|---|---|
+| A: pitido y vibración | 7 de 10 | 2.8 a 8.6 s |
+| B: solo vibración | 10 de 10 | 2.1 a 6.2 s |
+| C: sin avisos | 9 de 10 | 2.0 a 12.1 s |
+
+En las 4 aperturas sin sonido cerró con error 7 entre 5.1 y 5.8 s. Apagar los avisos no lo evita. No se sabe qué activa el reconocedor.
+
+| Prueba | Resultado esperado | Resultado obtenido | Evidencia |
+|---|---|---|---|
+| Reintento (`ReintentoDeEscucha`): cierre sin entender antes de 4.5 s | Vuelve a escuchar una sola vez | En silencio se activó en 5 de 10 aperturas, una vez en cada una. 240 pruebas, 0 fallos | logcat; ReintentoDeEscuchaTest |
+| B: preguntar por voz y responder "sí" (repetida) | Envía y responde | La persona que probó reporta que respondió "sí", la consulta se envió y la respuesta fue correcta. No informó cuántas veces repitió; no se sabe si intervino el reintento | Reporte de quien probó |
+
+Sin comprobar: el reintento con TalkBack y el dictado de contraseña por voz.
+
+**Pendiente (reporte de quien probó):** aun con el reintento, de vez en cuando todavía se interrumpe cuando oye otros ruidos. No se precisó si se corta la escucha o la voz de la app; no está medido.
