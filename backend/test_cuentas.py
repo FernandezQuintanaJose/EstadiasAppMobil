@@ -424,3 +424,56 @@ def test_modo_consola_no_escribe_el_correo_completo(monkeypatch, caplog):
     with caplog.at_level("WARNING"):
         assert real.enviar_codigo("juan.perez@example.com", "654321", "registro", 15) is True
     assert "654321" in caplog.text and "juan.perez@" not in caplog.text and "ju***@example.com" in caplog.text
+
+
+def _resend(monkeypatch, respuesta):
+    """El módulo real con Resend configurado y la red reemplazada: ninguna prueba sale a internet."""
+    import importlib
+    real = importlib.reload(correo)
+    monkeypatch.setenv("CORREO_MODO", "resend")
+    monkeypatch.setenv("CORREO_API_KEY", "llave-de-prueba")
+    monkeypatch.setenv("CORREO_REMITENTE", "codigos@example.com")
+    enviadas = []
+
+    def abrir(peticion, timeout):
+        enviadas.append(peticion)
+        return respuesta()
+
+    monkeypatch.setattr(real.urllib.request, "urlopen", abrir)
+    return real, enviadas
+
+
+def test_resend_manda_el_codigo_por_https_sin_anotarlo(monkeypatch, caplog):
+    import contextlib
+    import json
+    real, enviadas = _resend(monkeypatch, contextlib.nullcontext)
+    with caplog.at_level("INFO"):
+        assert real.enviar_codigo("juan.perez@example.com", "654321", "recuperar", 15) is True
+    (peticion,) = enviadas
+    cuerpo = json.loads(peticion.data)
+    assert peticion.full_url == "https://api.resend.com/emails" and peticion.get_method() == "POST"
+    assert peticion.get_header("Authorization") == "Bearer llave-de-prueba" and peticion.get_header("User-agent")
+    assert cuerpo["to"] == ["juan.perez@example.com"] and "codigos@example.com" in cuerpo["from"]
+    assert "654321" in cuerpo["text"] and "html" not in cuerpo
+    assert "654321" not in caplog.text and "juan.perez@" not in caplog.text and "llave-de-prueba" not in caplog.text
+
+
+def test_resend_rechazado_no_se_cae_ni_filtra_datos(monkeypatch, caplog):
+    import io
+    import urllib.error
+
+    def rechazar():
+        raise urllib.error.HTTPError("https://api.resend.com/emails", 403, "no", {}, io.BytesIO(b"juan.perez@example.com"))
+
+    real, _ = _resend(monkeypatch, rechazar)
+    with caplog.at_level("INFO"):
+        assert real.enviar_codigo("juan.perez@example.com", "654321", "registro", 15) is False
+    assert "403" in caplog.text
+    assert "654321" not in caplog.text and "juan.perez@" not in caplog.text and "llave-de-prueba" not in caplog.text
+
+
+def test_resend_sin_llave_no_envia_nada(monkeypatch):
+    real, enviadas = _resend(monkeypatch, lambda: None)
+    monkeypatch.delenv("CORREO_API_KEY")
+    assert real.enviar_codigo("ana@example.com", "123456", "registro", 15) is False
+    assert enviadas == []

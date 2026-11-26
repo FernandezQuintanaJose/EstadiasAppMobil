@@ -65,6 +65,20 @@ La clave dentro del APK se puede sacar descompilándolo: frena el uso casual, no
 El control de verdad son las cuentas con token (paso 4); la app las usará cuando deje las cuentas locales (M5).
 
 ## 4. Correo de los códigos (cuentas, decisión 0020)
+
+### Con Resend, por su API (lo que trae `render.yaml`)
+
+Usa HTTPS, así que no depende de los puertos de SMTP. Según https://resend.com/pricing (consultado el 26 de noviembre de 2026), el plan gratuito permite 100 correos al día y 3,000 al mes: revisa que siga igual.
+
+1. Crea la cuenta en https://resend.com.
+2. En **Domains**, agrega `alia-invidentes.com` y copia en Cloudflare los registros DNS que te muestre. Espera a que diga **Verified**. Sin dominio verificado, Resend solo envía al correo de tu propia cuenta.
+3. En **API Keys**, crea una llave con permiso solo de envío y, si te lo permite, limitada a ese dominio.
+4. En Render → **Environment**: `CORREO_MODO=resend`, `CORREO_API_KEY` = la llave, `CORREO_REMITENTE` = una dirección de ese dominio (por ejemplo `codigos@alia-invidentes.com`). La llave no se guarda en el repositorio ni se comparte.
+5. Prueba: crea una cuenta desde el asistente web y revisa que llegue el código (también en correo no deseado). Si no llega, **Logs** muestra el número de error, sin el código.
+
+Sin la llave o el remitente, el servidor no envía nada y tampoco escribe el código en los registros. Resend pasa a ser un tercero que recibe el correo de cada persona: el aviso de privacidad debe mencionarlo.
+
+### Otros modos
 Mientras `CORREO_MODO=consola`, el código de cada registro sale en **Logs** de Render y no se envía nada:
 sirve para probar, no para personas reales. En ese modo `backend/correo.py:62-65` escribe en **Logs** (nivel WARNING) el código de 6 dígitos **en claro**, también el de **recuperación de contraseña**: lo ve quien tenga acceso al espacio de trabajo de Render; quien pueda ver los Logs puede usar un código de recuperación para cambiar la contraseña de una cuenta cuyo correo conozca. Es aceptable solo mientras no haya personas reales usando cuentas. La decisión de fondo (cerrar registro y recuperación, o cambiar de proveedor de correo) queda pendiente (S6). Cuánto se conservan esos Logs en el plan gratuito: SIN VERIFICAR. Para enviar de verdad:
 1. Elige la cuenta que mandará los códigos. Con Gmail: activa la verificación en dos pasos y crea una

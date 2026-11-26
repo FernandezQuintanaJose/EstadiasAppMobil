@@ -1,6 +1,9 @@
 """Envío de los códigos de verificación por correo (decisión 0020).
 
-Dos modos, según CORREO_MODO:
+Tres modos, según CORREO_MODO:
+- "resend": lo envía por la API web de Resend (HTTPS), que funciona aunque el alojamiento bloquee SMTP. Variables:
+  CORREO_API_KEY y CORREO_REMITENTE (una dirección de un dominio verificado en Resend). La llave va solo en el
+  entorno (Render), nunca en el código.
 - "consola" (por defecto): no envía nada; escribe el código en el registro del servidor. Sirve para probar en tu
   computadora y para una demostración, nunca con personas reales: quien lea el registro ve los códigos.
 - "smtp": lo envía por SMTP con STARTTLS. Funciona con cualquier proveedor que dé SMTP (Gmail con contraseña de
@@ -11,13 +14,18 @@ Si el envío falla, la ruta responde igual que si hubiera salido (para no revela
 queda en el registro, sin el código.
 """
 
+import json
 import logging
 import os
 import smtplib
 import ssl
+import urllib.error
+import urllib.request
 from email.message import EmailMessage
 
 log = logging.getLogger("cecapi.correo")
+
+URL_RESEND = "https://api.resend.com/emails"
 
 ASUNTOS = {
     "registro": "Tu código para crear tu cuenta de CECAPI",
@@ -31,7 +39,7 @@ QUE_HACE = {
 
 def modo() -> str:
     valor = os.getenv("CORREO_MODO", "consola").strip().lower()
-    return valor if valor in ("consola", "smtp") else "consola"
+    return valor if valor in ("consola", "smtp", "resend") else "consola"
 
 
 def _enmascarar(correo: str) -> str:
@@ -57,12 +65,44 @@ def mensaje(correo: str, codigo: str, proposito: str, minutos: int) -> EmailMess
     return m
 
 
+def _enviar_por_resend(correo: str, codigo: str, proposito: str, minutos: int) -> bool:
+    llave = os.getenv("CORREO_API_KEY", "").strip()
+    if not (llave and os.getenv("CORREO_REMITENTE", "").strip()):
+        log.error("CORREO_MODO=resend pero falta CORREO_API_KEY o CORREO_REMITENTE: no se envió el código a %s.",
+                  _enmascarar(correo))
+        return False
+    m = mensaje(correo, codigo, proposito, minutos)
+    peticion = urllib.request.Request(
+        URL_RESEND,
+        data=json.dumps({"from": str(m["From"]), "to": [correo], "subject": str(m["Subject"]),
+                         "text": m.get_content()}).encode("utf-8"),
+        # Resend rechaza (403) las peticiones sin User-Agent.
+        headers={"Authorization": f"Bearer {llave}", "Content-Type": "application/json",
+                 "User-Agent": "cecapi-asistente/1.0"},
+        method="POST",
+    )
+    try:
+        with urllib.request.urlopen(peticion, timeout=20):
+            pass
+    except urllib.error.HTTPError as error:
+        # Solo el número: el cuerpo de la respuesta puede repetir el correo de la persona.
+        log.error("Resend no aceptó el código de %s para %s: HTTP %s", proposito, _enmascarar(correo), error.code)
+        return False
+    except (urllib.error.URLError, OSError, ValueError) as error:
+        log.error("No se pudo enviar el código de %s a %s: %s", proposito, _enmascarar(correo), type(error).__name__)
+        return False
+    log.info("Código de %s enviado a %s.", proposito, _enmascarar(correo))
+    return True
+
+
 def enviar_codigo(correo: str, codigo: str, proposito: str, minutos: int) -> bool:
     """Manda el código. Regresa False si no se pudo; quien llama responde igual a la persona."""
     if modo() == "consola":
         log.warning("CORREO_MODO=consola: código de %s para %s: %s (no se envió ningún correo)",
                     proposito, _enmascarar(correo), codigo)
         return True
+    if modo() == "resend":
+        return _enviar_por_resend(correo, codigo, proposito, minutos)
     host = os.getenv("CORREO_SMTP_HOST", "").strip()
     usuario = os.getenv("CORREO_SMTP_USUARIO", "").strip()
     contrasena = os.getenv("CORREO_SMTP_CONTRASENA", "")
