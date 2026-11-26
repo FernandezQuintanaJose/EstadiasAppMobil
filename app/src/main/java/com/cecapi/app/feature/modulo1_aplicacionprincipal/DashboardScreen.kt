@@ -1,5 +1,6 @@
 package com.cecapi.app.feature.modulo1_aplicacionprincipal
 
+import com.cecapi.app.core.ui.LocalModoSimple
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material.icons.filled.Phone
 import android.Manifest
@@ -132,7 +133,8 @@ fun DashboardScreen(
             modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
-            Text("ASISTENTE PARA PERSONAS INVIDENTES", style = CecapiEyebrowStyle, color = CecapiTextMuted, textAlign = TextAlign.Center)
+            val simple = LocalModoSimple.current
+            if (!simple) Text("ASISTENTE PARA PERSONAS INVIDENTES", style = CecapiEyebrowStyle, color = CecapiTextMuted, textAlign = TextAlign.Center)
             Text(
                 text = "Hola,",
                 style = MaterialTheme.typography.headlineLarge,
@@ -146,7 +148,7 @@ fun DashboardScreen(
                 fontWeight = FontWeight.Bold,
                 textAlign = TextAlign.Center,
             )
-            currentUser?.let { user ->
+            currentUser?.takeIf { !simple }?.let { user ->
                 Text(
                     text = buildString {
                         append(user.rol.replaceFirstChar { it.uppercase() })

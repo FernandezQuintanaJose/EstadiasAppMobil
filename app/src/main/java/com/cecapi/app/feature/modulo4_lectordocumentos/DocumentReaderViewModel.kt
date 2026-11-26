@@ -774,7 +774,7 @@ class DocumentReaderViewModel @Inject constructor(
             return
         }
         _uiState.value = _uiState.value.copy(parrafoActual = i, estaLeyendo = true, estaPausado = false)
-        voiceEngine.speak(parrafo)
+        voiceEngine.speak(parrafo, literal = true)
     }
 
     private fun sinDocumento() {

@@ -175,7 +175,7 @@ class ConsultasViewModel @Inject constructor(
                     } else {
                         _uiState.value = ConsultasUiState(paso = ConsultaPaso.LISTO, consulta = pedido, documento = documento, esDocumento = esDocumento)
                         cues.play(FeedbackCues.Cue.SUCCESS)
-                        voiceEngine.speak(documento, listenAfter = true)
+                        voiceEngine.speak(documento, listenAfter = true, literal = true)
                     }
                 }.onFailure { error -> fallo(pedido, AiMessages.forFailure(error)) }
             } catch (e: CancellationException) {
@@ -193,7 +193,8 @@ class ConsultasViewModel @Inject constructor(
         if (!wikipediaOn.value) return null
         val tema = FuenteDeConsulta.temaParaWikipedia(pedido, esDocumento) ?: return null
         val articulo = runCatching { wikipediaLookup.search(tema) }.getOrNull() ?: return null
-        val texto = listOfNotNull(articulo.short, articulo.rest).joinToString(" ") + "\n\nFuente: Wikipedia, «${articulo.title}»."
+        val resumen = if (voiceEngine.respuestasCortas) articulo.short else listOfNotNull(articulo.short, articulo.rest).joinToString(" ")
+        val texto = "$resumen\n\nFuente: Wikipedia, «${articulo.title}»."
         runCatching { repository.guardarRespuestaLocal(usuarioId, pedido, texto) }
             .onFailure { Log.w("CecapiConsultas", "no se guardó la respuesta de Wikipedia en el historial", it) }
         return Result.success(texto)
@@ -220,7 +221,7 @@ class ConsultasViewModel @Inject constructor(
 
     fun leerDocumento() {
         val documento = _uiState.value.documento ?: return voiceEngine.speak("Todavía no hay un documento. Dime qué necesitas.", listenAfter = true)
-        voiceEngine.speak(documento)
+        voiceEngine.speak(documento, literal = true)
     }
 
     /** Las consultas anteriores (lo que antes era Chats), para volver a escucharlas. */

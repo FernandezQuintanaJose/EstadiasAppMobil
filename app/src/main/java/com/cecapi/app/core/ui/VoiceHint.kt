@@ -12,7 +12,8 @@ import com.cecapi.app.core.voice.VoiceEngine
 
 /** Lets any composable make the assistant say something out loud without knowing about the engine. */
 class VoiceHelp(private val voiceEngine: VoiceEngine) {
-    fun speak(text: String) = voiceEngine.speak(text)
+    /** La ayuda que la persona pide al tocar o mantener oprimido se dice completa. */
+    fun speak(text: String) = voiceEngine.speak(text, literal = true)
 }
 
 val LocalVoiceHelp = staticCompositionLocalOf<VoiceHelp?> { null }

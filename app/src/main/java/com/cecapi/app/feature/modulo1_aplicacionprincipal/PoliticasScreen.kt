@@ -96,7 +96,7 @@ fun PoliticasScreen(
             label = "Leer esta parte en voz alta",
             sub = "Parte ${lector.indice + 1} de $total",
             variant = BigBtnVariant.Accent,
-            onClick = { viewModel.voiceEngine.speak("Parte ${lector.indice + 1} de $total. " + parte.textoParaVoz) },
+            onClick = { viewModel.voiceEngine.speak("Parte ${lector.indice + 1} de $total. " + parte.textoParaVoz, literal = true) },
             modifier = Modifier.padding(top = 16.dp),
         )
         BigBtn(
@@ -107,7 +107,7 @@ fun PoliticasScreen(
                 lector.irAlFinal()
                 cambio++
                 mensaje = null
-                viewModel.voiceEngine.speak(Politicas.textoCompletoParaVoz())
+                viewModel.voiceEngine.speak(Politicas.textoCompletoParaVoz(), literal = true)
             },
             modifier = Modifier.padding(top = 12.dp),
         )
@@ -125,7 +125,7 @@ fun PoliticasScreen(
             icon = Icons.AutoMirrored.Filled.ArrowForward,
             label = if (lector.esUltima) "Última parte" else "Siguiente parte",
             enabled = !lector.esUltima,
-            onClick = { if (lector.siguiente()) { cambio++; mensaje = null; viewModel.voiceEngine.speak(Politicas.partes[lector.indice].textoParaVoz) } },
+            onClick = { if (lector.siguiente()) { cambio++; mensaje = null; viewModel.voiceEngine.speak(Politicas.partes[lector.indice].textoParaVoz, literal = true) } },
             modifier = Modifier.padding(top = 20.dp),
         )
         if (!lector.esUltima) {
@@ -147,7 +147,7 @@ fun PoliticasScreen(
             BigBtn(
                 icon = Icons.AutoMirrored.Filled.ArrowBack,
                 label = "Parte anterior",
-                onClick = { if (lector.anterior()) { cambio++; mensaje = null; viewModel.voiceEngine.speak(Politicas.partes[lector.indice].textoParaVoz) } },
+                onClick = { if (lector.anterior()) { cambio++; mensaje = null; viewModel.voiceEngine.speak(Politicas.partes[lector.indice].textoParaVoz, literal = true) } },
                 modifier = Modifier.padding(top = 12.dp),
             )
         }

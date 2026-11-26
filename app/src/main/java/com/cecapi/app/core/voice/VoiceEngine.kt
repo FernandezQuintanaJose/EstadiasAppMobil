@@ -291,14 +291,18 @@ class VoiceEngine @Inject constructor(
          * La persona sigue pudiendo detenerlas con el micrófono o con "silencio" y "para" al terminar la frase.
          */
         interrumpible: Boolean = true,
+        /** True si [text] es contenido (un documento, el texto de una foto, las políticas): se dice tal cual. */
+        literal: Boolean = false,
     ) {
         // Silenciado o detenido: permanecer callado. Solo la despedida tras "para" pasa ([force]).
         if (!force && _mode.value != AssistantMode.ACTIVE) return
+        // Las descripciones largas (interrumpible = false) también son contenido.
+        val dicho = if (respuestasCortas && !literal && interrumpible) RespuestaCorta.acortar(text) else text
         if (!ttsReady) {
-            pendingSpeech.addLast(SpeechRequest(text, listenAfter, speedFactor, interrumpible))
+            pendingSpeech.addLast(SpeechRequest(dicho, listenAfter, speedFactor, interrumpible))
             return
         }
-        speakInternal(text, listenAfter, speedFactor, interrumpible)
+        speakInternal(dicho, listenAfter, speedFactor, interrumpible)
     }
 
     /** Ejecuta [block], una solicitud que puede ser lenta, y le habla a la persona durante la espera para que sepa que sigue funcionando. */
@@ -415,6 +419,9 @@ class VoiceEngine @Inject constructor(
         }
         _recognizedSpeech.tryEmit(RecognizedSpeech(text, System.currentTimeMillis()))
     }
+
+    /** Modo simple: la app dice solo la respuesta, sin las frases de ayuda (ver [RespuestaCorta]). */
+    @Volatile var respuestasCortas = false
 
     /** Verdadero mientras una pantalla quiere la siguiente frase exactamente como se dijo, sin comandos globales de por medio. */
     @Volatile var rawInput = false

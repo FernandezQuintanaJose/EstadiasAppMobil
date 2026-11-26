@@ -57,7 +57,7 @@ class CommandHelp @Inject constructor(
         }
     }
 
-    private fun say(text: String) = voiceEngine.speak(text)
+    private fun say(text: String) = voiceEngine.speak(text, literal = true)
 
     private fun areaIn(text: String): CommandAlternatives.Area? =
         CommandAlternatives.areas.firstOrNull { VoiceText.hasAny(text, it.keywords) }

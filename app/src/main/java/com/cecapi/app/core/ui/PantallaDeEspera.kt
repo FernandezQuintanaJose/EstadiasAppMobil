@@ -22,25 +22,31 @@ import com.cecapi.app.core.theme.CecapiTextMuted
 const val MENSAJE_TELEFONO_CARGADO =
     "El teléfono está muy cargado y puede fallar. Puedes esperar un momento o cerrar la aplicación."
 
+/** Lo mismo, en modo simple. */
+const val MENSAJE_TELEFONO_CARGADO_CORTO = "Teléfono muy cargado. Espera o cierra."
+
 /**
  * Pantalla completa que tapa la app cuando el teléfono está muy corto de memoria o muy caliente. Dos botones
  * grandes, sin nada más: esperar (se oculta unos segundos para ver si se libera) o cerrar la aplicación.
  */
 @Composable
 fun PantallaDeEspera(onEsperar: () -> Unit, onCerrar: () -> Unit) {
+    val simple = LocalModoSimple.current
     Column(
         modifier = Modifier.fillMaxSize().background(CecapiBackground).padding(24.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp, Alignment.CenterVertically),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
         Text("El teléfono está muy cargado", style = MaterialTheme.typography.headlineMedium, textAlign = TextAlign.Center)
-        Text(
-            "Cierra otras aplicaciones o deja que se enfríe. Si sigues, la app puede cerrarse sola.",
-            style = MaterialTheme.typography.bodyLarge,
-            color = CecapiTextMuted,
-            textAlign = TextAlign.Center,
-        )
-        CargandoConMensaje(titulo = "Esperando…", detalle = "Reviso cada pocos segundos si ya se liberó.")
+        if (!simple) {
+            Text(
+                "Cierra otras aplicaciones o deja que se enfríe. Si sigues, la app puede cerrarse sola.",
+                style = MaterialTheme.typography.bodyLarge,
+                color = CecapiTextMuted,
+                textAlign = TextAlign.Center,
+            )
+            CargandoConMensaje(titulo = "Esperando…", detalle = "Reviso cada pocos segundos si ya se liberó.")
+        }
         BigBtn(icon = Icons.Filled.HourglassTop, label = "Esperar un momento", variant = BigBtnVariant.Accent, onClick = onEsperar)
         BigBtn(icon = Icons.Filled.Close, label = "Cerrar la aplicación", variant = BigBtnVariant.Danger, onClick = onCerrar)
     }

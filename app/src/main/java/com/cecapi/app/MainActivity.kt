@@ -167,7 +167,13 @@ class MainActivity : ComponentActivity() {
                         val ahora = System.currentTimeMillis()
                         if (mostrarEspera && ahora - avisoDicho > AVISO_CARGA_CADA_MS) {
                             avisoDicho = ahora
-                            voiceEngine.speak(com.cecapi.app.core.ui.MENSAJE_TELEFONO_CARGADO)
+                            voiceEngine.speak(
+                                if (voiceEngine.respuestasCortas) {
+                                    com.cecapi.app.core.ui.MENSAJE_TELEFONO_CARGADO_CORTO
+                                } else {
+                                    com.cecapi.app.core.ui.MENSAJE_TELEFONO_CARGADO
+                                },
+                            )
                         }
                     }
                     Box(modifier = Modifier.fillMaxSize()) {
@@ -175,15 +181,19 @@ class MainActivity : ComponentActivity() {
                         Box(modifier = Modifier.fillMaxSize().safeDrawingPadding()) {
                             val voiceHelp = remember { VoiceHelp(voiceEngine) }
                             val modoSimple by deviceSettings.simpleMode.collectAsState(initial = true)
+                            LaunchedEffect(modoSimple) { voiceEngine.respuestasCortas = modoSimple }
                             CompositionLocalProvider(LocalVoiceHelp provides voiceHelp, LocalModoSimple provides modoSimple) {
                                 CecapiNavGraph(navController = navController)
                             }
                         }
                         if (mostrarEspera) {
-                            com.cecapi.app.core.ui.PantallaDeEspera(
-                                onEsperar = { esperarHasta = System.currentTimeMillis() + ESPERA_MS },
-                                onCerrar = { finishAffinity() },
-                            )
+                            val simple by deviceSettings.simpleMode.collectAsState(initial = true)
+                            CompositionLocalProvider(LocalModoSimple provides simple) {
+                                com.cecapi.app.core.ui.PantallaDeEspera(
+                                    onEsperar = { esperarHasta = System.currentTimeMillis() + ESPERA_MS },
+                                    onCerrar = { finishAffinity() },
+                                )
+                            }
                         }
                         if (showBlack) {
                             BlackScreen(

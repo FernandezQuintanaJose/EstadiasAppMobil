@@ -200,3 +200,10 @@ Sin comprobar: el reintento con TalkBack y el dictado de contraseña por voz.
 - 270 pruebas, 0 fallos. Antes de la prueba de voz, el detector empezó a escuchar sin cierres.
 - Reporte de quien probó, con la televisión más fuerte de lo habitual: mejor que antes y los textos cortos se quedan así. "ALIA" falló 2 veces seguidas y después respondió; antes de abrir Consultas hubo que repetirlo varias veces; en Cámara no se le pudo interrumpir bien mientras hablaba. "Cierra la aplicación" cerró con "sí" tras repetirlo.
 - No se contaron intentos ni aciertos, y el registro de esta prueba no se conservó: las fallas no se compararon con el detector.
+
+### Modo simple con menos texto y respuestas cortas (26 de noviembre)
+
+- En Modo simple: la app quita sus frases de ayuda al hablar; las tarjetas dicen solo su nombre al enfocarlas (mantener presionado explica); el micrófono muestra "Toca para hablar" o "Escuchando…"; menos texto en el inicio, Accesibilidad y el aviso de teléfono cargado; de Wikipedia solo el resumen. Documentos, texto de fotos, políticas y listas de comandos se leen completos.
+- 274 pruebas, 0 fallos. En el teléfono se comprobó en pantalla el menú de inicio; sin cierres. **No comprobado** por voz, ni en pantalla Accesibilidad o el aviso de carga.
+- Al abrir la primera instalación del día apareció "teléfono muy cargado"; no se sabe la causa.
+- La comparación de "ALIA" con y sin ruido se dejó de lado por decisión de quien prueba.

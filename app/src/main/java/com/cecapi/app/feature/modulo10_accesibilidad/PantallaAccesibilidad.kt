@@ -1,5 +1,6 @@
 package com.cecapi.app.feature.modulo10_accesibilidad
 
+import com.cecapi.app.core.ui.LocalModoSimple
 import com.cecapi.app.core.ui.iluminable
 import android.content.ActivityNotFoundException
 import android.content.Context
@@ -104,8 +105,12 @@ fun PantallaAccesibilidad(
                 color = if (activo) CecapiSuccess else CecapiTextMuted,
             )
             Text(
-                "Con el servicio encendido, presiona volumen abajo dos veces y ALIA leerá en voz alta " +
-                    "el texto que se ve en la pantalla. La captura es temporal: no se guarda ni se envía.",
+                if (LocalModoSimple.current) {
+                    "Volumen abajo dos veces: lee la pantalla."
+                } else {
+                    "Con el servicio encendido, presiona volumen abajo dos veces y ALIA leerá en voz alta " +
+                        "el texto que se ve en la pantalla. La captura es temporal: no se guarda ni se envía."
+                },
                 style = MaterialTheme.typography.bodyMedium,
                 color = CecapiTextMuted,
             )
@@ -170,13 +175,15 @@ fun PantallaAccesibilidad(
                 },
             )
 
-            Text("GESTOS DE UN DEDO", style = MaterialTheme.typography.labelLarge, color = CecapiTextMuted)
-            Text(
-                "Ahora son los de Android: desliza con un dedo a la izquierda, derecha, arriba o abajo. " +
-                    "ALIA no intercepta esos movimientos.",
-                style = MaterialTheme.typography.bodyMedium,
-                color = CecapiTextMuted,
-            )
+            if (!LocalModoSimple.current) {
+                Text("GESTOS DE UN DEDO", style = MaterialTheme.typography.labelLarge, color = CecapiTextMuted)
+                Text(
+                    "Ahora son los de Android: desliza con un dedo a la izquierda, derecha, arriba o abajo. " +
+                        "ALIA no intercepta esos movimientos.",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = CecapiTextMuted,
+                )
+            }
         }
 
         MicPad(

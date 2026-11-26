@@ -262,6 +262,7 @@ fun MicPad(
     )
     val helper = LocalVoiceHelp.current
     val alLado = LocalMicAlLado.current
+    val simple = LocalModoSimple.current
     val holdHelp = "Este es el micrófono. Tócalo una vez para hablarme y dime lo que necesitas, " +
         "por ejemplo: módulos disponibles, o estado del teléfono. Tócalo dos veces seguidas, o una vez con " +
         "dos dedos, para que se calle."
@@ -360,7 +361,11 @@ fun MicPad(
                 }
             }
             Text(
-                text = hint,
+                text = when {
+                    !simple -> hint
+                    listening -> "Escuchando…"
+                    else -> "Toca para hablar"
+                },
                 fontSize = 22.sp,
                 fontWeight = FontWeight.Black,
                 color = if (listening) CecapiAccent else CecapiTextPrimary,
@@ -370,7 +375,7 @@ fun MicPad(
                 modifier = Modifier.padding(top = 14.dp).height(64.dp).fillMaxWidth(),
             )
             Text(
-                text = "Di lista de comandos",
+                text = if (simple) "" else "Di lista de comandos",
                 style = MaterialTheme.typography.bodyMedium,
                 color = CecapiTextMuted,
                 textAlign = TextAlign.Center,
@@ -449,6 +454,8 @@ fun BigBtn(
     val shape = RoundedCornerShape(20.dp)
     val help = if (sub != null) "$label. $sub" else label
     val locked = variant == BigBtnVariant.Locked
+    // En modo simple, al pasar por la tarjeta se oye solo el nombre; dejar presionado da la explicación.
+    val alEnfocar = if (LocalModoSimple.current) label else help
 
     // La primera tarjeta de módulo de la pantalla nace seleccionada; si la seleccionada deja la
     // pantalla (cambio de submenú), la siguiente primera toma su lugar.
@@ -488,7 +495,7 @@ fun BigBtn(
                     if (seleccion?.silenciar == true) {
                         seleccion.silenciar = false
                     } else if (!lectorDePantallaActivo(contexto)) {
-                        helper?.speak(help)
+                        helper?.speak(alEnfocar)
                     }
                 } else if (seleccion == null) {
                     enFocoLocal = false
