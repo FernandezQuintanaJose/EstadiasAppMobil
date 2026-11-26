@@ -29,7 +29,7 @@ services:
       - key: PROXIES_DE_CONFIANZA
         value: "1"
       - key: ORIGENES_WEB
-        value: https://fernandezquintanajose.github.io
+        value: https://fernandezquintanajose.github.io,https://alia-invidentes.com,https://www.alia-invidentes.com
       - key: MOSTRAR_DOCS
         value: "0"
       - key: RETENCION_DIAS
