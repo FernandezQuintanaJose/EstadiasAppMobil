@@ -15,6 +15,7 @@ captures/
 
 # Archivos grandes del motor de descripción: se bajan con ./gradlew descargarMotor
 app/src/main/assets/smolvlm/
+app/src/main/assets/vosk-es/
 app/src/main/jniLibs/
 
 # Logs

@@ -30,7 +30,15 @@ class LlamadaPorNombreTest {
 
     @Test
     fun sinElNombreExactoNoCuenta() {
-        assertFalse(LlamadaPorNombre.esElNombre(listOf("palia", "alias", "alian"), nombres))
+        assertFalse(LlamadaPorNombre.esElNombre(listOf("Italia", "había", "paya"), nombres))
+        assertFalse(LlamadaPorNombre.esElNombre(listOf("palia abre cámara"), nombres))
         assertFalse(LlamadaPorNombre.esElNombre(emptyList(), nombres))
+    }
+
+    @Test
+    fun loQueGoogleEscribePorAliaCuentaSoloSiEsLoUnico() {
+        assertTrue(LlamadaPorNombre.esElNombre(listOf("palia"), nombres))
+        assertTrue(LlamadaPorNombre.esElNombre(listOf("Alias"), nombres))
+        assertFalse(LlamadaPorNombre.esElNombre(listOf("palia"), setOf("luna")))
     }
 }

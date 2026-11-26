@@ -1,5 +1,6 @@
 package com.cecapi.app
 
+import com.cecapi.app.core.ui.LocalModoSimple
 import android.content.Intent
 import android.media.AudioManager
 import android.os.Bundle
@@ -168,7 +169,8 @@ class MainActivity : ComponentActivity() {
                         // Edge-to-edge dibuja debajo de las barras de estado/navegación; el contenido debe quedar libre de ellas.
                         Box(modifier = Modifier.fillMaxSize().safeDrawingPadding()) {
                             val voiceHelp = remember { VoiceHelp(voiceEngine) }
-                            CompositionLocalProvider(LocalVoiceHelp provides voiceHelp) {
+                            val modoSimple by deviceSettings.simpleMode.collectAsState(initial = true)
+                            CompositionLocalProvider(LocalVoiceHelp provides voiceHelp, LocalModoSimple provides modoSimple) {
                                 CecapiNavGraph(navController = navController)
                             }
                         }

@@ -184,3 +184,12 @@ Sin comprobar: el reintento con TalkBack y el dictado de contraseña por voz.
 - "¿Qué menús hay?" dice los submenús en las pantallas con apertura por voz.
 - 264 pruebas, 0 fallos; instalado y abierto sin cierres. **No comprobado** con voz ni en pantalla.
 - "ALIA" sigue siendo intermitente. Pendiente: lectura de diagramas.
+
+### Nombre del asistente con Vosk y Modo simple (25 de noviembre, noche)
+
+- Modo simple oculta las explicaciones de tarjetas e interruptores (la voz las conserva).
+- Prueba: Vosk (Apache 2.0, modelo `vosk-model-small-es-0.42`) detecta "ALIA" y las órdenes de control sin internet; el reconocedor de siempre atiende lo que se pide después. Con apodo, "hola", inicio de sesión o sin el modelo se usa la escucha anterior. El modelo se baja con `./gradlew descargarModeloDeVoz` y no está en Git.
+- App de prueba aparte: sin señuelos, las palabras parecidas daban "alia" con confianza 100; con señuelos, quien probó reportó 0 en parecidas.
+- En ALIA (reporte de quien probó): las parecidas no la activaron; el nombre responde la mayoría de las veces. El registro mostró 11 llamadas y 2 órdenes de silencio, sin cierres.
+- 270 pruebas, 0 fallos. APK de depuración: +64 MB. Con la app escuchando, 72 a 97 % de un núcleo (sin comparación previa; batería sin medir).
+- Pendiente: pausas sin escuchar mientras la app habla, consumo, 1 metro, 3 minutos de ruido, llamadas telefónicas y otro teléfono (probado solo en OPPO A57, CPH2387).

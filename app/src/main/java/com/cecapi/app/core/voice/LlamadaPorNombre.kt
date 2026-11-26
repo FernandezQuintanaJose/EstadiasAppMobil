@@ -10,9 +10,17 @@ object LlamadaPorNombre {
     private const val MAX_PALABRAS = 2
     private const val MAX_PALABRAS_ORDEN = 6
 
+    /**
+     * Lo que el reconocedor de Google escribe cuando alguien dice solo "ALIA". Se toman como llamada solo si
+     * es lo único que se dijo; si no, "palia" terminaba buscándose en Wikipedia.
+     */
+    private val CASI_ALIA = setOf("palia", "alias", "alian")
+
     fun esElNombre(opciones: List<String>, nombres: Collection<String>): Boolean {
         val primera = opciones.firstOrNull() ?: return false
-        if (VoiceText.normalize(primera).split(' ').size > MAX_PALABRAS) return false
+        val oido = VoiceText.normalize(primera)
+        if (oido.split(' ').size > MAX_PALABRAS) return false
+        if ("alia" in nombres && oido in CASI_ALIA) return true
         return opciones.any { VoiceText.normalize(it) in nombres }
     }
 

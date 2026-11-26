@@ -132,6 +132,12 @@ class SeleccionTarjeta(private val claveGuardada: MutableState<String?> = mutabl
 
 val LocalSeleccionTarjeta = compositionLocalOf<SeleccionTarjeta?> { null }
 
+/**
+ * Modo simple: las tarjetas y los interruptores muestran solo su nombre. La explicación no se pierde:
+ * sigue en la ayuda por voz y en lo que lee TalkBack.
+ */
+val LocalModoSimple = compositionLocalOf { false }
+
 /** Si TalkBack (el lector de pantalla de Android) está encendido, él lee y dibuja su propio foco. */
 internal fun lectorDePantallaActivo(contexto: Context): Boolean =
     (contexto.getSystemService(Context.ACCESSIBILITY_SERVICE) as? AccessibilityManager)?.isTouchExplorationEnabled == true
@@ -548,7 +554,7 @@ fun BigBtn(
             color = tint,
             textAlign = TextAlign.Center,
         )
-        if (sub != null && !half) {
+        if (sub != null && !half && !LocalModoSimple.current) {
             Text(
                 text = sub,
                 style = MaterialTheme.typography.bodyLarge,

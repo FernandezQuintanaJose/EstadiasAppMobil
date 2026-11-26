@@ -9,3 +9,9 @@
 # SmolVLM: la librería nativa busca nativeInit, nativeDescribe y nativeFree por nombre.
 -keep class com.cecapi.app.feature.modulo7_entorno.SmolVlmLocal { *; }
 -dontwarn com.cecapi.app.feature.modulo7_entorno.SmolVlmLocal
+
+# Vosk y JNA: la libreria nativa busca estas clases por nombre.
+-keep class com.sun.jna.** { *; }
+-keep class * implements com.sun.jna.** { *; }
+-keep class org.vosk.** { *; }
+-dontwarn java.awt.**

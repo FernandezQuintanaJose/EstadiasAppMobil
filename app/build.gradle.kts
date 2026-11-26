@@ -104,7 +104,49 @@ ksp {
     arg("room.schemaLocation", "$projectDir/schemas")
 }
 
+/**
+ * Modelo de voz en español (Vosk, Apache 2.0, unos 39 MB) para reconocer el nombre del asistente sin internet.
+ * No va en el repositorio. El SHA-256 es el del archivo bajado el 25 de noviembre de 2026 de la página oficial
+ * (alphacephei.com no publica la suma): si cambia el archivo, la tarea falla. Sin el modelo, la app compila y
+ * usa la escucha anterior.
+ */
+tasks.register("descargarModeloDeVoz") {
+    group = "build"
+    description = "Descarga y verifica el modelo de voz que reconoce el nombre del asistente."
+
+    doLast {
+        val nombre = "vosk-model-small-es-0.42"
+        val esperado = "09b239888f633ef2f0b4e09736e3d9936acfd810bc65d53fad45261762c6511f"
+        val destino = rootProject.file("app/src/main/assets/vosk-es")
+        if (File(destino, "uuid").exists()) {
+            println("Ya está listo: $nombre")
+            return@doLast
+        }
+        val zip = File(rootProject.projectDir, "build/modeloDeVoz-tmp/$nombre.zip").apply { parentFile.mkdirs() }
+        val respuesta = HttpClient.newBuilder().followRedirects(HttpClient.Redirect.NORMAL).build().send(
+            HttpRequest.newBuilder(URI.create("https://alphacephei.com/vosk/models/$nombre.zip")).GET().build(),
+            HttpResponse.BodyHandlers.ofFile(zip.toPath()),
+        )
+        check(respuesta.statusCode() == 200) { "No se pudo descargar el modelo (HTTP ${respuesta.statusCode()})" }
+        val suma = MessageDigest.getInstance("SHA-256").digest(zip.readBytes()).joinToString("") { "%02x".format(it) }
+        check(suma == esperado) { "El SHA-256 del modelo no coincide" }
+        copy {
+            from(zipTree(zip))
+            into(destino)
+            // El zip trae todo dentro de una carpeta con el nombre del modelo.
+            eachFile { path = path.removePrefix("$nombre/") }
+            includeEmptyDirs = false
+        }
+        // Vosk usa este archivo para saber si tiene que volver a copiar el modelo al teléfono.
+        File(destino, "uuid").writeText(nombre)
+        println("Listo: $nombre")
+    }
+}
+
 dependencies {
+    // Reconocimiento del nombre del asistente en el teléfono (versiones de la demostración oficial de Vosk).
+    implementation("net.java.dev.jna:jna:5.18.1@aar")
+    implementation("com.alphacephei:vosk-android:0.3.75@aar")
     testImplementation("junit:junit:4.13.2")
     testImplementation(libs.room.testing)
     testImplementation("org.robolectric:robolectric:4.14.1")

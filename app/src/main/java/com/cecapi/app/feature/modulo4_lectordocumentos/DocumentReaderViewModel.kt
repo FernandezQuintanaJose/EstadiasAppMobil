@@ -930,9 +930,9 @@ class DocumentReaderViewModel @Inject constructor(
         /** Fotos automáticas fallidas seguidas antes de dejar solo el botón y la voz. */
         const val MAX_FALLOS_AUTOMATICOS = 2
 
-        const val ESPERA_CAMBIO_MS = 2_500L
-        const val ESPERA_REPETIR_MS = 5_000L
-        const val ESPERA_SIN_TEXTO_MS = 10_000L
+        const val ESPERA_CAMBIO_MS = 4_000L
+        const val ESPERA_REPETIR_MS = 12_000L
+        const val ESPERA_SIN_TEXTO_MS = 25_000L
 
         /** Si la persona habló encima de la lectura hace tan poco, la pausa en la voz fue suya: no seguir leyendo. */
         const val BARGE_IN_WINDOW_MS = 1_500L

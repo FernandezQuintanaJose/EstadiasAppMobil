@@ -1,5 +1,6 @@
 package com.cecapi.app.feature.modulo1_aplicacionprincipal
 
+import com.cecapi.app.core.ui.LocalModoSimple
 import androidx.activity.compose.BackHandler
 import com.cecapi.app.core.ui.iluminable
 import com.cecapi.app.core.theme.CecapiBorder
@@ -377,6 +378,7 @@ fun SettingsScreen(
                 SwitchRow(
                     label = "Inteligencia artificial en internet",
                     description = "Todavía no está conectada. No la actives si quien usa la aplicación es menor de edad",
+                    aviso = "No para menores de edad",
                     checked = aiEnabled,
                     onChange = viewModel::onAiEnabledChanged,
                     help = "Inteligencia artificial en internet. Apagada, ninguna de tus preguntas se envía a un servidor para interpretarla. " +
@@ -388,6 +390,7 @@ fun SettingsScreen(
                 SwitchRow(
                     label = "Búsqueda en Wikipedia",
                     description = "Apagada por defecto. Envía a Wikipedia o Wikidata una frase no entendida o una pregunta sencilla de Consultas",
+                    aviso = "Envía tu pregunta a Wikipedia",
                     checked = wikipediaEnabled,
                     onChange = viewModel::onWikipediaChanged,
                     help = "Búsqueda en Wikipedia. Apagada, ninguna frase se envía a Wikipedia ni a Wikidata. " +
@@ -396,10 +399,10 @@ fun SettingsScreen(
                 )
                 SwitchRow(
                     label = "Modo simple",
-                    description = "Menús más grandes y con menos opciones a la vez",
+                    description = "Muestra solo los nombres, sin explicaciones debajo",
                     checked = simpleMode,
                     onChange = viewModel::onSimpleModeChanged,
-                    help = "Modo simple. Muestra los menús más grandes y con menos opciones a la vez.",
+                    help = "Modo simple. Muestra solo el nombre de cada opción, sin textos debajo. La explicación la sigues oyendo.",
                 )
             }
 
@@ -458,7 +461,11 @@ internal fun SwitchRow(
     checked: Boolean,
     onChange: (Boolean) -> Unit,
     help: String,
+    /** Una línea que se ve también en modo simple, para lo que la persona debe saber antes de activar (qué se envía). */
+    aviso: String? = null,
 ) {
+    val simple = LocalModoSimple.current
+    val explicacion = if (simple) aviso.orEmpty() else description
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -467,6 +474,7 @@ internal fun SwitchRow(
             .iluminable(label, RoundedCornerShape(20.dp))
             .clickable { onChange(!checked) }
             .heightIn(min = 76.dp)
+            .semantics(mergeDescendants = true) { contentDescription = "$label. $description" }
             .voiceHint(help)
             .padding(16.dp),
         horizontalArrangement = Arrangement.SpaceBetween,
@@ -474,8 +482,8 @@ internal fun SwitchRow(
     ) {
         Column(modifier = Modifier.weight(1f).padding(end = 12.dp)) {
             Text(label, style = MaterialTheme.typography.titleLarge, color = MaterialTheme.colorScheme.onBackground)
-            if (description.isNotBlank()) {
-                Text(description, style = MaterialTheme.typography.bodyMedium, color = CecapiTextMuted)
+            if (explicacion.isNotBlank()) {
+                Text(explicacion, style = MaterialTheme.typography.bodyMedium, color = CecapiTextMuted)
             }
         }
         Switch(

@@ -64,6 +64,7 @@ class VoiceEngine @Inject constructor(
     @ApplicationContext private val context: Context,
     private val cues: FeedbackCues,
     private val connectivity: ConnectivityObserver,
+    private val detectorDeNombre: DetectorDeNombre,
 ) {
     private val _state = MutableStateFlow<VoiceState>(VoiceState.Idle)
     val state: StateFlow<VoiceState> = _state.asStateFlow()
@@ -818,9 +819,34 @@ class VoiceEngine @Inject constructor(
     }
 
     private fun releaseWakeRecognizer() {
+        mainHandler.removeCallbacks(vigilarLlamada)
+        detectorDeNombre.parar()
         wakeRecognizer?.cancel()
         wakeRecognizer?.destroy()
         wakeRecognizer = null
+    }
+
+    /** El detector local no se reinicia solo, así que hay que revisar si entra una llamada para soltarle el micrófono. */
+    private val vigilarLlamada: Runnable = object : Runnable {
+        override fun run() {
+            if (phoneIsInCall()) {
+                releaseWakeRecognizer()
+                resumeWakeWord(3_000)
+            } else {
+                mainHandler.postDelayed(this, 2_000)
+            }
+        }
+    }
+
+    private fun alOirElDetector(accion: FraseDeActivacion.Accion) {
+        releaseWakeRecognizer()
+        when (accion) {
+            // El detector no entiende lo que sigue al nombre: se pregunta y se abre el reconocedor de siempre.
+            FraseDeActivacion.Accion.LLAMADA -> onWakeWordHeard("")
+            FraseDeActivacion.Accion.SILENCIO -> mute()
+            FraseDeActivacion.Accion.DETENER -> stopAssistant()
+            FraseDeActivacion.Accion.NADA -> resumeWakeWord()
+        }
     }
 
     private fun listenForWakeWord() {
@@ -831,6 +857,11 @@ class VoiceEngine @Inject constructor(
             return
         }
         releaseWakeRecognizer()
+        // Con el micrófono abierto (inicio de sesión) hace falta la frase completa, no solo el nombre.
+        if (!openMic && detectorDeNombre.puedeEscuchar(wakeWords) && detectorDeNombre.escuchar(::alOirElDetector)) {
+            mainHandler.postDelayed(vigilarLlamada, 2_000)
+            return
+        }
         val recognizer = SpeechRecognizer.createSpeechRecognizer(context)
         wakeRecognizer = recognizer
         recognizer.setRecognitionListener(object : RecognitionListener {
