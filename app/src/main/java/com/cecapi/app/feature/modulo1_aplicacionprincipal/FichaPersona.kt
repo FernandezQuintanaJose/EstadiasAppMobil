@@ -1,5 +1,6 @@
 package com.cecapi.app.feature.modulo1_aplicacionprincipal
 
+import com.cecapi.app.core.ui.iluminable
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
@@ -118,7 +119,7 @@ internal fun FichaPersona(
                 OutlinedTextField(
                     value = nombre,
                     onValueChange = { nombre = it },
-                    modifier = Modifier.fillMaxWidth(),
+                    modifier = Modifier.fillMaxWidth().iluminable("Nombre completo", RoundedCornerShape(8.dp), colorNormal = androidx.compose.ui.graphics.Color.Transparent, anchoNormal = 0.dp),
                     label = { Text("Nombre completo") },
                     singleLine = true,
                     colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = CecapiAccent, unfocusedBorderColor = CecapiTextMuted),
@@ -126,7 +127,7 @@ internal fun FichaPersona(
                 OutlinedTextField(
                     value = apodo,
                     onValueChange = { apodo = it },
-                    modifier = Modifier.fillMaxWidth(),
+                    modifier = Modifier.fillMaxWidth().iluminable("Apodo (opcional)", RoundedCornerShape(8.dp), colorNormal = androidx.compose.ui.graphics.Color.Transparent, anchoNormal = 0.dp),
                     label = { Text("Apodo (opcional)") },
                     singleLine = true,
                     colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = CecapiAccent, unfocusedBorderColor = CecapiTextMuted),
@@ -134,7 +135,7 @@ internal fun FichaPersona(
                 OutlinedTextField(
                     value = correo,
                     onValueChange = { correo = it },
-                    modifier = Modifier.fillMaxWidth(),
+                    modifier = Modifier.fillMaxWidth().iluminable("Correo (opcional)", RoundedCornerShape(8.dp), colorNormal = androidx.compose.ui.graphics.Color.Transparent, anchoNormal = 0.dp),
                     label = { Text("Correo (opcional)") },
                     singleLine = true,
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email),
@@ -218,7 +219,7 @@ internal fun FichaPersona(
             OutlinedTextField(
                 value = nueva,
                 onValueChange = { nueva = it },
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier.fillMaxWidth().iluminable("Nueva contraseña *", RoundedCornerShape(8.dp), colorNormal = androidx.compose.ui.graphics.Color.Transparent, anchoNormal = 0.dp),
                 label = { Text("Nueva contraseña *") },
                 singleLine = true,
                 visualTransformation = PasswordVisualTransformation(),

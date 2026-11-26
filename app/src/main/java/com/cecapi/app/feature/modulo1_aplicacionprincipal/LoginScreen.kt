@@ -1,5 +1,6 @@
 package com.cecapi.app.feature.modulo1_aplicacionprincipal
 
+import com.cecapi.app.core.ui.iluminable
 import android.Manifest
 import android.content.pm.PackageManager
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -153,6 +154,7 @@ fun LoginScreen(
             modifier = Modifier
                 .fillMaxWidth()
                 .heightIn(min = 72.dp)
+                .iluminable("Campo de usuario", RoundedCornerShape(16.dp), colorNormal = androidx.compose.ui.graphics.Color.Transparent, anchoNormal = 0.dp)
                 .voiceHint(
                     help = "Campo de usuario. Aquí va el nombre con el que te registraron. " +
                         "Puedes escribirlo o dictarlo. Se escribe en mayúsculas automáticamente.",
@@ -188,6 +190,7 @@ fun LoginScreen(
             modifier = Modifier
                 .fillMaxWidth()
                 .heightIn(min = 72.dp)
+                .iluminable("Campo de contraseña", RoundedCornerShape(16.dp), colorNormal = androidx.compose.ui.graphics.Color.Transparent, anchoNormal = 0.dp)
                 .voiceHint(
                     help = "Campo de contraseña. Son letras, sin espacios. Se ve oculta por seguridad. " +
                         "Puedes escribirla o dictarla, y nunca la leo en voz alta.",

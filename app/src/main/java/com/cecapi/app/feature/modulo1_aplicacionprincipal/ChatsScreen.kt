@@ -1,5 +1,6 @@
 package com.cecapi.app.feature.modulo1_aplicacionprincipal
 
+import com.cecapi.app.core.ui.iluminable
 import com.cecapi.app.core.theme.CecapiBorder
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Check
@@ -385,7 +386,7 @@ private fun ChatCard(chat: ChatItem, selected: Boolean, onClick: () -> Unit) {
             .heightIn(min = 72.dp)
             .clip(shape)
             .background(CecapiSurface)
-            .border(if (selected) 3.dp else 1.dp, if (selected) CecapiAccent else CecapiTextMuted.copy(alpha = 0.3f), shape)
+            .iluminable(help, shape, colorNormal = if (selected) CecapiAccent else CecapiTextMuted.copy(alpha = 0.3f), anchoNormal = if (selected) 2.dp else 1.dp)
             .clickable(onClick = onClick)
             .semantics { contentDescription = help }
             .voiceHint(help)

@@ -250,7 +250,7 @@ fun VolverPill(
             .heightIn(min = 74.dp)
             .clip(RoundedCornerShape(16.dp))
             .background(CecapiSurfaceElevated)
-            .border(1.dp, CecapiBorder, RoundedCornerShape(16.dp))
+            .iluminable(help, RoundedCornerShape(16.dp))
             .clickable(onClick = onClick)
             .semantics { contentDescription = help }
             .voiceHint(help)
@@ -277,7 +277,7 @@ fun CaptureButton(
         modifier = modifier
             .size(size)
             .clip(CircleShape)
-            .border(4.dp, CecapiTextPrimary, CircleShape)
+            .iluminable(help, CircleShape, colorNormal = CecapiTextPrimary, anchoNormal = 4.dp)
             .padding(8.dp)
             .clip(CircleShape)
             .background(if (enabled) CecapiAccent else CecapiSurfaceElevated)

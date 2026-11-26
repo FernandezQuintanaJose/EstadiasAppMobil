@@ -1,5 +1,6 @@
 package com.cecapi.app.feature.modulo1_aplicacionprincipal
 
+import com.cecapi.app.core.ui.iluminable
 import com.cecapi.app.core.theme.CecapiBorder
 import androidx.compose.foundation.border
 import androidx.compose.material.icons.filled.Close
@@ -145,7 +146,7 @@ fun SoporteScreen(
                         OutlinedTextField(
                             value = respuesta,
                             onValueChange = { respuesta = it },
-                            modifier = Modifier.fillMaxWidth(),
+                            modifier = Modifier.fillMaxWidth().iluminable("Respuesta *", RoundedCornerShape(8.dp), colorNormal = androidx.compose.ui.graphics.Color.Transparent, anchoNormal = 0.dp),
                             label = { Text("Respuesta *") },
                             minLines = 3,
                             colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = CecapiAccent, unfocusedBorderColor = CecapiTextMuted),
@@ -168,7 +169,7 @@ fun SoporteScreen(
                     OutlinedTextField(
                         value = texto,
                         onValueChange = { texto = it },
-                        modifier = Modifier.fillMaxWidth(),
+                        modifier = Modifier.fillMaxWidth().iluminable("Qué pasó *", RoundedCornerShape(8.dp), colorNormal = androidx.compose.ui.graphics.Color.Transparent, anchoNormal = 0.dp),
                         label = { Text("Qué pasó *") },
                         minLines = 3,
                         colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = CecapiAccent, unfocusedBorderColor = CecapiTextMuted),

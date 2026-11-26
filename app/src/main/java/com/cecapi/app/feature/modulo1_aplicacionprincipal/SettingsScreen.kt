@@ -1,5 +1,6 @@
 package com.cecapi.app.feature.modulo1_aplicacionprincipal
 
+import com.cecapi.app.core.ui.iluminable
 import com.cecapi.app.core.theme.CecapiBorder
 import androidx.compose.foundation.border
 import android.Manifest
@@ -276,7 +277,7 @@ fun SettingsScreen(
                         .fillMaxWidth()
                         .clip(RoundedCornerShape(20.dp))
                         .background(CecapiSurface)
-                        .border(1.dp, if (notificationAccess) CecapiAccent else CecapiError, RoundedCornerShape(20.dp))
+                        .iluminable("Acceso a notificaciones", RoundedCornerShape(20.dp), colorNormal = if (notificationAccess) CecapiBorder else CecapiError)
                         .padding(16.dp),
                 ) {
                     Text(
@@ -314,7 +315,7 @@ fun SettingsScreen(
                             .fillMaxWidth()
                             .clip(RoundedCornerShape(20.dp))
                             .background(CecapiSurface)
-                            .border(1.dp, CecapiBorder, RoundedCornerShape(20.dp))
+                            .iluminable("Espacio", RoundedCornerShape(20.dp))
                             .padding(16.dp),
                         verticalArrangement = Arrangement.spacedBy(8.dp),
                     ) {
@@ -382,7 +383,7 @@ fun SettingsScreen(
                 )
                 SwitchRow(
                     label = "Búsqueda en Wikipedia",
-                    description = "Apagada por defecto. Envía el texto de una frase no entendida a Wikipedia o Wikidata",
+                    description = "Apagada por defecto. Envía a Wikipedia o Wikidata una frase no entendida o una pregunta sencilla de Consultas",
                     checked = wikipediaEnabled,
                     onChange = viewModel::onWikipediaChanged,
                     help = "Búsqueda en Wikipedia. Apagada, ninguna frase se envía a Wikipedia ni a Wikidata. " +
@@ -426,7 +427,7 @@ internal fun SliderRow(
             .fillMaxWidth()
             .clip(RoundedCornerShape(20.dp))
             .background(CecapiSurface)
-            .border(1.dp, CecapiBorder, RoundedCornerShape(20.dp))
+            .iluminable(help, RoundedCornerShape(20.dp))
             .voiceHint(help)
             .padding(16.dp),
     ) {
@@ -459,7 +460,7 @@ internal fun SwitchRow(
             .fillMaxWidth()
             .clip(RoundedCornerShape(20.dp))
             .background(CecapiSurface)
-            .border(1.dp, CecapiBorder, RoundedCornerShape(20.dp))
+            .iluminable(label, RoundedCornerShape(20.dp))
             .clickable { onChange(!checked) }
             .heightIn(min = 76.dp)
             .voiceHint(help)

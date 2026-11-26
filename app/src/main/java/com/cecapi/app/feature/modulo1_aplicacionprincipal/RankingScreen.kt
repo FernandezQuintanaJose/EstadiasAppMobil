@@ -1,5 +1,6 @@
 package com.cecapi.app.feature.modulo1_aplicacionprincipal
 
+import com.cecapi.app.core.ui.iluminable
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -194,7 +195,7 @@ fun RankingScreen(
                         .fillMaxWidth()
                         .clip(RoundedCornerShape(20.dp))
                         .background(Sections.Ranking.bg)
-                        .border(2.dp, Sections.Ranking.color, RoundedCornerShape(20.dp))
+                        .iluminable("Mi posicion", RoundedCornerShape(20.dp), color = Sections.Ranking.color)
                         .padding(vertical = 20.dp, horizontal = 18.dp),
                     horizontalAlignment = Alignment.CenterHorizontally,
                 ) {
@@ -263,8 +264,8 @@ private fun RankingFilaRow(posicion: Int, nombre: String, detalle: String, punto
                     .fillMaxWidth()
                     .clip(shape)
                     .background(podio.fondo)
-                    .border(if (posicion == 1) 3.dp else 2.dp, podio.color, shape)
-                    .let { if (destacado) it.border(2.dp, CecapiAccent, shape) else it }
+                    .let { if (destacado) it.background(CecapiAccent.copy(alpha = 0.18f)) else it }
+                    .iluminable(nombre, shape, colorNormal = podio.color)
                     .voiceHint("Lugar $posicion. $nombre, $detalle, $puntos puntos." + if (destacado) " Eres tú." else "")
                     .padding(if (posicion == 1) 22.dp else 16.dp),
                 horizontalAlignment = Alignment.CenterHorizontally,
@@ -294,8 +295,8 @@ private fun RankingFilaRow(posicion: Int, nombre: String, detalle: String, punto
                 .heightIn(min = 56.dp)
                 .clip(RoundedCornerShape(16.dp))
                 .background(podio.fondo)
-                .border(1.dp, podio.color, RoundedCornerShape(16.dp))
-                .let { if (destacado) it.border(2.dp, CecapiAccent, RoundedCornerShape(16.dp)) else it }
+                .let { if (destacado) it.background(CecapiAccent.copy(alpha = 0.18f)) else it }
+                .iluminable(nombre, RoundedCornerShape(16.dp), colorNormal = podio.color)
                 .voiceHint("Lugar $posicion. $nombre, $detalle, $puntos puntos." + if (destacado) " Eres tú." else "")
                 .padding(horizontal = 14.dp, vertical = 10.dp),
             verticalAlignment = Alignment.CenterVertically,
@@ -328,7 +329,8 @@ private fun RankingRow(posicion: Int, nombre: String, detalle: String, puntos: I
                 .heightIn(min = 56.dp)
                 .clip(shape)
                 .background(CecapiSurfaceElevated)
-                .let { if (destacado) it.border(2.dp, CecapiAccent, shape) else it }
+                .let { if (destacado) it.background(CecapiAccent.copy(alpha = 0.18f)) else it }
+                .iluminable(nombre, shape, colorNormal = androidx.compose.ui.graphics.Color.Transparent, anchoNormal = 0.dp)
                 .voiceHint("Lugar $posicion. $nombre, $detalle, $puntos puntos." + if (destacado) " Eres tú." else "")
                 .padding(horizontal = 14.dp, vertical = 10.dp),
             verticalAlignment = Alignment.CenterVertically,

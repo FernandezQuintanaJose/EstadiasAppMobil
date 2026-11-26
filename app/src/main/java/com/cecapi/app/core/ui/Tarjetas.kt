@@ -315,6 +315,7 @@ fun CampoTexto(
             modifier = Modifier
                 .fillMaxWidth()
                 .heightIn(min = 72.dp)
+                .iluminable(textoAyuda, RoundedCornerShape(16.dp), colorNormal = Color.Transparent, anchoNormal = 0.dp)
                 .voiceHint(help = textoAyuda, focusLabel = textoAyuda),
             enabled = enabled,
             textStyle = if (centrado) MaterialTheme.typography.titleLarge.copy(textAlign = TextAlign.Center) else MaterialTheme.typography.titleLarge,
@@ -343,7 +344,8 @@ fun CampoTexto(
             },
             keyboardActions = keyboardActions,
             shape = RoundedCornerShape(16.dp),
-            colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = CecapiAccent, unfocusedBorderColor = CecapiTextMuted),
+            // El borde de selección lo pone [iluminable]; sin seleccionar queda neutro, como las tarjetas.
+            colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = CecapiAccent, unfocusedBorderColor = CecapiBorder),
         )
     }
 }

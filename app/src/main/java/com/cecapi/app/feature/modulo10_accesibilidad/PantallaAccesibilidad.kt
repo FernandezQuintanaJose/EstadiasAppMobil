@@ -1,5 +1,6 @@
 package com.cecapi.app.feature.modulo10_accesibilidad
 
+import com.cecapi.app.core.ui.iluminable
 import android.content.ActivityNotFoundException
 import android.content.Context
 import android.content.Intent
@@ -115,7 +116,7 @@ fun PantallaAccesibilidad(
                         .fillMaxWidth()
                         .clip(RoundedCornerShape(16.dp))
                         .background(CecapiSurfaceElevated)
-                        .border(2.dp, CecapiWarning, RoundedCornerShape(16.dp))
+                        .iluminable("Aviso de TalkBack", RoundedCornerShape(16.dp), colorNormal = CecapiWarning, anchoNormal = 2.dp)
                         .padding(16.dp),
                     verticalArrangement = Arrangement.spacedBy(10.dp),
                 ) {

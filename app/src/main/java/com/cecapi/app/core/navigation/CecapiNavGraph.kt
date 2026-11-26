@@ -35,7 +35,6 @@ import com.cecapi.app.feature.modulo6_aprendizaje.JuegoScreen
 import androidx.navigation.NavType
 import androidx.navigation.navArgument
 import com.cecapi.app.feature.modulo6_aprendizaje.LearningScreen
-import com.cecapi.app.feature.modulo7_entorno.EnvironmentScreen
 import com.cecapi.app.feature.modulo10_accesibilidad.PantallaAccesibilidad
 
 @Composable
@@ -244,15 +243,13 @@ fun CecapiNavGraph(navController: NavHostController = rememberNavController()) {
         ) {
             WakeScope { JuegoScreen(onBack = { navController.popBackStack() }) }
         }
+        // Hay una sola cámara: quien pida el "entorno" llega a ella, lista para decir qué hay enfrente.
         composable(CecapiDestinations.ENVIRONMENT) {
-            WakeScope {
-                EnvironmentScreen(
-                    onBack = { navController.popBackStack() },
-                    onOpen = { route ->
-                        navController.popBackStack()
-                        navController.navigate(route)
-                    },
-                )
+            LaunchedEffect(Unit) {
+                navVoice.launchRequests.pedirCamaraEnfrente()
+                navController.navigate(CecapiDestinations.DOCUMENT_READER) {
+                    popUpTo(CecapiDestinations.ENVIRONMENT) { inclusive = true }
+                }
             }
         }
     }

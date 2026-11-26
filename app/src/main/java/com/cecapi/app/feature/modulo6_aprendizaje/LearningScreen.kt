@@ -1,5 +1,6 @@
 package com.cecapi.app.feature.modulo6_aprendizaje
 
+import com.cecapi.app.core.ui.iluminable
 import android.Manifest
 import android.content.pm.PackageManager
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -489,6 +490,7 @@ private fun Progreso(hechos: Int, total: Int, aciertos: Int) {
     Column(
         modifier = Modifier
             .fillMaxWidth()
+            .iluminable("Avance", RoundedCornerShape(12.dp), colorNormal = androidx.compose.ui.graphics.Color.Transparent, anchoNormal = 0.dp)
             .clickable { helper?.speak(texto) }
             .semantics { contentDescription = texto },
         verticalArrangement = Arrangement.spacedBy(6.dp),
@@ -617,9 +619,11 @@ private fun ChoiceButton(
             .heightIn(min = 56.dp)
             .clip(shape)
             .background(CecapiSurfaceElevated)
-            .border(
-                if (selected) BorderStroke(3.dp, CecapiAccent) else BorderStroke(1.dp, CecapiTextMuted.copy(alpha = 0.4f)),
+            .iluminable(
+                "opcion",
                 shape,
+                colorNormal = if (selected) CecapiAccent else CecapiTextMuted.copy(alpha = 0.4f),
+                anchoNormal = if (selected) 2.dp else 1.dp,
             )
             .clickable(onClick = onClick)
             .semantics { contentDescription = if (selected) "$label, seleccionado. $help" else "$label. $help" }

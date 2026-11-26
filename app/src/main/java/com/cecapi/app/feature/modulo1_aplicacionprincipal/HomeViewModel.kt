@@ -212,7 +212,7 @@ class HomeViewModel @Inject constructor(
     private fun onMenuKey(key: String) {
         when (key) {
             MenuItem.SETTINGS_KEY -> onSettingsSelected()
-            MenuItem.CAMERA_KEY -> openRoute(CecapiDestinations.DOCUMENT_READER, "Abriendo la cámara. Para saber qué hay enfrente, toca el botón de arriba o dilo.")
+            MenuItem.CAMERA_KEY -> openRoute(CecapiDestinations.DOCUMENT_READER, "Abriendo la cámara. Toma una foto, o di qué hay enfrente, qué billete es o qué moneda es.")
             MenuItem.PERSONALIZATION_KEY -> openRoute(CecapiDestinations.PERSONALIZATION, "Abriendo la personalización.")
             MenuItem.CHATS_KEY -> openRoute(CecapiDestinations.CHATS, "Abriendo los chats.")
             else -> ModuloCecapi.fromStorageCode(key)?.let(::onModuleSelected)
@@ -225,10 +225,10 @@ class HomeViewModel @Inject constructor(
         _navEvents.tryEmit(HomeNavEvent.GoToModule(route))
     }
 
-    private fun openCameraMode(route: String) = openRoute(
-        route,
-        if (route == CecapiDestinations.ENVIRONMENT) "Abriendo el asistente del entorno." else "Abriendo la cámara para leer texto.",
-    )
+    private fun openCameraMode(route: String, spoken: String) {
+        if (ModuleVoice.pideEnfrente(spoken)) launchRequests.pedirCamaraEnfrente()
+        openRoute(route, ModuleVoice.cameraSpeech(spoken))
+    }
 
     fun setScreenActive(active: Boolean) {
         screenActive = active
@@ -341,7 +341,7 @@ class HomeViewModel @Inject constructor(
             SessionCommands.isLogout(text) -> voiceEngine.speak("No tienes una sesión abierta.")
             CommandCatalog.isRequest(text) -> voiceEngine.speak(CommandCatalog.HOME)
             ModuleVoice.isListRequest(text) -> voiceEngine.speak(ModuleVoice.spokenList(menu))
-            cameraRoute != null -> openCameraMode(cameraRoute)
+            cameraRoute != null -> openCameraMode(cameraRoute, text)
             menuKey != null -> onMenuKey(menuKey)
             VoiceText.hasAny(
                 VoiceText.normalize(text),

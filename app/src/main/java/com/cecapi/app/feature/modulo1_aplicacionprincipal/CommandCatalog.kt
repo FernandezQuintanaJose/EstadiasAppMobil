@@ -63,8 +63,11 @@ object CommandCatalog {
             "Guarda la foto, para guardarla en tu galería. " +
             "Elige una foto, para leer una imagen que ya tienes en tu teléfono; tú eliges cuál y solo veo esa. " +
             "Activa flash, para usarlo en la próxima foto; desactiva flash, para apagarlo. " +
-            "Qué hay enfrente, para cambiar a describir lo que ve la cámara. " +
-            "Atrás, para volver a la cámara. " + MORE
+            "Qué hay enfrente, para que te describa lo que ve la cámara; descríbelo con la IA, para más detalle. " +
+            "Qué billete es, o qué moneda es, para reconocer dinero. " +
+            "Agrega este billete, o agrega esta moneda, para sumarlo. Cuánto llevo, para escuchar el total. " +
+            "Borra los billetes, o borra las monedas, para empezar de cero. " +
+            "Atrás, para volver al menú. " + MORE
 
     const val ENVIRONMENT =
         "En la descripción del entorno puedes decir: qué hay enfrente, o toma la foto, para que te describa lo que ve. " +

@@ -1,5 +1,7 @@
 package com.cecapi.app.feature.modulo4_lectordocumentos
 
+import com.cecapi.app.core.ui.ConSeleccionDeTarjetas
+import com.cecapi.app.core.ui.iluminable
 import com.cecapi.app.core.theme.ModuleSection
 import android.Manifest
 import android.os.Build
@@ -77,6 +79,9 @@ import com.cecapi.app.core.ui.TarjetaLectura
 import com.cecapi.app.core.ui.ScreenTopBar
 import com.cecapi.app.core.ui.PantallaConMicrofono
 import com.cecapi.app.core.ui.MicPad
+import androidx.compose.material.icons.filled.MonetizationOn
+import androidx.compose.material.icons.filled.Payments
+import com.cecapi.app.feature.modulo7_entorno.ComandoDeDinero
 import com.cecapi.app.core.ui.CargandoConMensaje
 import com.cecapi.app.core.ui.ColumnaDesplazable
 import com.cecapi.app.core.ui.CapturedPhotoPreview
@@ -195,6 +200,8 @@ fun DocumentReaderScreen(
             onEnfrente = viewModel::describirEntorno,
             onCodigo = viewModel::leerCodigos,
             onTraducir = viewModel::traducir,
+            onBillete = { viewModel.atenderDinero(ComandoDeDinero.VER_BILLETE) },
+            onMoneda = { viewModel.atenderDinero(ComandoDeDinero.VER_MONEDA) },
             onGuardar = viewModel::guardarFoto,
             onOtraFoto = viewModel::otraFoto,
             onMic = viewModel::onMicTapped,
@@ -203,7 +210,7 @@ fun DocumentReaderScreen(
         )
     } else if (hayDocumento && !uiState.isProcessing) {
         // Pantalla 2: Interfaz futurista CECAPI de control de lectura con botón VOLVER AL MENÚ hasta abajo
-        DocumentReadoutControlScreen(
+        ConSeleccionDeTarjetas { DocumentReadoutControlScreen(
             uiState = uiState,
             onBack = onVolverClick,
             onPause = { viewModel.onBotonPresionado(BotonLector.PAUSAR) },
@@ -214,10 +221,10 @@ fun DocumentReaderScreen(
             onSavePhoto = { viewModel.onBotonPresionado(BotonLector.GUARDAR) },
             onRetakePhoto = { viewModel.onBotonPresionado(BotonLector.OTRA_FOTO) },
             onOtrasAcciones = viewModel::otrasAcciones,
-        )
+        ) }
     } else {
         // Pantalla 1: Vista previa de cámara limpia a pantalla completa
-        DocumentCameraScreen(
+        ConSeleccionDeTarjetas { DocumentCameraScreen(
             uiState = uiState,
             hasCameraPermission = hasCameraPermission,
             onReadyCamera = { capture ->
@@ -231,7 +238,7 @@ fun DocumentReaderScreen(
             listening = voiceState is VoiceState.Listening,
             onGallery = viewModel::pedirGaleria,
             onMic = viewModel::onMicTapped,
-        )
+        ) }
     }
 }
 
@@ -346,7 +353,7 @@ private fun DocumentReadoutControlScreen(
                 .weight(1f)
                 .clip(RoundedCornerShape(24.dp))
                 .background(CecapiSurfaceElevated)
-                .border(2.dp, pauseTint, RoundedCornerShape(24.dp))
+                .iluminable("Pausar o reanudar", RoundedCornerShape(24.dp), color = pauseTint)
                 .semantics {
                     role = Role.Button
                     contentDescription = if (mostrarPausar) "Pausar lectura" else "Reanudar lectura"
@@ -392,7 +399,7 @@ private fun DocumentReadoutControlScreen(
                 .weight(1f)
                 .clip(RoundedCornerShape(24.dp))
                 .background(CecapiSurfaceElevated)
-                .border(2.dp, repeatTint, RoundedCornerShape(24.dp))
+                .iluminable("Repetir lectura", RoundedCornerShape(24.dp), color = repeatTint)
                 .semantics {
                     role = Role.Button
                     contentDescription = "Repetir lectura desde el inicio"
@@ -444,7 +451,7 @@ private fun DocumentReadoutControlScreen(
                     .fillMaxSize()
                     .clip(RoundedCornerShape(24.dp))
                     .background(CecapiSurfaceElevated)
-                    .border(2.dp, navBorder, RoundedCornerShape(24.dp))
+                    .iluminable("Anterior", RoundedCornerShape(24.dp), colorNormal = navBorder)
                     .semantics {
                         role = Role.Button
                         contentDescription = "Ir al párrafo anterior"
@@ -479,7 +486,7 @@ private fun DocumentReadoutControlScreen(
                     .fillMaxSize()
                     .clip(RoundedCornerShape(24.dp))
                     .background(CecapiSurfaceElevated)
-                    .border(2.dp, navBorder, RoundedCornerShape(24.dp))
+                    .iluminable("Siguiente", RoundedCornerShape(24.dp), colorNormal = navBorder)
                     .semantics {
                         role = Role.Button
                         contentDescription = "Ir al párrafo siguiente"
@@ -517,7 +524,7 @@ private fun DocumentReadoutControlScreen(
                 .weight(1f)
                 .clip(RoundedCornerShape(24.dp))
                 .background(CecapiSurfaceElevated)
-                .border(2.dp, saveTint, RoundedCornerShape(24.dp))
+                .iluminable("Guardar foto", RoundedCornerShape(24.dp), color = saveTint)
                 .semantics {
                     role = Role.Button
                     contentDescription = "Guardar foto en la galería"
@@ -563,7 +570,7 @@ private fun DocumentReadoutControlScreen(
                 .weight(1f)
                 .clip(RoundedCornerShape(24.dp))
                 .background(CecapiSurfaceElevated)
-                .border(2.dp, cameraTint, RoundedCornerShape(24.dp))
+                .iluminable("Tomar otra foto", RoundedCornerShape(24.dp), color = cameraTint)
                 .semantics {
                     role = Role.Button
                     contentDescription = "Tomar otra foto"
@@ -625,7 +632,7 @@ private fun VolverAlMenuButton(onClick: () -> Unit, modifier: Modifier = Modifie
             .height(82.dp)
             .clip(RoundedCornerShape(24.dp))
             .background(CecapiSurfaceElevated)
-            .border(2.5.dp, menuTint, RoundedCornerShape(24.dp))
+            .iluminable("Volver al menu", RoundedCornerShape(24.dp), color = menuTint)
             .semantics {
                 role = Role.Button
                 contentDescription = "Volver al menú principal"
@@ -700,6 +707,8 @@ private fun PanelAccionesFoto(
     onEnfrente: () -> Unit,
     onCodigo: () -> Unit,
     onTraducir: () -> Unit,
+    onBillete: () -> Unit,
+    onMoneda: () -> Unit,
     onGuardar: () -> Unit,
     onOtraFoto: () -> Unit,
     onMic: () -> Unit,
@@ -726,6 +735,8 @@ private fun PanelAccionesFoto(
             BigBtn(icon = Icons.Filled.Visibility, label = "Qué hay enfrente", section = Sections.Camera, enabled = !ocupado, onClick = onEnfrente)
             BigBtn(icon = Icons.Filled.QrCodeScanner, label = "Leer código QR", section = Sections.Camera, enabled = !ocupado, onClick = onCodigo)
             BigBtn(icon = Icons.Filled.Translate, label = "Traducir al español", section = Sections.Camera, enabled = !ocupado, onClick = onTraducir)
+            BigBtn(icon = Icons.Filled.Payments, label = "Reconocer billete", section = Sections.Camera, enabled = !ocupado, onClick = onBillete)
+            BigBtn(icon = Icons.Filled.MonetizationOn, label = "Reconocer moneda", section = Sections.Camera, enabled = !ocupado, onClick = onMoneda)
             BigBtn(icon = Icons.Filled.Save, label = "Guardar foto", section = Sections.Camera, onClick = onGuardar)
             BigBtn(icon = Icons.Filled.AddAPhoto, label = "Tomar otra foto", variant = BigBtnVariant.Accent, onClick = onOtraFoto)
         }

@@ -5,6 +5,8 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.cecapi.app.core.navigation.CecapiDestinations
 import com.cecapi.app.core.util.ConnectivityObserver
+import com.cecapi.app.core.util.WikipediaLookup
+import com.cecapi.app.core.voice.DeviceSettings
 import com.cecapi.app.core.voice.FeedbackCues
 import com.cecapi.app.core.voice.VoiceEngine
 import com.cecapi.app.core.voice.VoiceMessages
@@ -55,7 +57,12 @@ class ConsultasViewModel @Inject constructor(
     private val cues: FeedbackCues,
     private val intentFallback: com.cecapi.app.core.voice.IntentFallback,
     connectivityObserver: ConnectivityObserver,
+    private val wikipediaLookup: WikipediaLookup,
+    deviceSettings: DeviceSettings,
 ) : ViewModel() {
+
+    /** La búsqueda en Wikipedia es opcional (decisión 0021): solo se usa si la persona la activó en Configuración. */
+    private val wikipediaOn: StateFlow<Boolean> = deviceSettings.wikipediaEnabled.stateIn(viewModelScope, SharingStarted.Eagerly, false)
 
     val voiceState: StateFlow<VoiceState> = voiceEngine.state.stateIn(
         viewModelScope, SharingStarted.WhileSubscribed(5_000), VoiceState.Idle,
@@ -94,7 +101,8 @@ class ConsultasViewModel @Inject constructor(
     }
 
     /** Solo las frases completas de control cuentan como comando: un pedido puede contener "atrás" o "repite". */
-    private fun onSpeech(spoken: String) {
+    private fun onSpeech(oido: String) {
+        val spoken = voiceEngine.sinNombreDelAsistente(oido)
         val texto = VoiceText.normalize(spoken)
         val estado = _uiState.value
         when {
@@ -152,7 +160,10 @@ class ConsultasViewModel @Inject constructor(
                 // Un documento va a /documento (instrucciones propias para texto largo); una pregunta, a /preguntar.
                 // En el historial solo queda lo que la persona dijo.
                 val resultado = voiceEngine.speakWhile {
-                    if (esDocumento) repository.documento(usuario.id, pedido) else repository.ask(usuario.id, pedido)
+                    // Una pregunta sencilla ("qué es un círculo") se busca primero en Wikipedia; el servidor (Groq)
+                    // queda para lo complejo o cuando Wikipedia no tiene nada.
+                    buscarEnWikipedia(usuario.id, pedido, esDocumento)
+                        ?: if (esDocumento) repository.documento(usuario.id, pedido) else repository.ask(usuario.id, pedido)
                 }
                 resultado.onSuccess { texto ->
                     val documento = limpiarFormato(texto)
@@ -172,6 +183,17 @@ class ConsultasViewModel @Inject constructor(
                 fallo(pedido, "No pude generar el documento por un problema inesperado. Intenta de nuevo.")
             }
         }
+    }
+
+    /** La respuesta de Wikipedia, ya guardada en el historial, o null si no aplica o no encontró nada. */
+    private suspend fun buscarEnWikipedia(usuarioId: Long, pedido: String, esDocumento: Boolean): Result<String>? {
+        if (!wikipediaOn.value) return null
+        val tema = FuenteDeConsulta.temaParaWikipedia(pedido, esDocumento) ?: return null
+        val articulo = runCatching { wikipediaLookup.search(tema) }.getOrNull() ?: return null
+        val texto = listOfNotNull(articulo.short, articulo.rest).joinToString(" ") + "\n\nFuente: Wikipedia, «${articulo.title}»."
+        runCatching { repository.guardarRespuestaLocal(usuarioId, pedido, texto) }
+            .onFailure { Log.w("CecapiConsultas", "no se guardó la respuesta de Wikipedia en el historial", it) }
+        return Result.success(texto)
     }
 
     private fun fallo(pedido: String, mensaje: String) {

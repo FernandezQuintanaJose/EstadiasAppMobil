@@ -1,5 +1,6 @@
 package com.cecapi.app.feature.modulo10_accesibilidad
 
+import com.cecapi.app.core.voice.FrasesDeControl
 import com.cecapi.app.core.voice.VoiceText
 
 /**
@@ -104,8 +105,7 @@ object GestorGestos {
 
     /**
      * Las frases completas de "silencio" o "para" (decisión 0006), comparadas como lo hace el motor de
-     * voz. Copiadas de `VoiceEngine.SILENCE_PHRASES` / `STOP_PHRASES` porque ahí son privadas; hay que
-     * mantenerlas iguales (pendiente: que Equipo 1 las exponga en un lugar compartido).
+     * voz. Vienen de [FrasesDeControl], la misma lista que usa el motor.
      */
     fun esFraseDeControl(frase: String?): Boolean {
         if (frase.isNullOrBlank()) return false
@@ -121,10 +121,8 @@ object GestorGestos {
         !frase.isNullOrBlank() && VoiceText.normalize(frase) in FRASES_DETENER
 
     // De decisión 0006. Deben ser frases completas: "para" también es una palabra común.
-    val FRASES_SILENCIO = setOf("silencio", "espera", "esperame", "callate", "un momento", "un segundo")
-    val FRASES_DETENER = setOf(
-        "para", "detente", "alto", "basta", "para ya", "ya para", "hasta luego", "adios", "apagate",
-    )
+    val FRASES_SILENCIO = FrasesDeControl.SILENCIO
+    val FRASES_DETENER = FrasesDeControl.DETENER
 }
 
 /**

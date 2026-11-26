@@ -1,5 +1,6 @@
 package com.cecapi.app.feature.modulo5_solicitudes
 
+import com.cecapi.app.core.ui.iluminable
 import android.Manifest
 import android.content.pm.PackageManager
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -203,7 +204,7 @@ private fun Panel(titulo: String, contenido: @Composable () -> Unit) {
                 .fillMaxWidth()
                 .clip(forma)
                 .background(CecapiSurfaceElevated)
-                .border(2.dp, CecapiBorder, forma)
+                .iluminable(titulo, forma)
                 .padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {

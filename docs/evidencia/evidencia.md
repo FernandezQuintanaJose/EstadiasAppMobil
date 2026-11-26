@@ -149,3 +149,16 @@ En las 4 aperturas sin sonido cerró con error 7 entre 5.1 y 5.8 s. Apagar los a
 Sin comprobar: el reintento con TalkBack y el dictado de contraseña por voz.
 
 **Pendiente (reporte de quien probó):** aun con el reintento, de vez en cuando todavía se interrumpe cuando oye otros ruidos. No se precisó si se corta la escucha o la voz de la app; no está medido.
+
+### Correcciones de voz, cámara e iluminación (25 de noviembre, tarde)
+
+- Voz: "ALIA" y las órdenes de control con relleno ("cállate, por favor") se reconocen con el micrófono abierto; en pantallas que capturan texto tal cual no se recorta el nombre.
+- Consultas: las preguntas sencillas se buscan primero en Wikipedia si "Búsqueda en Wikipedia" está activada.
+- Una sola cámara: "qué hay enfrente", billetes, monedas y la descripción con IA pasan al lector. La ruta del entorno lleva a la cámara; `EnvironmentScreen` queda en el código sin usarse.
+- Iluminación: un mismo comportamiento (`Modifier.iluminable`) para los recuadros que no eran tarjetas de menú; el borde de color solo aparece en el seleccionado.
+
+| Prueba | Resultado obtenido |
+|---|---|
+| Compilación y pruebas unitarias | APK compilado; 253 pruebas, 0 fallos |
+| Teléfono: cámara, avisos y Consultas | Solo se iluminó lo tocado; "Volver" apagado; sin cierres inesperados en las pantallas abiertas. No se revisaron todos los paneles |
+| Voz real, billetes y monedas, Wikipedia, TalkBack | no comprobado |

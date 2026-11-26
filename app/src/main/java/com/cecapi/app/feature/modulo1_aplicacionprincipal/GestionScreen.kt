@@ -1,5 +1,6 @@
 package com.cecapi.app.feature.modulo1_aplicacionprincipal
 
+import com.cecapi.app.core.ui.iluminable
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.ui.text.input.PasswordVisualTransformation
@@ -308,7 +309,7 @@ fun GestionScreen(
                         .fillMaxWidth()
                         .clip(RoundedCornerShape(20.dp))
                         .background(CecapiSurface)
-                        .border(1.dp, CecapiBorder, RoundedCornerShape(20.dp))
+                        .iluminable(cuenta.nombreCompleto, RoundedCornerShape(20.dp))
                         .padding(16.dp),
                     verticalArrangement = Arrangement.spacedBy(10.dp),
                 ) {
@@ -517,7 +518,7 @@ private fun PersonaCard(
         modifier = modifier
             .clip(shape)
             .background(CecapiSurface)
-            .border(2.dp, bordeDe(alertas, intensidad), shape)
+            .iluminable(help, shape, anchoNormal = 2.dp, brochaNormal = bordeDe(alertas, intensidad))
             .then(if (editable) Modifier.clickable(onClick = onClick) else Modifier)
             .semantics { contentDescription = help }
             .voiceHint(help)

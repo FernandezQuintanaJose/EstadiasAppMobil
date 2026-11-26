@@ -434,21 +434,10 @@ fun BigBtn(
     val colorIluminado = section?.color ?: if (variant == BigBtnVariant.Neutral) CecapiAccent else colorVariante
     // Las tarjetas de módulo son neutras y solo se iluminan con su color cuando están seleccionadas.
     val tint = if (section != null) (if (iluminado) section.color else CecapiTextPrimary) else colorVariante
-    val borderColor = when {
-        iluminado -> colorIluminado
-        section != null -> CecapiBorder
-        else -> when (variant) {
-            BigBtnVariant.Danger -> CecapiError
-            BigBtnVariant.Success -> CecapiSuccess
-            BigBtnVariant.Accent -> CecapiAccent
-            else -> CecapiBorder
-        }
-    }
-    val borderWidth = when {
-        iluminado -> 4.dp
-        variant == BigBtnVariant.Neutral || section != null -> 1.dp
-        else -> 2.dp
-    }
+    // Solo la tarjeta seleccionada se ilumina: en las demás el borde es neutro y su tipo (peligro, éxito,
+    // acento) se distingue por el color del icono y del texto.
+    val borderColor = if (iluminado) colorIluminado else CecapiBorder
+    val borderWidth = if (iluminado) 4.dp else 1.dp
     val fondo = if (iluminado) (section?.bg ?: CecapiSurfaceElevated) else CecapiSurface
     val iconBg = if (iluminado) colorIluminado.copy(alpha = 0.25f) else CecapiSurfaceElevated
     val shape = RoundedCornerShape(20.dp)
@@ -586,6 +575,7 @@ fun TopAction(
     Column(
         modifier = modifier
             .clip(RoundedCornerShape(20.dp))
+            .iluminable(help, RoundedCornerShape(20.dp), colorNormal = Color.Transparent, anchoNormal = 0.dp)
             .clickable(onClick = onClick)
             .semantics { contentDescription = help }
             .voiceHint(help)
@@ -620,6 +610,7 @@ fun SuggestionChip(label: String, onClick: () -> Unit) {
             .heightIn(min = 48.dp)
             .clip(RoundedCornerShape(50))
             .background(CecapiSurfaceElevated)
+            .iluminable(label, RoundedCornerShape(50), colorNormal = Color.Transparent, anchoNormal = 0.dp)
             .clickable(onClick = onClick)
             .padding(horizontal = 18.dp, vertical = 10.dp),
         contentAlignment = Alignment.Center,

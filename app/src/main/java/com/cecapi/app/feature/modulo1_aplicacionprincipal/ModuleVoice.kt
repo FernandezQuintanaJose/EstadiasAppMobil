@@ -49,15 +49,27 @@ object ModuleVoice {
      * Phrases that already say which camera mode is wanted ("qué hay enfrente", "lee este texto"),
      * so the person does not have to go through the Cámara screen first.
      */
-    fun directCameraRoute(spoken: String): String? {
-        val text = VoiceText.normalize(spoken)
-        return when {
-            listOf("enfrente", "entorno", "describe", "descripcion").let { phrases -> VoiceText.hasAny(text, phrases) } -> CecapiDestinations.ENVIRONMENT
-            listOf("leer texto", "lee este", "lee esto", "leer documento", "lee el texto").let { phrases -> VoiceText.hasAny(text, phrases) } ->
-                CecapiDestinations.DOCUMENT_READER
-            else -> null
+    fun directCameraRoute(spoken: String): String? =
+        // Hay una sola cámara: leer texto y "qué hay enfrente" abren la misma pantalla (ver [pideEnfrente]).
+        if (pideEnfrente(spoken) || VoiceText.hasAny(VoiceText.normalize(spoken), CAMERA_READ_PHRASES)) {
+            CecapiDestinations.DOCUMENT_READER
+        } else {
+            null
         }
-    }
+
+    /** "qué hay enfrente", "describe": la cámara describe la foto en cuanto se tome, sin pasar por otra pantalla. */
+    fun pideEnfrente(spoken: String): Boolean = VoiceText.hasAny(VoiceText.normalize(spoken), CAMERA_FRONT_PHRASES)
+
+    /** Lo que se dice al abrir la cámara con una frase directa. */
+    fun cameraSpeech(spoken: String): String =
+        if (pideEnfrente(spoken)) {
+            "Abriendo la cámara. Toma la foto y te digo qué hay enfrente."
+        } else {
+            "Abriendo la cámara para leer texto."
+        }
+
+    private val CAMERA_FRONT_PHRASES = listOf("enfrente", "entorno", "describe", "descripcion")
+    private val CAMERA_READ_PHRASES = listOf("leer texto", "lee este", "lee esto", "leer documento", "lee el texto")
 
     fun spokenList(menu: List<MenuItem>): String {
         val names = menu.map { it.title }

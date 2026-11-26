@@ -1,5 +1,6 @@
 package com.cecapi.app.feature.modulo1_aplicacionprincipal
 
+import com.cecapi.app.core.ui.iluminable
 import com.cecapi.app.core.theme.CecapiSurface
 import com.cecapi.app.core.theme.CecapiBorder
 import androidx.compose.foundation.layout.height
@@ -457,7 +458,7 @@ private fun FiltroChip(texto: String, elegido: Boolean, onClick: () -> Unit, mod
             .heightIn(min = 56.dp)
             .clip(RoundedCornerShape(14.dp))
             .background(if (elegido) CecapiAccent.copy(alpha = 0.18f) else CecapiSurface)
-            .border(if (elegido) BorderStroke(3.dp, CecapiAccent) else BorderStroke(1.dp, CecapiBorder), RoundedCornerShape(14.dp))
+            .iluminable(texto, RoundedCornerShape(14.dp), colorNormal = if (elegido) CecapiAccent else CecapiBorder, anchoNormal = if (elegido) 2.dp else 1.dp)
             .clickable(onClick = onClick)
             .semantics { contentDescription = if (elegido) "Mostrar $texto, elegido" else "Mostrar $texto" }
             .padding(horizontal = 6.dp, vertical = 8.dp),
@@ -482,7 +483,7 @@ private fun TarjetaVoz(voz: VoiceOption?, enUso: Boolean) {
             .fillMaxSize()
             .clip(RoundedCornerShape(20.dp))
             .background(CecapiSurface)
-            .border(if (enUso) 3.dp else 1.dp, if (enUso) CecapiAccent else CecapiBorder, RoundedCornerShape(20.dp))
+            .iluminable(descripcion, RoundedCornerShape(20.dp), colorNormal = if (enUso) CecapiAccent else CecapiBorder, anchoNormal = if (enUso) 2.dp else 1.dp)
             .alpha(if (estado == null) 1f else 0.7f)
             .semantics {
                 contentDescription = descripcion
@@ -519,7 +520,7 @@ private fun ChoiceRow(
             .heightIn(min = 64.dp)
             .clip(RoundedCornerShape(16.dp))
             .background(CecapiSurfaceElevated)
-            .border(if (selected) BorderStroke(3.dp, CecapiAccent) else BorderStroke(1.dp, CecapiTextMuted.copy(alpha = 0.4f)), RoundedCornerShape(16.dp))
+            .iluminable(label, RoundedCornerShape(16.dp), colorNormal = if (selected) CecapiAccent else CecapiTextMuted.copy(alpha = 0.4f), anchoNormal = if (selected) 2.dp else 1.dp)
             .clickable(onClick = onClick)
             .semantics { contentDescription = if (selected) "$label, seleccionada. $detail" else "$label. $detail" }
             .voiceHint(help)

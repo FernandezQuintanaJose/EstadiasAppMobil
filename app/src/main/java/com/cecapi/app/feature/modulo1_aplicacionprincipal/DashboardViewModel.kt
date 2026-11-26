@@ -53,6 +53,7 @@ class DashboardViewModel @Inject constructor(
     private val connectivityObserver: ConnectivityObserver,
     private val wikipediaLookup: WikipediaLookup,
     private val wikidataLookup: WikidataLookup,
+    private val launchRequests: com.cecapi.app.core.voice.LaunchRequests,
     assistantPreferences: AssistantPreferences,
 ) : ViewModel() {
 
@@ -227,10 +228,8 @@ class DashboardViewModel @Inject constructor(
             return
         }
         ModuleVoice.directCameraRoute(text)?.let { route ->
-            openRoute(
-                route,
-                if (route == CecapiDestinations.ENVIRONMENT) "Abriendo el asistente del entorno." else "Abriendo la cámara para leer texto.",
-            )
+            if (ModuleVoice.pideEnfrente(text)) launchRequests.pedirCamaraEnfrente()
+            openRoute(route, ModuleVoice.cameraSpeech(text))
             return
         }
         val key = ModuleVoice.matchKey(text, menu.value)
@@ -441,7 +440,7 @@ class DashboardViewModel @Inject constructor(
     private fun onMenuKey(key: String) {
         when (key) {
             MenuItem.SETTINGS_KEY -> onSettingsSelected()
-            MenuItem.CAMERA_KEY -> openRoute(CecapiDestinations.DOCUMENT_READER, "Abriendo la cámara. Para saber qué hay enfrente, toca el botón de arriba o dilo.")
+            MenuItem.CAMERA_KEY -> openRoute(CecapiDestinations.DOCUMENT_READER, "Abriendo la cámara. Toma una foto, o di qué hay enfrente, qué billete es o qué moneda es.")
             MenuItem.PERSONALIZATION_KEY -> openRoute(CecapiDestinations.PERSONALIZATION, "Abriendo la personalización.")
             MenuItem.CHATS_KEY -> openRoute(CecapiDestinations.CHATS, "Abriendo los chats.")
             else -> ModuloCecapi.fromStorageCode(key)?.let(::onModuleSelected)

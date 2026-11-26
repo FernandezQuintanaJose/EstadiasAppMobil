@@ -37,6 +37,15 @@ class AiAssistantRepository @Inject constructor(
     }
 
     /**
+     * Guarda en el historial una respuesta que no vino del servidor (Wikipedia), para que aparezca en las
+     * consultas anteriores igual que las demás. Tampoco entra al contexto de la conversación con la IA.
+     */
+    suspend fun guardarRespuestaLocal(usuarioId: Long, pregunta: String, respuesta: String) {
+        val consultaId = consultaIaDao.insert(ConsultaIaEntity(usuarioId = usuarioId, textoPregunta = pregunta))
+        respuestaIaDao.insert(RespuestaIaEntity(consultaId = consultaId, textoRespuesta = respuesta))
+    }
+
+    /**
      * Pide un documento (pantalla Consultas). Se guarda en las consultas anteriores con lo que pidió la persona,
      * pero no entra al contexto de la conversación: un documento largo no es parte de la plática con el asistente.
      */

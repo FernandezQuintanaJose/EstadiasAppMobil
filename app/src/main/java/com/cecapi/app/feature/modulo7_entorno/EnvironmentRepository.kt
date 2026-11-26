@@ -135,6 +135,9 @@ class EnvironmentRepository @Inject constructor(
         iaLocal.precargar()
     }
 
+    /** Suelta el modelo de visión (cientos de MB en memoria) al salir de la cámara. */
+    fun liberarModeloIa() = iaLocal.liberar()
+
     /**
      * The camera is free for anyone: with no [usuarioId] (nobody signed in) the description is still said
      * out loud, it just is not saved to a history that would have nowhere to belong.

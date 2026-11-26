@@ -6,7 +6,18 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.cecapi.app.core.navigation.CecapiDestinations
 import com.cecapi.app.core.ui.GALLERY_WORDS
+import com.cecapi.app.core.util.ConnectivityObserver
 import com.cecapi.app.core.util.StorageReport
+import com.cecapi.app.core.voice.IntentFallback
+import com.cecapi.app.core.voice.LaunchRequests
+import com.cecapi.app.feature.modulo3_asistenteinteligente.AiAssistantApi
+import com.cecapi.app.feature.modulo3_asistenteinteligente.AiMessages
+import com.cecapi.app.feature.modulo3_asistenteinteligente.FotoParaIa
+import com.cecapi.app.feature.modulo3_asistenteinteligente.ModoVision
+import com.cecapi.app.feature.modulo7_entorno.ComandoDeDinero
+import com.cecapi.app.feature.modulo7_entorno.CuentaDeDinero
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import com.cecapi.app.core.util.saveImageToGallery
 import com.cecapi.app.core.voice.AssistantMode
 import com.cecapi.app.core.voice.FeedbackCues
@@ -79,8 +90,28 @@ class DocumentReaderViewModel @Inject constructor(
     private val storageReport: StorageReport,
     private val entorno: EnvironmentRepository,
     private val acciones: AccionesFoto,
+    launchRequests: LaunchRequests,
+    // Segunda opinión con la IA del servidor (/ver) sobre la misma foto, solo si la persona la pide.
+    private val aiApi: AiAssistantApi,
+    private val intentFallback: IntentFallback,
+    connectivityObserver: ConnectivityObserver,
     @ApplicationContext private val appContext: Context,
 ) : ViewModel() {
+
+    private val isOnline: StateFlow<Boolean> = connectivityObserver.observe().stateIn(
+        viewModelScope, SharingStarted.WhileSubscribed(5_000), true,
+    )
+
+    /** Lo que se va a hacer con la próxima foto sin preguntar: describirla o leer un billete o una moneda. */
+    private var pedidoEnfrente = false
+    private var pedidoDinero: ComandoDeDinero? = null
+    private val hayPedido: Boolean get() = pedidoEnfrente || pedidoDinero != null
+
+    private val cuenta = CuentaDeDinero()
+    /** La foto que ya se sumó, para no contar dos veces el mismo billete. */
+    private var fotoSumada: String? = null
+    private var ultimaFueBillete = false
+    private var fraseDeMoneda: String? = null
 
     val voiceState: StateFlow<VoiceState> = voiceEngine.state.stateIn(
         viewModelScope, SharingStarted.WhileSubscribed(5_000), VoiceState.Idle,
@@ -136,22 +167,39 @@ class DocumentReaderViewModel @Inject constructor(
         viewModelScope.launch {
             voiceEngine.speechFor(CecapiDestinations.DOCUMENT_READER).collect { speech -> onSpeech(speech.text) }
         }
+        pedidoEnfrente = launchRequests.consumirCamaraEnfrente()
         voiceEngine.speak(
-            "Lector de texto. Apunta la cámara a un documento y no te muevas: tomaré la foto sola cuando el texto se vea bien. " +
-                "También puedes tocar el botón azul o decir toma la foto. " + CommandCatalog.hint("cámara"),
+            if (pedidoEnfrente) {
+                "Cámara. Apunta al frente y toca el botón azul o di toma la foto; te digo qué hay enfrente. "
+            } else {
+                "Cámara. Apunta a un documento y no te muevas: tomaré la foto sola cuando el texto se vea bien. " +
+                    "También puedes tocar el botón azul o decir toma la foto. Di qué hay enfrente, qué billete es o qué moneda es. "
+            } + CommandCatalog.hint("cámara"),
             listenAfter = true,
         )
         // El panel de la foto también ofrece "qué hay enfrente". El modelo local se carga hasta
         // que ya existe una foto, no al abrir el lector.
     }
 
-    /** Los comandos que el lector responde, del más específico al más general. */
+    /** Los comandos que la cámara responde, del más específico al más general. */
     private fun onSpeech(spoken: String) {
         val text = VoiceText.normalize(spoken)
         fun has(vararg words: String) = VoiceText.hasAny(text, *words)
         val hayDocumento = _uiState.value.parrafos.isNotEmpty()
         // Un comando de voz cancela el botón que quedó a la espera del segundo toque.
         _uiState.value = _uiState.value.copy(botonArmado = null)
+        // "Descríbelo con la IA" va antes que todo: no es tomar otra foto ni volver a describir en el teléfono.
+        if (has("con inteligencia artificial", "con la ia", "con ia", "mas detalle", "mas detalles",
+                "describelo mejor", "describe mejor", "explicame la foto")
+        ) {
+            describirConIa()
+            return
+        }
+        // Dinero antes que "foto", "lee" o "código": "qué billete es" no es leer un documento.
+        ComandoDeDinero.de(spoken)?.let {
+            atenderDinero(it)
+            return
+        }
         when {
             has("desactiva flash", "desactivar flash", "apaga flash", "quita flash") -> {
                 _flashActivado.value = false
@@ -173,10 +221,8 @@ class DocumentReaderViewModel @Inject constructor(
                 _back.tryEmit(Unit)
             }
             has("guarda", "guardar", "guardala") -> pedirGuardado()
-            has("enfrente", "entorno", "describe", "alrededor") -> cambiarA(
-                CecapiDestinations.ENVIRONMENT,
-                "Cambiando a describir lo que hay enfrente.",
-            )
+            // Sin foto todavía: se toma y se describe en la misma cámara.
+            has("enfrente", "entorno", "describe", "alrededor", "que hay", "que ves") -> pedirFotoDeEnfrente()
             has(*GALLERY_WORDS) -> pedirGaleria()
             has("otra foto", "nueva foto", "otro documento", "nuevo documento", "otro papel") -> nuevaFoto(
                 tomarYa = has("toma", "captura", "saca"),
@@ -186,7 +232,13 @@ class DocumentReaderViewModel @Inject constructor(
             has("pausa", "pausar") -> pausarLectura()
             has("continua", "continuar", "sigue", "reanuda") -> continuarLectura()
             has("foto", "fotografia", "captura", "toma", "escanea") -> pedirCaptura()
-            has("lee", "leer", "leelo") -> if (hayDocumento) repetirLectura() else pedirCaptura()
+            has("lee", "leer", "leelo") -> if (hayDocumento) {
+                repetirLectura()
+            } else {
+                pedidoEnfrente = false
+                pedidoDinero = null
+                pedirCaptura()
+            }
             else -> {
                 cues.play(FeedbackCues.Cue.NOT_UNDERSTOOD)
                 voiceEngine.speak(
@@ -253,6 +305,101 @@ class DocumentReaderViewModel @Inject constructor(
 
     fun pedirCaptura() = capturar(automatica = false)
 
+    private fun pedirFotoDeEnfrente() {
+        pedidoEnfrente = true
+        pedidoDinero = null
+        pedirCaptura()
+    }
+
+    /** Los botones "Reconocer billete" y "Reconocer moneda" del panel de la foto, y la voz. */
+    fun atenderDinero(comando: ComandoDeDinero) {
+        when (comando) {
+            ComandoDeDinero.TOTAL -> voiceEngine.speak(cuenta.total(), listenAfter = true, interrumpible = false)
+            ComandoDeDinero.BORRAR_BILLETES -> voiceEngine.speak(cuenta.borrarBilletes(), listenAfter = true)
+            ComandoDeDinero.BORRAR_MONEDAS -> voiceEngine.speak(cuenta.borrarMonedas(), listenAfter = true)
+            else -> if (fotoUri != null) {
+                analizarDinero(comando)
+            } else {
+                pedidoEnfrente = false
+                pedidoDinero = comando
+                pedirCaptura()
+            }
+        }
+    }
+
+    /** Lee el billete o la moneda de la foto actual y, si se pidió, lo suma a la cuenta. */
+    private fun analizarDinero(comando: ComandoDeDinero) {
+        val uri = fotoUri ?: return
+        val ruta = _uiState.value.photoPath ?: return
+        val esBillete = comando == ComandoDeDinero.VER_BILLETE || comando == ComandoDeDinero.SUMAR_BILLETE
+        val sumar = comando == ComandoDeDinero.SUMAR_BILLETE || comando == ComandoDeDinero.SUMAR_MONEDA
+        if (sumar && ruta == fotoSumada) {
+            voiceEngine.speak("Esa foto ya la sumé. Di tomar otra foto y muéstrame el siguiente.", listenAfter = true)
+            return
+        }
+        val titulo = if (esBillete) "Billete" else "Moneda"
+        trabajarConLaFoto(
+            if (esBillete) "Leyendo el billete…" else "Reconociendo la moneda…",
+            if (esBillete) "Leyendo el billete." else "Reconociendo la moneda.",
+        ) {
+            entorno.processCapturedPhoto(
+                sessionRepository.currentUser.value?.id,
+                uri,
+                ruta,
+                buscarBillete = esBillete,
+                buscarMoneda = !esBillete,
+                usarIa = false,
+            ).fold(
+                onSuccess = { r ->
+                    ultimaFueBillete = esBillete
+                    fraseDeMoneda = if (esBillete) null else r.descripcion
+                    val dicho = when (comando) {
+                        ComandoDeDinero.SUMAR_BILLETE -> cuenta.sumarBillete(r.billetes)
+                        ComandoDeDinero.SUMAR_MONEDA -> cuenta.sumarMoneda(r.monedas)
+                        else -> r.descripcion
+                    }
+                    if (sumar && !dicho.startsWith("No sumé")) fotoSumada = ruta
+                    ResultadoFoto(titulo, dicho)
+                },
+                onFailure = { ResultadoFoto(titulo, "No lo logré reconocer. Toma otra foto con buena luz.") },
+            )
+        }
+    }
+
+    /**
+     * Manda la misma foto a la IA del servidor (`/ver`) como segunda opinión: modo billete si era un billete y,
+     * si no, modo escena. Solo con internet y con la IA activada.
+     */
+    fun describirConIa() {
+        val ruta = _uiState.value.photoPath
+            ?: return voiceEngine.speak("Primero toma una foto. Di qué hay enfrente.", listenAfter = true)
+        // Una moneda siempre la decide el modelo del teléfono: se repite su frase, la denominación nunca la pone la IA.
+        fraseDeMoneda?.let {
+            voiceEngine.speak(it, listenAfter = true)
+            return
+        }
+        if (!intentFallback.disponible) {
+            voiceEngine.speak("No puedo darte más detalle ahora. Revisa la configuración.", listenAfter = true)
+            return
+        }
+        if (!isOnline.value) {
+            voiceEngine.speak("No hay conexión a internet. No puedo darte más detalle ahora.", listenAfter = true)
+            return
+        }
+        val modo = if (ultimaFueBillete) ModoVision.BILLETE else ModoVision.ESCENA
+        trabajarConLaFoto("Pidiendo más detalle…", "Voy a pedir más detalle de tu foto.") {
+            val jpeg = withContext(Dispatchers.Default) { runCatching { FotoParaIa.desdeArchivo(ruta) }.getOrNull() }
+            if (jpeg == null) {
+                ResultadoFoto("Más detalle", "No pude abrir la última foto. Toma otra.")
+            } else {
+                voiceEngine.speakWhile { aiApi.describe(jpeg, modo) }.fold(
+                    onSuccess = { ResultadoFoto("Más detalle", it) },
+                    onFailure = { ResultadoFoto("Más detalle", AiMessages.forFailure(it)) },
+                )
+            }
+        }
+    }
+
     private fun capturar(automatica: Boolean) {
         if (capturaPendiente || _uiState.value.isProcessing || !hayEspacio()) return
         detenerLectura()
@@ -268,7 +415,8 @@ class DocumentReaderViewModel @Inject constructor(
      */
     fun onFramingHint(pista: FramingHint) {
         val state = _uiState.value
-        if (capturaPendiente || state.photoPath != null || state.isProcessing || state.parrafos.isNotEmpty()) return
+        // Con "qué hay enfrente" o dinero pendiente no se busca texto: las indicaciones y la foto sola confundirían.
+        if (hayPedido || capturaPendiente || state.photoPath != null || state.isProcessing || state.parrafos.isNotEmpty()) return
 
         pistaRepetida = if (pista == ultimaPista) pistaRepetida + 1 else 1
         ultimaPista = pista
@@ -382,9 +530,18 @@ class DocumentReaderViewModel @Inject constructor(
         fotoUri = imageUri
         textoDeLaFoto = null
         _uiState.value = DocumentReaderUiState(photoPath = rutaImagen, panelFoto = true)
+        ultimaFueBillete = false
+        fraseDeMoneda = null
         // Ya hay foto: se prepara el modelo mientras la persona escucha las opciones. La
         // descripción no se ejecuta hasta que elija "qué hay enfrente".
         entorno.prepararModeloIa()
+        // Si ya había dicho qué quería, se hace directo, sin preguntar otra vez.
+        val dinero = pedidoDinero
+        val enfrente = pedidoEnfrente
+        pedidoDinero = null
+        pedidoEnfrente = false
+        if (dinero != null) return analizarDinero(dinero)
+        if (enfrente) return describirEntorno()
         voiceEngine.speak(
             (if (desdeCamara) "Foto tomada. " else "") +
                 "¿Qué hacemos con la foto? Puedo leer el texto, decirte qué hay enfrente, leer un código QR o traducir.",
@@ -481,7 +638,12 @@ class DocumentReaderViewModel @Inject constructor(
                 ruta,
                 usarIa = true,
             ).fold(
-                onSuccess = { ResultadoFoto("Qué hay enfrente", it.descripcion) },
+                onSuccess = {
+                    // La revisión automática puede hallar un billete o moneda: la segunda opinión respeta ese modo.
+                    ultimaFueBillete = it.billetes != null
+                    fraseDeMoneda = if (it.monedas != null) it.descripcion else null
+                    ResultadoFoto("Qué hay enfrente", it.descripcion)
+                },
                 onFailure = {
                     ResultadoFoto(
                         "No se pudo describir",
@@ -544,7 +706,8 @@ class DocumentReaderViewModel @Inject constructor(
                 ResultadoFoto("No se pudo", "Algo falló con esa acción. Prueba otra o toma otra foto.")
             }
             _uiState.value = _uiState.value.copy(trabajando = null, resultado = resultado, panelFoto = true)
-            voiceEngine.speak(resultado.texto, listenAfter = true)
+            // Las descripciones no se cortan solas con la propia voz del asistente.
+            voiceEngine.speak(resultado.texto, listenAfter = true, interrumpible = false)
         }
     }
 
@@ -610,7 +773,12 @@ class DocumentReaderViewModel @Inject constructor(
     }
 
     fun repetirLectura() {
-        if (_uiState.value.parrafos.isEmpty()) return sinDocumento()
+        if (_uiState.value.parrafos.isEmpty()) {
+            // Sin documento, "repite" vuelve a decir lo último de la foto (una descripción, un billete, un código).
+            val ultimo = _uiState.value.resultado ?: return sinDocumento()
+            voiceEngine.speak(ultimo.texto, listenAfter = true, interrumpible = false)
+            return
+        }
         voiceEngine.speak("Repetiendo lectura desde el inicio.")
         leerParrafo(0)
     }
@@ -665,22 +833,15 @@ class DocumentReaderViewModel @Inject constructor(
         fallosAutomaticos = 0
         fotoUri = null
         textoDeLaFoto = null
+        pedidoEnfrente = false
+        pedidoDinero = null
+        fraseDeMoneda = null
         _uiState.value = DocumentReaderUiState()
         if (tomarYa) {
             pedirCaptura()
         } else {
             voiceEngine.speak("Cámara lista. Apunta al nuevo papel y quédate quieto, tomaré la foto sola.", listenAfter = true)
         }
-    }
-
-    /** Botón "Qué hay enfrente" del selector de modo de la cámara. */
-    fun cambiarAEntorno() = cambiarA(CecapiDestinations.ENVIRONMENT, "Cambiando a describir lo que hay enfrente.")
-
-    private fun cambiarA(route: String, speech: String) {
-        detenerLectura()
-        cues.play(FeedbackCues.Cue.NAVIGATE)
-        voiceEngine.speak(speech)
-        _routes.tryEmit(route)
     }
 
     /** Lee en voz alta los comandos de esta pantalla; el botón del encabezado lo invoca. */
@@ -761,6 +922,7 @@ class DocumentReaderViewModel @Inject constructor(
 
     override fun onCleared() {
         if (_uiState.value.estaLeyendo) voiceEngine.stopSpeaking()
+        entorno.liberarModeloIa()
         super.onCleared()
     }
 }

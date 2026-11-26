@@ -23,6 +23,17 @@ class LaunchRequests @Inject constructor() {
     /** True once per request. */
     fun consumeListen(): Boolean = listen.also { listen = false }
 
+    @Volatile
+    private var camaraEnfrente = false
+
+    /** Se pidió "qué hay enfrente" desde un menú: la cámara (una sola) describe la foto en cuanto se tome. */
+    fun pedirCamaraEnfrente() {
+        camaraEnfrente = true
+    }
+
+    /** True una vez por pedido. */
+    fun consumirCamaraEnfrente(): Boolean = camaraEnfrente.also { camaraEnfrente = false }
+
     private val _openRoute = MutableStateFlow<String?>(null)
 
     /** Una pantalla que un widget pidió abrir (por ejemplo Actividades); la navegación la atiende y la limpia. */

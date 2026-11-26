@@ -152,6 +152,9 @@ class VoiceEngine @Inject constructor(
             }
         }
     private var wakePatterns: List<Regex> = emptyList()
+
+    /** El nombre del asistente (y "hola" si está activado); a diferencia de [wakeWords], no se borra al pausar la escucha de fondo. */
+    @Volatile private var nombresDelAsistente: Set<String> = emptySet()
     private var openMic = false
     private var wakeRecognizer: SpeechRecognizer? = null
     private val wakeRestart = Runnable { listenForWakeWord() }
@@ -382,8 +385,23 @@ class VoiceEngine @Inject constructor(
     /** "¿En qué te puedo ayudar?" con el trato que la persona eligió (tú o usted). */
     fun wakePrompt(): String = addressStyle.pick(VoiceMessages.WAKE_PROMPT, VoiceMessages.WAKE_PROMPT_USTED)
 
+    /** [text] sin el nombre del asistente al inicio ("ALIA, qué es un círculo" → "qué es un círculo"). */
+    fun sinNombreDelAsistente(text: String): String =
+        FrasesDeControl.quitarNombre(text, nombresDelAsistente)?.takeIf { it.isNotBlank() } ?: text
+
     /** Toda frase reconocida pasa por aquí: primero las palabras de control, luego los comandos globales, luego las pantallas. */
     private fun dispatchSpeech(text: String) {
+        // Con el micrófono ya abierto, "ALIA" o "ALIA, cállate" llegan aquí y no a la escucha de fondo:
+        // se quita el nombre para que no se tome como una pregunta (pasaba en Consultas).
+        FrasesDeControl.quitarNombre(text, nombresDelAsistente)?.let { resto ->
+            // En una pantalla que captura texto tal cual (un nombre, una contraseña) "Alia María" no se recorta:
+            // solo cuentan el nombre solo o seguido de una orden de control.
+            if (!rawInput || resto.isBlank() || FrasesDeControl.control(resto) != null) {
+                activate()
+                if (resto.isBlank()) speak(wakePrompt(), listenAfter = true) else dispatchSpeech(resto)
+                return
+            }
+        }
         if (handleControl(text)) return
         if (criticalInterceptors.any { it(text) }) return
         // Una pantalla que está capturando texto en bruto (un usuario, una contraseña) debe recibirlo sin alterar.
@@ -419,10 +437,10 @@ class VoiceEngine @Inject constructor(
      * Deben ser la frase completa: "para" también es una palabra de uso cotidiano ("para qué sirve").
      */
     private fun handleControl(text: String): Boolean {
-        when (VoiceText.normalize(text)) {
-            in SILENCE_PHRASES -> mute()
-            in STOP_PHRASES -> stopAssistant()
-            else -> return false
+        when (FrasesDeControl.control(text)) {
+            FrasesDeControl.Control.SILENCIO -> mute()
+            FrasesDeControl.Control.DETENER -> stopAssistant()
+            null -> return false
         }
         return true
     }
@@ -764,6 +782,7 @@ class VoiceEngine @Inject constructor(
             .filter { it.isNotBlank() }
             .toSet()
         this.openMic = openMic
+        if (wakeWords.isNotEmpty()) nombresDelAsistente = wakeWords
         if (wakeWords.isEmpty()) {
             stopWakeWord()
         } else {
@@ -911,10 +930,6 @@ class VoiceEngine @Inject constructor(
         const val WAKE_MIN_CONFIDENCE = 0.6f
         const val COMMAND_MIN_CONFIDENCE = 0.4f
         val SENTENCE_END = Regex("(?<=[.!?…])\\s+")
-
-        // Solo frases completas ("para" también aparece dentro de oraciones cotidianas).
-        val SILENCE_PHRASES = setOf("silencio", "espera", "esperame", "callate", "un momento", "un segundo")
-        val STOP_PHRASES = setOf("para", "detente", "alto", "basta", "para ya", "ya para", "hasta luego", "adios", "apagate")
 
         // Ajuste de la interrupción por voz (barge-in). El RMS está en PCM de 16 bits (0..32767); el habla
         // normal cerca del teléfono está en los miles bajos. Observa "rms peak" en logcat (tag CecapiVoice) para reajustar por dispositivo.
