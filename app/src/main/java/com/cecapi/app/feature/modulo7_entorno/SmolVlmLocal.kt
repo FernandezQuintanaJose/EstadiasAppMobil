@@ -60,10 +60,18 @@ class SmolVlmLocal @Inject constructor(
     var ultimoMotivo: String? = null
         private set
 
+    /** False si este teléfono no puede correr el modelo: quien describe usa entonces el detector. */
+    val disponible: Boolean get() = bibliotecaCargada
+
     private val bibliotecaCargada: Boolean by lazy {
         // La IA está compilada para arm64-v8a (teléfonos) y x86_64 (emuladores).
         if (Build.SUPPORTED_ABIS.none { it == "arm64-v8a" || it == "x86_64" }) {
             Log.i(TAG, "La IA local no está compilada para este procesador.")
+            false
+        } else if (Build.SUPPORTED_ABIS.first() == "arm64-v8a" &&
+            !ProcesadorCompatible.admiteModeloLocal(runCatching { File("/proc/cpuinfo").readText() }.getOrDefault(""))
+        ) {
+            Log.i(TAG, "Este procesador no tiene las instrucciones que pide la IA local; se usa el detector.")
             false
         } else {
             try {

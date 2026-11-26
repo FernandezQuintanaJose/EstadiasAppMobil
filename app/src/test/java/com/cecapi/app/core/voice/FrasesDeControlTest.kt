@@ -26,6 +26,15 @@ class FrasesDeControlTest {
     }
 
     @Test
+    fun callateConPalabrasAntesTambienCalla() {
+        assertEquals(Control.SILENCIO, FrasesDeControl.control("mejor cállate un rato"))
+        assertEquals(Control.SILENCIO, FrasesDeControl.control("no no ya cállate"))
+        assertEquals(Control.SILENCIO, FrasesDeControl.control("por favor guarda silencio"))
+        assertNull(FrasesDeControl.control("cómo se dice cállate"))
+        assertNull(FrasesDeControl.control("escribe una carta donde un personaje dice cállate"))
+    }
+
+    @Test
     fun quitaElNombreAlInicio() {
         assertEquals("", FrasesDeControl.quitarNombre("ALIA", nombres))
         assertEquals("", FrasesDeControl.quitarNombre("Alía.", nombres))

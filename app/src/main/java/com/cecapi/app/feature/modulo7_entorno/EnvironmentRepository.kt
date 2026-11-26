@@ -194,7 +194,8 @@ class EnvironmentRepository @Inject constructor(
 
             // "Qué hay enfrente" usa siempre la IA local. Billetes y monedas conservan sus modelos
             // especializados: si la IA menciona dinero, la denominación la decide el clasificador.
-            if (usarIa) {
+            // En un teléfono que no puede correr el modelo se sigue con el detector, más abajo.
+            if (usarIa && iaLocal.disponible) {
                 etapa = "describir la foto"
                 val textoIa = iaLocal.describir(bitmap)
                 if (textoIa != null) {

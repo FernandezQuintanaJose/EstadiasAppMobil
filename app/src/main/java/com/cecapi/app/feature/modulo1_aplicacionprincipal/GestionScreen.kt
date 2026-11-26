@@ -1,5 +1,6 @@
 package com.cecapi.app.feature.modulo1_aplicacionprincipal
 
+import androidx.activity.compose.BackHandler
 import com.cecapi.app.core.ui.iluminable
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.foundation.text.KeyboardOptions
@@ -79,7 +80,6 @@ fun GestionScreen(
     val state by viewModel.uiState.collectAsState()
     val voiceState by viewModel.voiceState.collectAsState()
     val listening = voiceState is VoiceState.Listening
-    LaunchedEffect(Unit) { viewModel.back.collect { onBack() } }
 
     val esEducador = state.rolObservador == RolUsuario.EDUCADOR
     val puedeEditar = viewModel.puedeEditar()
@@ -90,6 +90,10 @@ fun GestionScreen(
     var pendientesVistos by remember { mutableStateOf(false) }
     var abrirPendientes by remember { mutableStateOf(false) }
     var vista by remember { mutableStateOf(GestionVista.Menu) }
+    // "Volver" (por voz o con el gesto del teléfono) regresa primero al menú de este panel.
+    LaunchedEffect(Unit) { viewModel.back.collect { if (vista != GestionVista.Menu) vista = GestionVista.Menu else onBack() } }
+    LaunchedEffect(Unit) { viewModel.abrirSubmenu.collect { vista = GestionVista.valueOf(it) } }
+    BackHandler(enabled = vista != GestionVista.Menu) { vista = GestionVista.Menu }
     var institucionElegida by remember { mutableStateOf("") }
     var rolElegido by remember { mutableStateOf<RolUsuario?>(null) }
     val personasPendientes = state.personas.filter { it.solicitaValidacion && !it.validado }

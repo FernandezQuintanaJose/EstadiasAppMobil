@@ -1,5 +1,6 @@
 package com.cecapi.app.core.voice
 
+import com.cecapi.app.core.navigation.CecapiDestinations
 import android.Manifest
 import android.content.Context
 import android.content.Intent
@@ -701,6 +702,15 @@ class VoiceEngine @Inject constructor(
                     ?.firstOrNull()
                 val score = results?.getFloatArray(SpeechRecognizer.CONFIDENCE_SCORES)?.firstOrNull()
                 _state.value = VoiceState.Idle
+                // Al dictar un nombre o una contraseña (inicio de sesión y registro) no se interpreta como llamada.
+                val capturandoDatos = activeRoute == CecapiDestinations.LOGIN || activeRoute == CecapiDestinations.REGISTER
+                val opciones = results?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION).orEmpty()
+                if (!capturandoDatos && LlamadaPorNombre.esElNombre(opciones, nombresDelAsistente)) {
+                    cues.play(FeedbackCues.Cue.HEARD)
+                    activate()
+                    speak(wakePrompt(), listenAfter = true)
+                    return
+                }
                 if (!text.isNullOrBlank() && (score == null || score >= COMMAND_MIN_CONFIDENCE)) {
                     // Dos pulsos rápidos: "te escuché".
                     cues.play(FeedbackCues.Cue.HEARD)
@@ -857,6 +867,11 @@ class VoiceEngine @Inject constructor(
                 val heard = results?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION).orEmpty()
                 // "silencio" y "para" funcionan sin decir "hola" primero.
                 if (heard.any { handleControl(it) }) return
+                // El nombre solo, aunque venga como segunda opción y con poca confianza (ver [LlamadaPorNombre]).
+                if (LlamadaPorNombre.esElNombre(heard, wakeWords)) {
+                    onWakeWordHeard("")
+                    return
+                }
                 val scores = results?.getFloatArray(SpeechRecognizer.CONFIDENCE_SCORES)
                 for ((index, text) in heard.withIndex()) {
                     val end = wakeWordEnd(text) ?: continue

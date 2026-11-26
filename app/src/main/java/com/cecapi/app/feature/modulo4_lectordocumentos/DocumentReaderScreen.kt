@@ -1,5 +1,6 @@
 package com.cecapi.app.feature.modulo4_lectordocumentos
 
+import androidx.activity.compose.BackHandler
 import com.cecapi.app.core.ui.ConSeleccionDeTarjetas
 import com.cecapi.app.core.ui.iluminable
 import com.cecapi.app.core.theme.ModuleSection
@@ -186,6 +187,9 @@ fun DocumentReaderScreen(
         }
     }
 
+    // El gesto de volver del teléfono, con una foto abierta, también regresa a la cámara.
+    BackHandler(enabled = uiState.photoPath != null) { viewModel.otraFoto() }
+
     val hayDocumento = uiState.parrafos.isNotEmpty()
     // Todos los botones piden dos toques: el primero dice qué hacen, el segundo ejecutan la acción.
     val onVolverClick: () -> Unit = { viewModel.onBotonPresionado(BotonLector.VOLVER) }
@@ -195,7 +199,9 @@ fun DocumentReaderScreen(
         PanelAccionesFoto(
             uiState = uiState,
             listening = voiceState is VoiceState.Listening,
-            onBack = onVolverClick,
+            // "Volver" regresa a la cámara; para salir hay un botón aparte de menú principal.
+            onBack = viewModel::otraFoto,
+            onMenu = viewModel::salirAlMenu,
             onLeerTexto = viewModel::leerTexto,
             onEnfrente = viewModel::describirEntorno,
             onCodigo = viewModel::leerCodigos,
@@ -703,6 +709,7 @@ private fun PanelAccionesFoto(
     uiState: DocumentReaderUiState,
     listening: Boolean,
     onBack: () -> Unit,
+    onMenu: () -> Unit,
     onLeerTexto: () -> Unit,
     onEnfrente: () -> Unit,
     onCodigo: () -> Unit,
@@ -739,6 +746,7 @@ private fun PanelAccionesFoto(
             BigBtn(icon = Icons.Filled.MonetizationOn, label = "Reconocer moneda", section = Sections.Camera, enabled = !ocupado, onClick = onMoneda)
             BigBtn(icon = Icons.Filled.Save, label = "Guardar foto", section = Sections.Camera, onClick = onGuardar)
             BigBtn(icon = Icons.Filled.AddAPhoto, label = "Tomar otra foto", variant = BigBtnVariant.Accent, onClick = onOtraFoto)
+            BigBtn(icon = Icons.Filled.Home, label = "Menú principal", onClick = onMenu)
         }
         MicPad(
             listening = listening,

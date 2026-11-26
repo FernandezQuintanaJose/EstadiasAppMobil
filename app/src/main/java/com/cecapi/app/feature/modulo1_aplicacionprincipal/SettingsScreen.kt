@@ -1,5 +1,6 @@
 package com.cecapi.app.feature.modulo1_aplicacionprincipal
 
+import androidx.activity.compose.BackHandler
 import com.cecapi.app.core.ui.iluminable
 import com.cecapi.app.core.theme.CecapiBorder
 import androidx.compose.foundation.border
@@ -158,7 +159,10 @@ fun SettingsScreen(
         }
     }
     LaunchedEffect(Unit) { viewModel.listenOutsideRequests.collect { changeListenOutside(it) } }
-    LaunchedEffect(Unit) { viewModel.back.collect { onBack() } }
+    // "Volver" (por voz o con el gesto del teléfono) regresa primero al menú de este panel.
+    LaunchedEffect(Unit) { viewModel.back.collect { if (sub != null) sub = null else onBack() } }
+    LaunchedEffect(Unit) { viewModel.abrirSubmenu.collect { sub = SettingsSub.valueOf(it) } }
+    BackHandler(enabled = sub != null) { sub = null }
 
     PantallaConMicrofono {
     ColumnaDesplazable(

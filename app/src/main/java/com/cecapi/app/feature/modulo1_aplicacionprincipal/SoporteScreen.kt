@@ -1,5 +1,6 @@
 package com.cecapi.app.feature.modulo1_aplicacionprincipal
 
+import androidx.activity.compose.BackHandler
 import com.cecapi.app.core.ui.iluminable
 import com.cecapi.app.core.theme.CecapiBorder
 import androidx.compose.foundation.border
@@ -66,7 +67,10 @@ fun SoporteScreen(
     var vista by remember { mutableStateOf(VistaAyuda.Menu) }
     var mensajeRespondido by remember { mutableStateOf<IncidenciaEntity?>(null) }
     val conCuenta = viewModel.hayCuenta()
-    LaunchedEffect(Unit) { viewModel.back.collect { onBack() } }
+    // "Volver" (por voz o con el gesto del teléfono) regresa primero al menú de este panel.
+    LaunchedEffect(Unit) { viewModel.back.collect { if (vista != VistaAyuda.Menu) vista = VistaAyuda.Menu else onBack() } }
+    LaunchedEffect(Unit) { viewModel.abrirSubmenu.collect { vista = VistaAyuda.valueOf(it) } }
+    BackHandler(enabled = vista != VistaAyuda.Menu) { vista = VistaAyuda.Menu }
 
     PantallaConMicrofono {
         ColumnaDesplazable(

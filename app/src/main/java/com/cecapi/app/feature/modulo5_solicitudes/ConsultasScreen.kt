@@ -1,5 +1,7 @@
 package com.cecapi.app.feature.modulo5_solicitudes
 
+import androidx.compose.material.icons.filled.Home
+import androidx.activity.compose.BackHandler
 import com.cecapi.app.core.ui.iluminable
 import android.Manifest
 import android.content.pm.PackageManager
@@ -80,6 +82,8 @@ fun ConsultasScreen(
     val estado by viewModel.uiState.collectAsState()
 
     LaunchedEffect(Unit) { viewModel.back.collect { onBack() } }
+    // Con una respuesta a la vista, el gesto de volver regresa a preguntar y no al menú.
+    BackHandler(enabled = estado.paso == ConsultaPaso.LISTO) { viewModel.nuevaConsulta() }
     LaunchedEffect(Unit) { viewModel.chats.collect { onOpenChats() } }
 
     val permissionLauncher = rememberLauncherForActivityResult(
@@ -93,7 +97,7 @@ fun ConsultasScreen(
             ScreenTopBar(
                 eyebrow = "MENÚ",
                 title = "Consultas",
-                onBack = onBack,
+                onBack = { if (estado.paso == ConsultaPaso.LISTO) viewModel.nuevaConsulta() else onBack() },
                 onCommands = viewModel::onCommandsRequested,
             )
 
@@ -142,9 +146,15 @@ fun ConsultasScreen(
                         icono = Icons.Filled.QuestionAnswer,
                         section = Sections.Documents,
                     )
-                    // El documento es un cuadro editable: se puede corregir lo que generó la IA, o pegar aquí el texto
-                    // que dio otro asistente, y lo que se lee en voz alta es lo que está escrito.
-                    CampoTexto(
+                    // Una respuesta solo se lee; el cuadro se edita únicamente cuando la persona pone su propio texto.
+                    if (!estado.propio) {
+                        TarjetaLectura(
+                            titulo = if (estado.esDocumento) "Documento" else "Respuesta",
+                            cuerpo = estado.documento.orEmpty(),
+                            icono = Icons.Filled.Description,
+                            section = Sections.Documents,
+                        )
+                    } else CampoTexto(
                         titulo = if (estado.esDocumento) "Documento" else "Respuesta",
                         value = estado.documento.orEmpty(),
                         onValueChange = viewModel::editarDocumento,
@@ -165,6 +175,11 @@ fun ConsultasScreen(
                         label = "Nueva consulta",
                         variant = BigBtnVariant.Accent,
                         onClick = viewModel::nuevaConsulta,
+                    )
+                    BigBtn(
+                        icon = Icons.Filled.Home,
+                        label = "Menú principal",
+                        onClick = onBack,
                     )
                 }
             }

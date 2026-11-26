@@ -23,8 +23,23 @@ object FrasesDeControl {
             RELLENO_INICIO.firstOrNull { t.startsWith(it) }?.let { t = t.removePrefix(it) }
             RELLENO_FIN.firstOrNull { t.endsWith(it) }?.let { t = t.removeSuffix(it) }
         }
-        return clasificar(t)
+        return clasificar(t) ?: ordenDentroDeFraseCorta(exacto)
     }
+
+    /**
+     * "mejor cállate un rato", "no, ya cállate": en una frase corta que no es una pregunta, estas órdenes valen
+     * aunque lleven palabras antes o después. "para" y "silencio" solos no: se usan en frases normales.
+     */
+    private fun ordenDentroDeFraseCorta(t: String): Control? {
+        val palabras = t.split(' ')
+        if (palabras.size > MAX_PALABRAS_ORDEN || palabras.first() in PREGUNTAS || t.startsWith("por que")) return null
+        val pideCallar = palabras.any { it in ORDENES_DE_CALLAR } || t.endsWith("guarda silencio") || t.endsWith("haz silencio")
+        return if (pideCallar) Control.SILENCIO else null
+    }
+
+    private const val MAX_PALABRAS_ORDEN = 6
+    private val ORDENES_DE_CALLAR = setOf("callate", "callese")
+    private val PREGUNTAS = setOf("como", "que", "porque", "quien", "cuando", "donde", "cual")
 
     private fun clasificar(t: String): Control? = when (t) {
         in SILENCIO -> Control.SILENCIO

@@ -1,5 +1,6 @@
 package com.cecapi.app.feature.modulo1_aplicacionprincipal
 
+import com.cecapi.app.core.voice.SubmenuPorVoz
 import com.cecapi.app.core.navigation.CecapiDestinations
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -62,6 +63,17 @@ class SettingsViewModel @Inject constructor(
     private val _back = MutableSharedFlow<Unit>(extraBufferCapacity = 1)
     val back: SharedFlow<Unit> = _back
 
+    // Los submenús viven en la pantalla; por voz se le pide que abra uno.
+    private val _abrirSubmenu = MutableSharedFlow<String>(extraBufferCapacity = 1)
+    val abrirSubmenu: SharedFlow<String> = _abrirSubmenu
+
+    private fun abrirSubmenuPorVoz(spoken: String): Boolean {
+        val clave = SubmenuPorVoz.buscar(spoken, SUBMENUS.mapValues { it.value.second }) ?: return false
+        _abrirSubmenu.tryEmit(clave)
+        voiceEngine.speak(SUBMENUS.getValue(clave).first + ". Di volver para regresar.", listenAfter = true)
+        return true
+    }
+
     // Activar escuchar fuera de la aplicación necesita un permiso que la pantalla debe pedir, así que la pantalla hace el cambio.
     private val _listenOutsideRequests = MutableSharedFlow<Boolean>(extraBufferCapacity = 1)
     val listenOutsideRequests: SharedFlow<Boolean> = _listenOutsideRequests
@@ -107,6 +119,7 @@ class SettingsViewModel @Inject constructor(
         val spokenWords = text.split(" ")
         fun hasWord(vararg words: String) = words.any { it in spokenWords }
         val cleaning = _pendingClean.value
+        if (!_pendingListenConsent.value && !cleaning && abrirSubmenuPorVoz(spoken)) return
         when {
             // El aviso del micrófono espera "acepto" o "no acepto" antes que cualquier otro comando.
             _pendingListenConsent.value -> when {
@@ -359,3 +372,12 @@ class SettingsViewModel @Inject constructor(
         super.onCleared()
     }
 }
+
+/** Submenús que se abren por voz: clave de la pantalla, nombre que se dice y cómo se pueden pedir. */
+private val SUBMENUS: Map<String, Pair<String, List<String>>> = mapOf(
+    "VOLUMEN" to ("Volumen" to listOf("volumen")),
+    "NOTIFICACIONES" to ("Notificaciones" to listOf("notificaciones")),
+    "ALMACENAMIENTO" to ("Almacenamiento" to listOf("almacenamiento")),
+    "PRIVACIDAD" to ("Privacidad" to listOf("privacidad")),
+    "ACERCA" to ("Acerca de" to listOf("acerca de", "acerca de la app", "version")),
+)

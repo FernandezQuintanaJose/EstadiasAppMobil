@@ -1,5 +1,6 @@
 package com.cecapi.app.feature.modulo1_aplicacionprincipal
 
+import androidx.activity.compose.BackHandler
 import com.cecapi.app.core.ui.iluminable
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -88,7 +89,10 @@ fun RankingScreen(
     val voiceState by viewModel.voiceState.collectAsState()
     val listening = voiceState is VoiceState.Listening
     var sub by remember { mutableStateOf<RankingSub?>(null) }
-    LaunchedEffect(Unit) { viewModel.back.collect { onBack() } }
+    // "Volver" (por voz o con el gesto del teléfono) regresa primero al menú de este panel.
+    LaunchedEffect(Unit) { viewModel.back.collect { if (sub != null) sub = null else onBack() } }
+    LaunchedEffect(Unit) { viewModel.abrirSubmenu.collect { sub = RankingSub.valueOf(it) } }
+    BackHandler(enabled = sub != null) { sub = null }
 
     val miPosicion = state.individual.indexOfFirst { it.usuarioId == state.miId }
 

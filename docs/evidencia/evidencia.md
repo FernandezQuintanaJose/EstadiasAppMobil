@@ -162,3 +162,17 @@ Sin comprobar: el reintento con TalkBack y el dictado de contraseña por voz.
 | Compilación y pruebas unitarias | APK compilado; 253 pruebas, 0 fallos |
 | Teléfono: cámara, avisos y Consultas | Solo se iluminó lo tocado; "Volver" apagado; sin cierres inesperados en las pantallas abiertas. No se revisaron todos los paneles |
 | Voz real, billetes y monedas, Wikipedia, TalkBack | no comprobado |
+
+### Segunda ronda con el teléfono (25 de noviembre, noche)
+
+- Cierre al describir una foto: `exit-info` y el registro muestran **SIGILL** en `libsmolvlm_jni.so`. El procesador (Cortex-A53, sin `asimddp` ni `asimdhp`) no admite la librería. Ahora se comprueba antes de cargarla y se usa el detector.
+- "ALIA": el reconocedor dio "palia" como primera opción y "alia" como segunda con confianza 0.15. Ahora una frase muy corta con "alia" entre las opciones cuenta como llamada. El registro temporal se quitó.
+- Submenús por voz, "volver" de la cámara y Consultas al paso anterior, respuesta no editable, "cállate" con palabras antes.
+- 263 pruebas, 0 fallos.
+
+| Reporte de quien probó (con ese APK) | Resultado |
+|---|---|
+| "Qué hay enfrente" | Describió ("una taza de color gris a la derecha") |
+| "Volver" en la cámara, "privacidad", "abre almacenamiento", "mejor cállate" | Funcionaron |
+| "ALIA" | Responde de forma intermitente; a veces hay que repetirlo |
+| Pendiente | "ALIA abre cámara" acabó en búsqueda sin resultado; "qué menús hay" no se entiende; Almacenamiento muestra fotos guardadas sin pedirlo; leer diagramas |

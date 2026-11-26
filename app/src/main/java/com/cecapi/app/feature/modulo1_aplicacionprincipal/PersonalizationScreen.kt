@@ -1,5 +1,6 @@
 package com.cecapi.app.feature.modulo1_aplicacionprincipal
 
+import androidx.activity.compose.BackHandler
 import com.cecapi.app.core.ui.iluminable
 import com.cecapi.app.core.theme.CecapiSurface
 import com.cecapi.app.core.theme.CecapiBorder
@@ -117,7 +118,6 @@ fun PersonalizationScreen(
     val voiceState by viewModel.voiceState.collectAsState()
     val listening = voiceState is VoiceState.Listening
 
-    LaunchedEffect(Unit) { viewModel.back.collect { onBack() } }
 
     var rate by remember(savedRate) { mutableFloatStateOf(savedRate) }
     var pitch by remember(savedPitch) { mutableFloatStateOf(savedPitch) }
@@ -125,6 +125,10 @@ fun PersonalizationScreen(
     var preferred by remember(savedPreferred) { mutableStateOf(savedPreferred) }
     var assistant by remember(savedAssistant) { mutableStateOf(savedAssistant) }
     var sub by remember { mutableStateOf<PersonalizationSub?>(null) }
+    // "Volver" (por voz o con el gesto del teléfono) regresa primero al menú de este panel.
+    LaunchedEffect(Unit) { viewModel.back.collect { if (sub != null) sub = null else onBack() } }
+    LaunchedEffect(Unit) { viewModel.abrirSubmenu.collect { sub = PersonalizationSub.valueOf(it) } }
+    BackHandler(enabled = sub != null) { sub = null }
 
     // El motor de voz puede estar iniciando todavía cuando se abre esta pantalla: pregunta otra vez durante unos segundos.
     // Se pregunta de nuevo al cambiar de tema, por si se fue el internet o se instaló una voz.

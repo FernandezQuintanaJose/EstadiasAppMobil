@@ -1,5 +1,6 @@
 package com.cecapi.app.feature.modulo1_aplicacionprincipal
 
+import com.cecapi.app.core.voice.SubmenuPorVoz
 import com.cecapi.app.core.navigation.CecapiDestinations
 import com.cecapi.app.core.util.PasswordHasher
 import com.cecapi.app.core.util.PasswordRules
@@ -102,6 +103,17 @@ class GestionViewModel @Inject constructor(
     private val _back = MutableSharedFlow<Unit>(extraBufferCapacity = 1)
     val back: SharedFlow<Unit> = _back
 
+    // Los submenús viven en la pantalla; por voz se le pide que abra uno.
+    private val _abrirSubmenu = MutableSharedFlow<String>(extraBufferCapacity = 1)
+    val abrirSubmenu: SharedFlow<String> = _abrirSubmenu
+
+    private fun abrirSubmenuPorVoz(spoken: String): Boolean {
+        val clave = SubmenuPorVoz.buscar(spoken, SUBMENUS.mapValues { it.value.second }) ?: return false
+        _abrirSubmenu.tryEmit(clave)
+        voiceEngine.speak(SUBMENUS.getValue(clave).first + ". Di volver para regresar.", listenAfter = true)
+        return true
+    }
+
     init {
         viewModelScope.launch {
             voiceEngine.speechFor(CecapiDestinations.GESTION).collect { speech -> onSpeech(speech.text) }
@@ -111,6 +123,7 @@ class GestionViewModel @Inject constructor(
     }
 
     private fun onSpeech(spoken: String) {
+        if (abrirSubmenuPorVoz(spoken)) return
         val text = VoiceText.normalize(spoken)
         fun has(vararg words: String) = VoiceText.hasAny(text, *words)
         when {
@@ -362,3 +375,10 @@ class GestionViewModel @Inject constructor(
         }
     }
 }
+
+/** Submenús que se abren por voz: clave de la pantalla, nombre que se dice y cómo se pueden pedir. */
+private val SUBMENUS: Map<String, Pair<String, List<String>>> = mapOf(
+    "Validar" to ("Validar" to listOf("validar")),
+    "PorRoles" to ("Por roles" to listOf("por roles", "roles")),
+    "Bajas" to ("Cambio de educador" to listOf("cambio de educador")),
+)

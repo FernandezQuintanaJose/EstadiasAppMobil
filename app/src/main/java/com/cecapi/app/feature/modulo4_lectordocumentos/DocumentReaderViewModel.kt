@@ -216,10 +216,10 @@ class DocumentReaderViewModel @Inject constructor(
             fotoUri != null && !hayDocumento && has("lee", "leer", "leelo", "texto") -> leerTexto()
             fotoUri != null && has("acciones", "opciones", "que mas") -> otrasAcciones()
             has("parrafo anterior", "anterior") -> anteriorParrafo()
-            has("atras", "volver", "vuelve", "regresa", "regresar", "salir", "menu", "inicio", "pantalla anterior") -> {
-                detenerLectura()
-                _back.tryEmit(Unit)
-            }
+            // Con una foto abierta, "volver" regresa a la cámara; "menú" o "inicio" salen al menú principal.
+            has("menu", "inicio", "salir") -> salirAlMenu()
+            has("atras", "volver", "vuelve", "regresa", "regresar", "pantalla anterior", "camara") ->
+                if (fotoUri != null) otraFoto() else salirAlMenu()
             has("guarda", "guardar", "guardala") -> pedirGuardado()
             // Sin foto todavía: se toma y se describe en la misma cámara.
             has("enfrente", "entorno", "describe", "alrededor", "que hay", "que ves") -> pedirFotoDeEnfrente()
@@ -715,6 +715,11 @@ class DocumentReaderViewModel @Inject constructor(
     fun guardarFoto() = pedirGuardado()
 
     fun otraFoto() = nuevaFoto(tomarYa = false)
+
+    fun salirAlMenu() {
+        detenerLectura()
+        _back.tryEmit(Unit)
+    }
 
     /** Desde la lectura, regresa al panel de acciones con la misma foto. */
     fun otrasAcciones() {

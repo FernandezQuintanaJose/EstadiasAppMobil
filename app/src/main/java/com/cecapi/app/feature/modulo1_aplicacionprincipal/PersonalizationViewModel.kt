@@ -1,5 +1,6 @@
 package com.cecapi.app.feature.modulo1_aplicacionprincipal
 
+import com.cecapi.app.core.voice.SubmenuPorVoz
 import com.cecapi.app.core.navigation.CecapiDestinations
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -62,6 +63,17 @@ class PersonalizationViewModel @Inject constructor(
     private val _back = MutableSharedFlow<Unit>(extraBufferCapacity = 1)
     val back: SharedFlow<Unit> = _back
 
+    // Los submenús viven en la pantalla; por voz se le pide que abra uno.
+    private val _abrirSubmenu = MutableSharedFlow<String>(extraBufferCapacity = 1)
+    val abrirSubmenu: SharedFlow<String> = _abrirSubmenu
+
+    private fun abrirSubmenuPorVoz(spoken: String): Boolean {
+        val clave = SubmenuPorVoz.buscar(spoken, SUBMENUS.mapValues { it.value.second }) ?: return false
+        _abrirSubmenu.tryEmit(clave)
+        voiceEngine.speak(SUBMENUS.getValue(clave).first + ". Di volver para regresar.", listenAfter = true)
+        return true
+    }
+
     init {
         viewModelScope.launch {
             voiceEngine.speechFor(CecapiDestinations.PERSONALIZATION).collect { speech -> onSpeech(speech.text) }
@@ -76,6 +88,7 @@ class PersonalizationViewModel @Inject constructor(
 
     /** The commands this screen answers; each one does what the matching control on screen does. */
     private fun onSpeech(spoken: String) {
+        if (abrirSubmenuPorVoz(spoken)) return
         val text = VoiceText.normalize(spoken)
         fun has(vararg words: String) = VoiceText.hasAny(text, *words)
         val newAssistantName = ASSISTANT_NAME.find(spoken)?.groupValues?.get(1)
@@ -303,3 +316,12 @@ class PersonalizationViewModel @Inject constructor(
         )
     }
 }
+
+/** Submenús que se abren por voz: clave de la pantalla, nombre que se dice y cómo se pueden pedir. */
+private val SUBMENUS: Map<String, Pair<String, List<String>>> = mapOf(
+    "VOZ" to ("Mi voz" to listOf("mi voz", "voz")),
+    "COMO_ME_HABLAS" to ("Cómo me hablas" to listOf("como me hablas", "como te hablo", "trato")),
+    "PANTALLA" to ("Opciones de pantalla" to listOf("pantalla", "opciones de pantalla")),
+    "AVISOS" to ("Sonidos y vibración" to listOf("avisos", "avisos y vibracion", "sonidos y vibracion")),
+    "VOZ_ELEGIR" to ("Elegir voz" to listOf("elegir voz", "elegir una voz")),
+)

@@ -40,6 +40,8 @@ data class ConsultasUiState(
     /** True si lo que se pidió fue un documento (carta, constancia...); false si fue una pregunta. */
     val esDocumento: Boolean = false,
     val error: String? = null,
+    /** True cuando la persona escribe o pega su propio texto: solo entonces el cuadro se puede editar. */
+    val propio: Boolean = false,
 )
 
 /**
@@ -109,7 +111,9 @@ class ConsultasViewModel @Inject constructor(
             estado.paso == ConsultaPaso.GENERANDO -> Unit
             CommandCatalog.isRequest(spoken) && texto.split(" ").size <= 4 ->
                 voiceEngine.speak(CommandCatalog.CONSULTAS, listenAfter = true)
-            texto in ATRAS -> _back.tryEmit(Unit)
+            // Con una respuesta a la vista, "volver" regresa a preguntar; "menú" sale al menú principal.
+            estado.paso == ConsultaPaso.LISTO && texto in ATRAS && texto !in AL_MENU -> nuevaConsulta()
+            texto in ATRAS || texto in AL_MENU -> _back.tryEmit(Unit)
             texto in ANTERIORES -> abrirChats()
             estado.paso == ConsultaPaso.LISTO && texto in LEER -> leerDocumento()
             estado.paso == ConsultaPaso.LISTO && texto in NUEVA -> nuevaConsulta()
@@ -211,7 +215,7 @@ class ConsultasViewModel @Inject constructor(
     /** Para quien ya tiene el texto (por ejemplo, de otro asistente de IA): lo escribe o pega y lo edita aquí. */
     fun escribirPropio() {
         voiceEngine.stopSpeaking()
-        _uiState.value = ConsultasUiState(paso = ConsultaPaso.LISTO, consulta = "Texto escrito por mí", documento = "", esDocumento = true)
+        _uiState.value = ConsultasUiState(paso = ConsultaPaso.LISTO, consulta = "Texto escrito por mí", documento = "", esDocumento = true, propio = true)
         voiceEngine.speak("Escribe o pega tu texto en el cuadro. Después puedes pedirme que lo lea.")
     }
 
@@ -242,6 +246,7 @@ class ConsultasViewModel @Inject constructor(
 
     internal companion object {
         private val ATRAS = setOf("atras", "volver", "vuelve", "regresa", "regresar", "salir", "menu", "inicio")
+        private val AL_MENU = setOf("menu", "menu principal", "inicio", "salir", "volver al menu", "volver al menu principal")
         private val LEER = setOf("lee", "leer", "lee el documento", "leelo", "repite", "repetir")
         private val ANTERIORES = setOf("consultas anteriores", "anteriores", "chats", "historial", "mis consultas")
         private val NUEVA = setOf("nueva consulta", "otra consulta", "otro documento", "nuevo documento")

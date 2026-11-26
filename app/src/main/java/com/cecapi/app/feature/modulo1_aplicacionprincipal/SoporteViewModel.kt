@@ -1,5 +1,6 @@
 package com.cecapi.app.feature.modulo1_aplicacionprincipal
 
+import com.cecapi.app.core.voice.SubmenuPorVoz
 import com.cecapi.app.core.navigation.CecapiDestinations
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -52,6 +53,17 @@ class SoporteViewModel @Inject constructor(
     private val _back = MutableSharedFlow<Unit>(extraBufferCapacity = 1)
     val back: SharedFlow<Unit> = _back
 
+    // Los submenús viven en la pantalla; por voz se le pide que abra uno.
+    private val _abrirSubmenu = MutableSharedFlow<String>(extraBufferCapacity = 1)
+    val abrirSubmenu: SharedFlow<String> = _abrirSubmenu
+
+    private fun abrirSubmenuPorVoz(spoken: String): Boolean {
+        val clave = SubmenuPorVoz.buscar(spoken, SUBMENUS.mapValues { it.value.second }) ?: return false
+        _abrirSubmenu.tryEmit(clave)
+        voiceEngine.speak(SUBMENUS.getValue(clave).first + ". Di volver para regresar.", listenAfter = true)
+        return true
+    }
+
     init {
         val usuario = sessionRepository.currentUser.value
         _uiState.value = _uiState.value.copy(rol = usuario?.let { RolUsuario.fromCodigo(it.rol) } ?: RolUsuario.USUARIO)
@@ -91,6 +103,7 @@ class SoporteViewModel @Inject constructor(
             capturarMensaje(spoken)
             return
         }
+        if (abrirSubmenuPorVoz(spoken)) return
         val text = VoiceText.normalize(spoken)
         fun has(vararg words: String) = VoiceText.hasAny(text, *words)
         when {
@@ -215,3 +228,9 @@ class SoporteViewModel @Inject constructor(
 }
 
 private const val DESTINO_SOPORTE = "soporte"
+
+/** Submenús que se abren por voz: clave de la pantalla, nombre que se dice y cómo se pueden pedir. */
+private val SUBMENUS: Map<String, Pair<String, List<String>>> = mapOf(
+    "Preguntas" to ("Preguntas frecuentes" to listOf("preguntas frecuentes", "preguntas")),
+    "Manual" to ("Manual de uso" to listOf("manual", "manual de uso")),
+)
