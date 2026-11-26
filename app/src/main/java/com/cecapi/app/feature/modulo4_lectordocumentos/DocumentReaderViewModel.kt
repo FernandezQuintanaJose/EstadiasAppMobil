@@ -155,6 +155,17 @@ class DocumentReaderViewModel @Inject constructor(
     // La foto que se tomó, para que cada acción del panel trabaje sobre la misma.
     private var fotoUri: Uri? = null
     private var textoDeLaFoto: String? = null
+    private var rutaTemporal: String? = null
+
+    /**
+     * La foto es solo para trabajar con ella: al soltarla se borra la copia interna. Lo único que se conserva
+     * es lo que la persona manda a su galería con "guarda la foto".
+     */
+    private fun soltarFoto(nueva: String? = null) {
+        rutaTemporal?.takeIf { it != nueva && it.startsWith(appContext.filesDir.absolutePath) }
+            ?.let { runCatching { java.io.File(it).delete() } }
+        rutaTemporal = nueva
+    }
 
     // Captura automática: se toma la foto sola cuando el encuadre queda bien unos segundos seguidos.
     private var capturaPendiente = false
@@ -527,6 +538,7 @@ class DocumentReaderViewModel @Inject constructor(
      */
     fun onPhotoCaptured(imageUri: Uri, rutaImagen: String, desdeCamara: Boolean = false) {
         capturaPendiente = false
+        soltarFoto(rutaImagen)
         fotoUri = imageUri
         textoDeLaFoto = null
         _uiState.value = DocumentReaderUiState(photoPath = rutaImagen, panelFoto = true)
@@ -836,6 +848,7 @@ class DocumentReaderViewModel @Inject constructor(
         detenerLectura()
         reiniciarGuia()
         fallosAutomaticos = 0
+        soltarFoto()
         fotoUri = null
         textoDeLaFoto = null
         pedidoEnfrente = false
@@ -928,6 +941,7 @@ class DocumentReaderViewModel @Inject constructor(
     override fun onCleared() {
         if (_uiState.value.estaLeyendo) voiceEngine.stopSpeaking()
         entorno.liberarModeloIa()
+        soltarFoto()
         super.onCleared()
     }
 }

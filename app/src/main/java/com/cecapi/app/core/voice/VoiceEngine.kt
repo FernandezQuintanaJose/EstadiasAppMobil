@@ -711,10 +711,11 @@ class VoiceEngine @Inject constructor(
                     speak(wakePrompt(), listenAfter = true)
                     return
                 }
+                val conNombre = if (capturandoDatos) null else LlamadaPorNombre.ordenConNombre(opciones, nombresDelAsistente)
                 if (!text.isNullOrBlank() && (score == null || score >= COMMAND_MIN_CONFIDENCE)) {
                     // Dos pulsos rápidos: "te escuché".
                     cues.play(FeedbackCues.Cue.HEARD)
-                    dispatchSpeech(text)
+                    dispatchSpeech(conNombre ?: text)
                     resumeWakeWord()
                 } else if (score != null && score < COMMAND_MIN_CONFIDENCE) {
                     // Probablemente es el ambiente, no la persona: mejor preguntar otra vez que ejecutar un comando equivocado.
@@ -870,6 +871,10 @@ class VoiceEngine @Inject constructor(
                 // El nombre solo, aunque venga como segunda opción y con poca confianza (ver [LlamadaPorNombre]).
                 if (LlamadaPorNombre.esElNombre(heard, wakeWords)) {
                     onWakeWordHeard("")
+                    return
+                }
+                LlamadaPorNombre.ordenConNombre(heard, wakeWords)?.let {
+                    onWakeWordHeard(FrasesDeControl.quitarNombre(it, wakeWords).orEmpty())
                     return
                 }
                 val scores = results?.getFloatArray(SpeechRecognizer.CONFIDENCE_SCORES)

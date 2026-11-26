@@ -176,3 +176,11 @@ Sin comprobar: el reintento con TalkBack y el dictado de contraseña por voz.
 | "Volver" en la cámara, "privacidad", "abre almacenamiento", "mejor cállate" | Funcionaron |
 | "ALIA" | Responde de forma intermitente; a veces hay que repetirlo |
 | Pendiente | "ALIA abre cámara" acabó en búsqueda sin resultado; "qué menús hay" no se entiende; Almacenamiento muestra fotos guardadas sin pedirlo; leer diagramas |
+
+### Tercera ronda (25 de noviembre, noche)
+
+- Cámara: la copia interna de la foto se borra al volver a la cámara o salir; "guardar foto" sigue mandándola a la galería. Las fotos guardadas antes no se borraron.
+- "ALIA + orden": se usa la opción del reconocedor que empieza con el nombre, si la frase es corta.
+- "¿Qué menús hay?" dice los submenús en las pantallas con apertura por voz.
+- 264 pruebas, 0 fallos; instalado y abierto sin cierres. **No comprobado** con voz ni en pantalla.
+- "ALIA" sigue siendo intermitente. Pendiente: lectura de diagramas.

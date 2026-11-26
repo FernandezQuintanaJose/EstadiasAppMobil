@@ -12,6 +12,10 @@ object SubmenuPorVoz {
         "panel", "seccion", "menu", "apartado", "opcion", "opciones",
     )
     private val FINES = listOf("por favor", "porfa", "ahora")
+    private val PIDE_LISTA = listOf("que menus", "que submenus", "que paneles", "que opciones hay", "cuales menus", "cuales paneles")
+
+    /** "¿qué menús hay?": quiere saber qué puede abrir en esta pantalla. */
+    fun pideLista(texto: String): Boolean = VoiceText.normalize(texto).let { t -> PIDE_LISTA.any { t.startsWith(it) } }
 
     /** La clave del submenú pedido, o null. [opciones] va de cada clave a los nombres con los que se puede pedir. */
     fun buscar(texto: String, opciones: Map<String, List<String>>): String? {

@@ -58,6 +58,10 @@ class SoporteViewModel @Inject constructor(
     val abrirSubmenu: SharedFlow<String> = _abrirSubmenu
 
     private fun abrirSubmenuPorVoz(spoken: String): Boolean {
+        if (SubmenuPorVoz.pideLista(spoken)) {
+            voiceEngine.speak("Aquí puedes abrir: " + SUBMENUS.values.joinToString(", ") { it.first } + ".", listenAfter = true)
+            return true
+        }
         val clave = SubmenuPorVoz.buscar(spoken, SUBMENUS.mapValues { it.value.second }) ?: return false
         _abrirSubmenu.tryEmit(clave)
         voiceEngine.speak(SUBMENUS.getValue(clave).first + ". Di volver para regresar.", listenAfter = true)
