@@ -162,8 +162,13 @@ class MainActivity : ComponentActivity() {
                     var esperarHasta by remember { mutableLongStateOf(0L) }
                     val mostrarEspera = carga == com.cecapi.app.core.util.NivelCarga.CRITICA &&
                         System.currentTimeMillis() >= esperarHasta
+                    var avisoDicho by remember { mutableLongStateOf(0L) }
                     LaunchedEffect(mostrarEspera) {
-                        if (mostrarEspera) voiceEngine.speak(com.cecapi.app.core.ui.MENSAJE_TELEFONO_CARGADO)
+                        val ahora = System.currentTimeMillis()
+                        if (mostrarEspera && ahora - avisoDicho > AVISO_CARGA_CADA_MS) {
+                            avisoDicho = ahora
+                            voiceEngine.speak(com.cecapi.app.core.ui.MENSAJE_TELEFONO_CARGADO)
+                        }
                     }
                     Box(modifier = Modifier.fillMaxSize()) {
                         // Edge-to-edge dibuja debajo de las barras de estado/navegación; el contenido debe quedar libre de ellas.
@@ -208,5 +213,8 @@ class MainActivity : ComponentActivity() {
 
         /** Cuánto se oculta el aviso de teléfono cargado cuando la persona elige esperar. */
         const val ESPERA_MS = 30_000L
+
+        /** El aviso de teléfono cargado se dice como máximo una vez en este tiempo; antes se repetía en la cámara. */
+        const val AVISO_CARGA_CADA_MS = 180_000L
     }
 }

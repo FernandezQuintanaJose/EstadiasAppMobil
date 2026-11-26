@@ -181,11 +181,10 @@ class DocumentReaderViewModel @Inject constructor(
         pedidoEnfrente = launchRequests.consumirCamaraEnfrente()
         voiceEngine.speak(
             if (pedidoEnfrente) {
-                "Cámara. Apunta al frente y toca el botón azul o di toma la foto; te digo qué hay enfrente. "
+                "Cámara. Apunta al frente y di toma la foto."
             } else {
-                "Cámara. Apunta a un documento y no te muevas: tomaré la foto sola cuando el texto se vea bien. " +
-                    "También puedes tocar el botón azul o decir toma la foto. Di qué hay enfrente, qué billete es o qué moneda es. "
-            } + CommandCatalog.hint("cámara"),
+                "Cámara. Apunta y quédate quieto, o di toma la foto."
+            },
             listenAfter = true,
         )
         // El panel de la foto también ofrece "qué hay enfrente". El modelo local se carga hasta

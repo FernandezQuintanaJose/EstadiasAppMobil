@@ -2,8 +2,9 @@ package com.cecapi.app.core.voice
 
 /** Phrases the assistant says in more than one place, so they stay identical everywhere. */
 object VoiceMessages {
-    const val WAKE_PROMPT = "¿En qué te puedo ayudar?"
-    const val WAKE_PROMPT_USTED = "¿En qué le puedo ayudar?"
+    // Cortas a propósito: mientras la app habla no puede oír el nombre, y la persona ya sabe que la llamó.
+    const val WAKE_PROMPT = "Dime."
+    const val WAKE_PROMPT_USTED = "Dígame."
 
     /** Said when a phrase is heard outside the app and only the app itself could act on it. */
     const val OPEN_APP = "Eso lo hago dentro de la aplicación. Ábrela para continuar."

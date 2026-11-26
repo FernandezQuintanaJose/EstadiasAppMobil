@@ -91,8 +91,7 @@ class ConsultasViewModel @Inject constructor(
         voiceEngine.rawInput = true
         intentFallback.soloConsultas = true
         voiceEngine.speak(
-            "Consultas. Pregúntame lo que quieras, o pídeme un documento, por ejemplo: una carta para pedir un justificante. " +
-                CommandCatalog.hint("consultas"),
+            "Consultas. ¿Qué necesitas?",
             listenAfter = true,
         )
         // Entrar a Consultas empieza un chat nuevo: no arrastra lo que se habló antes.

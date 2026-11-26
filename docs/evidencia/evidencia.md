@@ -193,3 +193,10 @@ Sin comprobar: el reintento con TalkBack y el dictado de contraseña por voz.
 - En ALIA (reporte de quien probó): las parecidas no la activaron; el nombre responde la mayoría de las veces. El registro mostró 11 llamadas y 2 órdenes de silencio, sin cierres.
 - 270 pruebas, 0 fallos. APK de depuración: +64 MB. Con la app escuchando, 72 a 97 % de un núcleo (sin comparación previa; batería sin medir).
 - Pendiente: pausas sin escuchar mientras la app habla, consumo, 1 metro, 3 minutos de ruido, llamadas telefónicas y otro teléfono (probado solo en OPPO A57, CPH2387).
+
+### Respuestas cortas (25 de noviembre, noche)
+
+- Al llamar a ALIA responde "Dime." o "Dígame."; saludos cortos en Consultas y Cámara; el aviso de teléfono cargado se dice como máximo una vez cada 3 minutos.
+- 270 pruebas, 0 fallos. Antes de la prueba de voz, el detector empezó a escuchar sin cierres.
+- Reporte de quien probó, con la televisión más fuerte de lo habitual: mejor que antes y los textos cortos se quedan así. "ALIA" falló 2 veces seguidas y después respondió; antes de abrir Consultas hubo que repetirlo varias veces; en Cámara no se le pudo interrumpir bien mientras hablaba. "Cierra la aplicación" cerró con "sí" tras repetirlo.
+- No se contaron intentos ni aciertos, y el registro de esta prueba no se conservó: las fallas no se compararon con el detector.
