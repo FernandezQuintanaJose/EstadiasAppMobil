@@ -18,6 +18,9 @@ import com.cecapi.app.feature.modulo3_asistenteinteligente.AiAssistantRepository
 import com.cecapi.app.feature.modulo3_asistenteinteligente.AiMessages
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.withTimeoutOrNull
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharedFlow
@@ -82,6 +85,12 @@ class ConsultasViewModel @Inject constructor(
 
     private val confirmacion = ConfirmacionDeConsulta()
 
+    private val _salirDeLaApp = MutableSharedFlow<Unit>(extraBufferCapacity = 1)
+    val salirDeLaApp: SharedFlow<Unit> = _salirDeLaApp
+
+    /** Cuándo se preguntó "¿Cierro la aplicación?"; null si no hay una pregunta pendiente. */
+    private var cierrePreguntadoEn: Long? = null
+
     private val _chats = MutableSharedFlow<Unit>(extraBufferCapacity = 1)
     val chats: SharedFlow<Unit> = _chats
 
@@ -106,6 +115,13 @@ class ConsultasViewModel @Inject constructor(
         val spoken = voiceEngine.sinNombreDelAsistente(oido)
         val texto = VoiceText.normalize(spoken)
         val estado = _uiState.value
+        val preguntadoEn = cierrePreguntadoEn
+        cierrePreguntadoEn = null
+        if (preguntadoEn != null && System.currentTimeMillis() - preguntadoEn < ESPERA_DEL_CIERRE_MS) {
+            if (OrdenEnConsultas.confirmaCierre(spoken)) cerrarLaApp()
+            else voiceEngine.speak("No cierro la aplicación.", listenAfter = true)
+            return
+        }
         when {
             estado.paso == ConsultaPaso.GENERANDO -> Unit
             CommandCatalog.isRequest(spoken) && texto.split(" ").size <= 4 ->
@@ -116,7 +132,35 @@ class ConsultasViewModel @Inject constructor(
             texto in ANTERIORES -> abrirChats()
             estado.paso == ConsultaPaso.LISTO && texto in LEER -> leerDocumento()
             estado.paso == ConsultaPaso.LISTO && texto in NUEVA -> nuevaConsulta()
-            else -> confirmarLoOido(spoken)
+            else -> atenderOrden(spoken)
+        }
+    }
+
+    /** Una orden para la app se atiende aquí; lo demás es una consulta y pide permiso antes de enviarse. */
+    private fun atenderOrden(oido: String) {
+        val orden = OrdenEnConsultas.reconocer(oido) ?: return confirmarLoOido(oido)
+        // La orden cancela lo que estuviera esperando un "sí" para enviarse.
+        confirmacion.reiniciar()
+        when (orden) {
+            OrdenEnConsultas.Orden.CERRAR_APP -> {
+                cierrePreguntadoEn = System.currentTimeMillis()
+                voiceEngine.speak("¿Cierro la aplicación? Di sí, cerrar, o no.", listenAfter = true)
+            }
+            OrdenEnConsultas.Orden.CERRAR_SESION ->
+                voiceEngine.speak("Para cerrar tu sesión, di menú y después cerrar sesión.", listenAfter = true)
+            OrdenEnConsultas.Orden.VOLVER ->
+                if (_uiState.value.paso == ConsultaPaso.LISTO) nuevaConsulta() else _back.tryEmit(Unit)
+            OrdenEnConsultas.Orden.AYUDA -> onCommandsRequested()
+        }
+    }
+
+    /** Se despide, espera a que termine de hablar y cierra, igual que en el menú principal. */
+    private fun cerrarLaApp() {
+        voiceEngine.speak("Cerrando la aplicación. Hasta luego.")
+        viewModelScope.launch {
+            delay(300)
+            withTimeoutOrNull(6_000) { voiceEngine.state.first { it !is VoiceState.Speaking } }
+            _salirDeLaApp.emit(Unit)
         }
     }
 
@@ -232,6 +276,7 @@ class ConsultasViewModel @Inject constructor(
     }
 
     fun nuevaConsulta() {
+        cierrePreguntadoEn = null
         confirmacion.reiniciar()
         voiceEngine.stopSpeaking()
         _uiState.value = ConsultasUiState()
@@ -245,6 +290,7 @@ class ConsultasViewModel @Inject constructor(
     }
 
     internal companion object {
+        private const val ESPERA_DEL_CIERRE_MS = 30_000L
         private val ATRAS = setOf("atras", "volver", "vuelve", "regresa", "regresar", "salir", "menu", "inicio")
         private val AL_MENU = setOf("menu", "menu principal", "inicio", "salir", "volver al menu", "volver al menu principal")
         private val LEER = setOf("lee", "leer", "lee el documento", "leelo", "repite", "repetir")

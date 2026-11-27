@@ -82,6 +82,7 @@ fun ConsultasScreen(
     val estado by viewModel.uiState.collectAsState()
 
     LaunchedEffect(Unit) { viewModel.back.collect { onBack() } }
+    LaunchedEffect(Unit) { viewModel.salirDeLaApp.collect { (context as? android.app.Activity)?.finishAffinity() } }
     // Con una respuesta a la vista, el gesto de volver regresa a preguntar y no al menú.
     BackHandler(enabled = estado.paso == ConsultaPaso.LISTO) { viewModel.nuevaConsulta() }
     LaunchedEffect(Unit) { viewModel.chats.collect { onOpenChats() } }
