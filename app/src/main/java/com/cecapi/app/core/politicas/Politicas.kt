@@ -6,12 +6,12 @@ data class ParteDePolitica(val titulo: String, val parrafos: List<String>) {
 }
 
 /**
- * Políticas de uso y privacidad. BORRADOR del 26 nov 2026, a revisar por un asesor legal. El texto es
+ * Políticas de uso y privacidad. BORRADOR del 27 nov 2026, a revisar por un asesor legal. El texto es
  * el mismo de PaginaAsistenteCECAPI/politicas.html: si cambia allá, cambiarlo aquí y subir [VERSION]
  * (quien ya aceptó tendrá que aceptar de nuevo). Lo que va entre corchetes está pendiente de CECAPI.
  */
 object Politicas {
-    const val VERSION = "2026-11-26-borrador"
+    const val VERSION = "2026-11-27-borrador"
 
     /** Todas las partes, numeradas, para leerlas de corrido en voz alta. */
     fun textoCompletoParaVoz(): String =
@@ -66,8 +66,7 @@ object Politicas {
         ParteDePolitica(
             "Con quién se comparten",
             listOf(
-                "Para generar la respuesta, tu pregunta se envía a uno de dos servicios de inteligencia artificial: Gemini, de Google, o Groq.",
-                "Usamos la versión gratuita de Gemini. En esa versión, Google puede usar el contenido de las preguntas para mejorar sus productos.",
+                "Para generar la respuesta, tu pregunta se envía a Groq, un servicio de inteligencia artificial que puede estar fuera de México.",
                 "El servidor del asistente funciona en Render y la base de datos en Neon. Estos servicios pueden estar fuera de México. [Ubicación por confirmar].",
                 "Para enviarte los códigos de registro y de recuperación se usa Resend, un servicio de envío de correo. Recibe tu dirección de correo y el mensaje con el código. También puede estar fuera de México.",
                 "En la app para Android, si activas la búsqueda en Wikipedia, que viene apagada, el texto de una frase que la app no entiende o de una pregunta sencilla se envía a Wikipedia o Wikidata.",
